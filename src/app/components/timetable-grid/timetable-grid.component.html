@@ -1,0 +1,127 @@
+<div class="timetable-container">
+  <!-- Control Panel -->
+  <div class="control-panel">
+    <div class="panel-section">
+      <h3>Timetable View</h3>
+      <div class="date-range">
+        <ion-item>
+          <ion-label position="stacked">Date Range</ion-label>
+          <ion-datetime-button datetime="dateRange"></ion-datetime-button>
+          <ion-modal [keepContentsMounted]="true">
+            <ng-template>
+              <ion-datetime id="dateRange" 
+                            presentation="date" 
+                            [value]="startDate.toISOString()"
+                            (ionChange)="updateDateRange($event)">
+              </ion-datetime>
+            </ng-template>
+          </ion-modal>
+        </ion-item>
+      </div>
+    </div>
+    
+    <div class="panel-section filter-controls">
+      <ion-searchbar placeholder="Search sessions" [(ngModel)]="viewFilters.module"></ion-searchbar>
+      
+      <ion-select interface="popover" placeholder="Venue" [(ngModel)]="viewFilters.venue">
+        <ion-select-option value="">All Venues</ion-select-option>
+        <ion-select-option value="Room A101">Room A101</ion-select-option>
+        <ion-select-option value="Room B205">Room B205</ion-select-option>
+        <ion-select-option value="Room C310">Room C310</ion-select-option>
+      </ion-select>
+      
+      <ion-select interface="popover" placeholder="Lecturer" [(ngModel)]="viewFilters.lecturer">
+        <ion-select-option value="">All Lecturers</ion-select-option>
+        <ion-select-option value="Dr. Smith">Dr. Smith</ion-select-option>
+        <ion-select-option value="Prof. Johnson">Prof. Johnson</ion-select-option>
+        <ion-select-option value="Dr. Williams">Dr. Williams</ion-select-option>
+      </ion-select>
+      
+      <ion-select interface="popover" placeholder="Group" [(ngModel)]="viewFilters.group">
+        <ion-select-option value="">All Groups</ion-select-option>
+        <ion-select-option value="CS Year 1">CS Year 1</ion-select-option>
+        <ion-select-option value="CS Year 2">CS Year 2</ion-select-option>
+        <ion-select-option value="CS Year 3">CS Year 3</ion-select-option>
+      </ion-select>
+      
+      <ion-button color="primary" (click)="applyFilters()">
+        <ion-icon name="filter" slot="start"></ion-icon>
+        Apply
+      </ion-button>
+    </div>
+    
+    <div class="panel-section view-toggle">
+      <ion-segment [(ngModel)]="viewMode" (ionChange)="changeViewMode(viewMode)">
+        <ion-segment-button value="day">
+          <ion-label>Day</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="week">
+          <ion-label>Week</ion-label>
+        </ion-segment-button>
+        <ion-segment-button value="month">
+          <ion-label>Month</ion-label>
+        </ion-segment-button>
+      </ion-segment>
+    </div>
+    
+    <div class="panel-section legend">
+      <h4>Legend</h4>
+      <div class="legend-items">
+        <div class="legend-item" *ngFor="let category of categories">
+          <span class="color-indicator" [style.background-color]="category.color"></span>
+          <span>{{ category.name }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Timetable Grid -->
+  <div class="timetable-grid" [class]="viewMode + '-view'">
+    <!-- Header - Days -->
+    <div class="grid-header">
+      <div class="time-column-header"></div>
+      <div class="day-header" *ngFor="let day of days; let i = index">
+        {{ day }}
+      </div>
+    </div>
+    
+    <!-- Grid Body -->
+    <div class="grid-body">
+      <!-- Time slots (rows) -->
+      <div class="grid-row" *ngFor="let slot of timeSlots">
+        <!-- Time column -->
+        <div class="time-column">
+          {{ slot.start }}
+        </div>
+        
+        <!-- Days (columns) -->
+        <div class="grid-cell" 
+             *ngFor="let day of days; let dayIndex = index"
+             (dragover)="allowDrop($event)"
+             (drop)="onDrop($event, dayIndex, slot.id)">
+          
+          <!-- Sessions in this cell -->
+          <ng-container *ngFor="let session of getSessionsForDayAndSlot(dayIndex, slot.id)">
+            <div class="session-block"
+                 *ngIf="isSlotStart(dayIndex, slot.id, session)"
+                 [style.grid-row]="'span ' + (session.endSlot - session.startSlot)"
+                 [style.background-color]="session.color"
+                 draggable="true"
+                 (dragstart)="onDragStart($event, session)"
+                 (click)="handleSessionClick(session)">
+              
+              <div class="session-content">
+                <h4>{{ session.title }}</h4>
+                <div class="session-details">
+                  <p><ion-icon name="location-outline"></ion-icon> {{ session.venue }}</p>
+                  <p><ion-icon name="person-outline"></ion-icon> {{ session.lecturer }}</p>
+                  <p><ion-icon name="people-outline"></ion-icon> {{ session.group }}</p>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

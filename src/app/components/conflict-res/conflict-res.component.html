@@ -1,0 +1,302 @@
+<div class="conflict-container">
+  <!-- Header with toggle controls -->
+  <div class="conflict-header">
+    <h3>Timetable Conflicts</h3>
+    <div class="view-controls">
+      <ion-button fill="clear" size="small" (click)="toggleViewMode()">
+        <ion-icon [name]="viewMode === 'list' ? 'git-compare-outline' : 'list-outline'" slot="start"></ion-icon>
+        {{ viewMode === 'list' ? 'Comparison View' : 'List View' }}
+      </ion-button>
+      <ion-button color="success" size="small" (click)="autoResolve()">
+        <ion-icon name="flash-outline" slot="start"></ion-icon>
+        Auto-Resolve All
+      </ion-button>
+    </div>
+  </div>
+  
+  <!-- Main content area -->
+  <div class="conflict-content" [class.comparison-mode]="viewMode === 'comparison'">
+    <!-- Left panel - Conflict List -->
+    <div class="conflict-list">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Active Conflicts</ion-card-title>
+          <ion-card-subtitle>{{ getFilteredConflicts(false).length }} item(s) require resolution</ion-card-subtitle>
+        </ion-card-header>
+        
+        <ion-card-content>
+          <ion-list lines="full">
+            <ion-item *ngFor="let conflict of getFilteredConflicts(false)" 
+                      [class.selected]="selectedConflict?.id === conflict.id"
+                      (click)="selectConflict(conflict)">
+              <ion-icon slot="start" [name]="getConflictTypeIcon(conflict.type)" 
+                      [color]="getPriorityColor(conflict.priority)"></ion-icon>
+              <ion-label>
+                <h2>{{ conflict.type }}</h2>
+                <p class="affected-resources">{{ getAffectedResources(conflict) }}</p>
+                <p>{{ conflict.details }}</p>
+              </ion-label>
+              <ion-badge slot="end" [color]="getPriorityColor(conflict.priority)">
+                {{ conflict.priority }}
+              </ion-badge>
+            </ion-item>
+            
+            <ion-item *ngIf="getFilteredConflicts(false).length === 0">
+              <ion-label color="success">
+                <h2>No active conflicts</h2>
+                <p>All timetable conflicts have been resolved.</p>
+              </ion-label>
+            </ion-item>
+          </ion-list>
+        </ion-card-content>
+      </ion-card>
+      
+      <!-- Resolved Conflicts (Collapsed by default) -->
+      <ion-card *ngIf="getFilteredConflicts(true).length > 0">
+        <ion-card-header>
+          <ion-card-title>Resolved Conflicts</ion-card-title>
+          <ion-card-subtitle>{{ getFilteredConflicts(true).length }} item(s) successfully resolved</ion-card-subtitle>
+        </ion-card-header>
+        
+        <ion-card-content>
+          <ion-list lines="full">
+            <ion-item *ngFor="let conflict of getFilteredConflicts(true)">
+              <ion-icon slot="start" [name]="getConflictTypeIcon(conflict.type)" color="success"></ion-icon>
+              <ion-label>
+                <h2>{{ conflict.type }}</h2>
+                <p>{{ conflict.details }}</p>
+                <p *ngIf="conflict.selected" class="resolution-applied">
+                  <ion-icon name="checkmark-circle" color="success"></ion-icon>
+                  Applied: {{ getResolutionSummary(conflict.selected) }}
+                </p>
+              </ion-label>
+              <ion-badge slot="end" color="success">resolved</ion-badge>
+            </ion-item>
+          </ion-list>
+        </ion-card-content>
+      </ion-card>
+    </div>
+    
+    <!-- Right panel - Resolution Panel or Comparison View -->
+    <div class="resolution-panel" *ngIf="viewMode === 'list' && selectedConflict">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>
+            <ion-icon [name]="getConflictTypeIcon(selectedConflict.type)" 
+                    [color]="getPriorityColor(selectedConflict.priority)"></ion-icon>
+            {{ selectedConflict.type }}
+          </ion-card-title>
+          <ion-card-subtitle>Priority: {{ selectedConflict.priority }}</ion-card-subtitle>
+        </ion-card-header>
+        
+        <ion-card-content>
+          <div class="conflict-details">
+            <h4>Conflict Details</h4>
+            <p>{{ selectedConflict.details }}</p>
+            
+            <div class="affected-sessions">
+              <h4>Affected Sessions</h4>
+              <div class="session-cards">
+                <ion-card *ngFor="let session of selectedConflict.sessions" class="session-card">
+                  <ion-card-header>
+                    <ion-card-title>{{ session.title }}</ion-card-title>
+                    <ion-card-subtitle>{{ session.module }} ({{ session.moduleCode }})</ion-card-subtitle>
+                  </ion-card-header>
+                  <ion-card-content>
+                    <p><ion-icon name="person-outline"></ion-icon> {{ session.lecturer }}</p>
+                    <p><ion-icon name="business-outline"></ion-icon> {{ session.venue }}</p>
+                    <p><ion-icon name="people-outline"></ion-icon> {{ session.group }}</p>
+                    <p>
+                      <ion-icon name="calendar-outline"></ion-icon> 
+                      {{ days[session.day] }}, {{ timeSlots[session.startSlot].time }} - {{ timeSlots[session.endSlot - 1].time }}
+                    </p>
+                  </ion-card-content>
+                </ion-card>
+              </div>
+            </div>
+            
+            <div class="resolution-options">
+              <h4>Suggested Resolutions</h4>
+              <ion-radio-group [(ngModel)]="selectedConflict.selected">
+                <ion-item *ngFor="let resolution of selectedConflict.possibleResolutions">
+                  <ion-label>
+                    <h3>{{ getResolutionSummary(resolution) }}</h3>
+                    <p *ngIf="resolution.action === 'changeVenue'">
+                      Move to different venue
+                    </p>
+                    <p *ngIf="resolution.action === 'changeTime'">
+                      Reschedule to different time slot
+                    </p>
+                    <p *ngIf="resolution.action === 'splitGroup'">
+                      Create separate sessions for the group
+                    </p>
+                  </ion-label>
+                  <ion-radio slot="start" [value]="resolution"></ion-radio>
+                </ion-item>
+              </ion-radio-group>
+              
+              <div class="manual-resolution" *ngIf="selectedConflict && selectedConflict.type === getVenueConflictType()">
+                <h4>Manual Resolution</h4>
+                <ion-item>
+                  <ion-label position="stacked">Select Alternative Venue</ion-label>
+                  <ion-select placeholder="Choose venue">
+                    <ion-select-option *ngFor="let venue of alternativeVenues" [value]="venue">
+                      {{ venue }}
+                    </ion-select-option>
+                  </ion-select>
+                </ion-item>
+              </div>
+              
+              <div class="resolution-actions">
+                <ion-button color="primary" expand="block" [disabled]="!selectedConflict.selected" 
+                           (click)="applyResolution(selectedConflict)">
+                  Apply Resolution
+                </ion-button>
+              </div>
+            </div>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+    
+    <!-- Comparison view -->
+    <div class="comparison-view" *ngIf="viewMode === 'comparison' && selectedConflict">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Conflict Comparison</ion-card-title>
+          <ion-card-subtitle>{{ selectedConflict.details }}</ion-card-subtitle>
+        </ion-card-header>
+        
+        <ion-card-content>
+          <div class="comparison-layout">
+            <!-- Current Timetable -->
+            <div class="timetable-column">
+              <h4>Current Timetable</h4>
+              <div class="mini-timetable">
+                <div class="time-header">Time</div>
+                <div class="day-header">{{ days[selectedConflict.sessions[0].day] }}</div>
+                
+                <div class="time-column">
+                  <div class="time-slot" *ngFor="let slot of timeSlots">
+                    {{ slot.time }}
+                  </div>
+                </div>
+                
+                <div class="sessions-column">
+                  <div class="session-timeline">
+                    <ng-container *ngFor="let session of selectedConflict.sessions">
+                      <div class="timeline-session"
+                           [class.modified]="selectedConflict?.selected?.action === 'changeTime' || 
+                                           (selectedConflict?.selected?.action === 'changeVenue' && 
+                                           session.id === selectedConflict.sessions[0].id)"
+                           [style.top.px]="session.startSlot * 40"
+                           [style.height.px]="(session.endSlot - session.startSlot) * 40 - 4"
+                           *ngIf="!(selectedConflict?.selected?.action === 'changeTime' && 
+                                 session.id === selectedConflict.sessions[0].id)">
+                        <div class="session-content">
+                          <p class="session-title">{{ session.title }}</p>
+                          <p>{{ (selectedConflict?.selected?.action === 'changeVenue' && 
+                                session.id === selectedConflict.sessions[0].id) ? 
+                                selectedConflict?.selected?.newVenue : session.venue }}</p>
+                          <p>{{ session.lecturer }}</p>
+                        </div>
+                      </div>
+                    </ng-container>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- After Resolution -->
+            <div class="timetable-column" *ngIf="selectedConflict.selected">
+              <h4>After Resolution</h4>
+              <div class="mini-timetable">
+                <div class="time-header">Time</div>
+                <div class="day-header">
+                  {{ selectedConflict?.selected?.newDay !== undefined ? 
+                      days[getDayIndex(selectedConflict.selected.newDay)] : 
+                      days[selectedConflict.sessions[0].day] }}
+                </div>
+                
+                <div class="time-column">
+                  <div class="time-slot" *ngFor="let slot of timeSlots">
+                    {{ slot.time }}
+                  </div>
+                </div>
+                
+                <div class="sessions-column">
+                  <div class="session-timeline">
+                    <!-- Original session (if not modified) -->
+                    <ng-container *ngFor="let session of selectedConflict.sessions">
+                      <div class="timeline-session"
+                           [class.modified]="selectedConflict?.selected?.action === 'changeTime' || 
+                                           (selectedConflict?.selected?.action === 'changeVenue' && 
+                                           session.id === selectedConflict.sessions[0].id)"
+                           [style.top.px]="session.startSlot * 40"
+                           [style.height.px]="(session.endSlot - session.startSlot) * 40 - 4"
+                           *ngIf="!(selectedConflict?.selected?.action === 'changeTime' && 
+                                 session.id === selectedConflict.sessions[0].id)">
+                        <div class="session-content">
+                          <p class="session-title">{{ session.title }}</p>
+                          <p>{{ (selectedConflict?.selected?.action === 'changeVenue' && 
+                                session.id === selectedConflict.sessions[0].id) ? 
+                                selectedConflict?.selected?.newVenue : session.venue }}</p>
+                          <p>{{ session.lecturer }}</p>
+                        </div>
+                      </div>
+                    </ng-container>
+                    
+                    <!-- Modified session (if time change) -->
+                    <div *ngIf="selectedConflict.selected.action === 'changeTime'" 
+                        class="timeline-session resolved"
+                        [style.top.px]="(selectedConflict.selected.newStartSlot || 0) * 40"
+                        [style.height.px]="((selectedConflict.selected.newEndSlot || 0) - 
+                                            (selectedConflict.selected.newStartSlot || 0)) * 40 - 4">
+                      <div class="session-content">
+                        <p class="session-title">{{ selectedConflict.sessions[0].title }}</p>
+                        <p>{{ selectedConflict.sessions[0].venue }}</p>
+                        <p>{{ selectedConflict.sessions[0].lecturer }}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="resolution-summary">
+                <ion-button color="primary" expand="block" (click)="applyResolution(selectedConflict)">
+                  Apply This Resolution
+                </ion-button>
+              </div>
+            </div>
+            
+            <div class="timetable-column resolution-message" *ngIf="!selectedConflict.selected">
+              <div class="placeholder-message">
+                <ion-icon name="arrow-forward-circle-outline" size="large"></ion-icon>
+                <h4>Select a resolution to preview changes</h4>
+                <ion-list>
+                  <ion-radio-group [(ngModel)]="selectedConflict.selected">
+                    <ion-item *ngFor="let resolution of selectedConflict.possibleResolutions">
+                      <ion-label>{{ getResolutionSummary(resolution) }}</ion-label>
+                      <ion-radio slot="start" [value]="resolution"></ion-radio>
+                    </ion-item>
+                  </ion-radio-group>
+                </ion-list>
+              </div>
+            </div>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+    
+    <!-- Empty state when no conflict is selected -->
+    <div class="empty-resolution-panel" *ngIf="viewMode === 'list' && !selectedConflict">
+      <ion-card>
+        <ion-card-content class="empty-state">
+          <ion-icon name="alert-circle-outline" size="large"></ion-icon>
+          <h3>Select a conflict to resolve</h3>
+          <p>Click on a conflict from the list to view details and resolution options.</p>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </div>
+</div>

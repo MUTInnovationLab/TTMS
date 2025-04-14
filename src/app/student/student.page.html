@@ -1,0 +1,376 @@
+<ion-header class="app-header">
+  <ion-toolbar>
+    <div class="header-content">
+      <div class="logo-container">
+        <img src="assets/logo.png" alt="TMS Logo" class="logo">
+        <ion-title>Timetable Management System</ion-title>
+      </div>
+      <div class="header-actions">
+        <ion-button class="profile-btn" fill="clear" (click)="toggleProfileDropdown()">
+          <ion-avatar>
+            <img src="assets/student-profile.jpg" alt="Profile">
+          </ion-avatar>
+          <ion-label>John Smith</ion-label>
+          <ion-icon name="chevron-down"></ion-icon>
+        </ion-button>
+        <div class="profile-dropdown" *ngIf="showProfileDropdown">
+          <ion-list lines="none">
+            <ion-item button>
+              <ion-icon name="person" slot="start"></ion-icon>
+              <ion-label>My Profile</ion-label>
+            </ion-item>
+            <ion-item button>
+              <ion-icon name="settings" slot="start"></ion-icon>
+              <ion-label>Settings</ion-label>
+            </ion-item>
+            <ion-item button>
+              <ion-icon name="log-out" slot="start"></ion-icon>
+              <ion-label>Logout</ion-label>
+            </ion-item>
+          </ion-list>
+        </div>
+      </div>
+    </div>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <div class="dashboard-container">
+    <div class="sidebar" [class.visible]="sidebarVisible">
+      <ion-list lines="none">
+        <ion-item button [class.active]="currentSection === 'timetable'" (click)="changeSection('timetable')">
+          <ion-icon name="calendar"></ion-icon>
+          <ion-label>My Timetable</ion-label>
+        </ion-item>
+        <ion-item button [class.active]="currentSection === 'modules'" (click)="changeSection('modules')">
+          <ion-icon name="library"></ion-icon>
+          <ion-label>My Modules</ion-label>
+        </ion-item>
+        <ion-item button [class.active]="currentSection === 'lecturers'" (click)="changeSection('lecturers')">
+          <ion-icon name="people"></ion-icon>
+          <ion-label>My Lecturers</ion-label>
+        </ion-item>
+      </ion-list>
+    </div>
+
+    <ion-button class="sidebar-toggle" (click)="toggleSidebar()">
+      <ion-icon [name]="sidebarVisible ? 'chevron-back' : 'menu'"></ion-icon>
+    </ion-button>
+
+    <div class="main-content" [class.sidebar-visible]="sidebarVisible">
+      <!-- My Timetable Section -->
+      <div class="section-container" *ngIf="currentSection === 'timetable'">
+        <h1>My Timetable</h1>
+        
+        <div class="filter-controls">
+          <ion-segment [(ngModel)]="timetableView" mode="md">
+            <ion-segment-button value="calendar">
+              <ion-label>Calendar</ion-label>
+              <ion-icon name="calendar"></ion-icon>
+            </ion-segment-button>
+            <ion-segment-button value="list">
+              <ion-label>List</ion-label>
+              <ion-icon name="list"></ion-icon>
+            </ion-segment-button>
+          </ion-segment>
+          
+          <ion-button fill="outline" color="primary">
+            <ion-icon name="download" slot="start"></ion-icon>
+            Export
+          </ion-button>
+        </div>
+        
+        <div class="timetable-content">
+          <!-- Timetable Grid View -->
+          <div class="timetable-view" *ngIf="timetableView === 'calendar'">
+            <app-timetable-grid 
+              [sessions]="studentSessions"
+              (sessionClick)="handleSessionClick($event)">
+            </app-timetable-grid>
+          </div>
+          
+          <!-- List View - keeping the existing list implementation -->
+          <ion-list *ngIf="timetableView === 'list'">
+            <ion-item *ngFor="let session of studentSessions">
+              <ion-label>
+                <h2>{{session.moduleCode}}: {{session.module}}</h2>
+                <p>{{['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][session.day]}}, 
+                   {{session.startSlot + 8}}:00 - {{session.endSlot + 8}}:00</p>
+                <p>Room: {{session.venue}}</p>
+                <p>Lecturer: {{session.lecturer}}</p>
+              </ion-label>
+            </ion-item>
+          </ion-list>
+        </div>
+        
+        <!-- Session Details Modal (for when a session is clicked) -->
+        <ion-modal [isOpen]="!!selectedSession" (didDismiss)="selectedSession = null">
+          <ng-template>
+            <ion-header>
+              <ion-toolbar>
+                <ion-title>Session Details</ion-title>
+                <ion-buttons slot="end">
+                  <ion-button (click)="selectedSession = null">Close</ion-button>
+                </ion-buttons>
+              </ion-toolbar>
+            </ion-header>
+            <ion-content class="ion-padding" *ngIf="selectedSession">
+              <h2>{{selectedSession.moduleCode}}: {{selectedSession.title}}</h2>
+              <ion-list>
+                <ion-item>
+                  <ion-icon name="calendar" slot="start"></ion-icon>
+                  <ion-label>
+                    <h3>Day & Time</h3>
+                    <p>{{['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][selectedSession.day]}}, 
+                       {{selectedSession.startSlot + 8}}:00 - {{selectedSession.endSlot + 8}}:00</p>
+                  </ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-icon name="location" slot="start"></ion-icon>
+                  <ion-label>
+                    <h3>Location</h3>
+                    <p>{{selectedSession.venue}}</p>
+                  </ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-icon name="person" slot="start"></ion-icon>
+                  <ion-label>
+                    <h3>Lecturer</h3>
+                    <p>{{selectedSession.lecturer}}</p>
+                  </ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-icon name="people" slot="start"></ion-icon>
+                  <ion-label>
+                    <h3>Group</h3>
+                    <p>{{selectedSession.group}}</p>
+                  </ion-label>
+                </ion-item>
+              </ion-list>
+            </ion-content>
+          </ng-template>
+        </ion-modal>
+      </div>
+      
+      <!-- My Modules Section -->
+      <div class="section-container" *ngIf="currentSection === 'modules'">
+        <h1>My Modules</h1>
+        
+        <ion-searchbar placeholder="Search modules"></ion-searchbar>
+        
+        <ion-accordion-group>
+          <ion-accordion value="module1">
+            <ion-item slot="header">
+              <ion-label>
+                <h2>CS101: Introduction to Programming</h2>
+                <p>Dr. Smith | 3 Credits</p>
+              </ion-label>
+            </ion-item>
+            <div slot="content" class="module-content">
+              <div class="module-details">
+                <h3>Module Description</h3>
+                <p>Introduction to programming concepts using Python. This course covers basic programming constructs, data structures, and problem-solving techniques.</p>
+                
+                <h3>Learning Outcomes</h3>
+                <ul>
+                  <li>Understand fundamental programming concepts</li>
+                  <li>Write basic programs using Python</li>
+                  <li>Apply problem-solving techniques to computational tasks</li>
+                </ul>
+              </div>
+              
+              <h3>Session Information</h3>
+              <ion-list>
+                <ion-item>
+                  <ion-label>
+                    <h4>Lecture</h4>
+                    <p>Monday, 10:00 - 12:00 | CS Lab 1</p>
+                    <p>Dr. Smith</p>
+                  </ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-label>
+                    <h4>Tutorial</h4>
+                    <p>Wednesday, 14:00 - 15:00 | Room 201</p>
+                    <p>Teaching Assistant: Jane Cooper</p>
+                  </ion-label>
+                </ion-item>
+              </ion-list>
+              
+              <div class="module-materials">
+                <h3>Study Materials</h3>
+                <ion-button fill="clear" color="primary">
+                  <ion-icon name="document" slot="start"></ion-icon>
+                  Course Syllabus
+                </ion-button>
+                <ion-button fill="clear" color="primary">
+                  <ion-icon name="link" slot="start"></ion-icon>
+                  Learning Platform
+                </ion-button>
+              </div>
+            </div>
+          </ion-accordion>
+          
+          <ion-accordion value="module2">
+            <ion-item slot="header">
+              <ion-label>
+                <h2>MATH201: Calculus II</h2>
+                <p>Dr. Johnson | 4 Credits</p>
+              </ion-label>
+            </ion-item>
+            <div slot="content" class="module-content">
+              <div class="module-details">
+                <h3>Module Description</h3>
+                <p>Advanced calculus concepts including integration techniques, sequences and series, and applications.</p>
+                
+                <h3>Learning Outcomes</h3>
+                <ul>
+                  <li>Apply integration techniques to solve problems</li>
+                  <li>Analyze convergence of sequences and series</li>
+                  <li>Use calculus in real-world applications</li>
+                </ul>
+              </div>
+              
+              <h3>Session Information</h3>
+              <ion-list>
+                <ion-item>
+                  <ion-label>
+                    <h4>Lecture</h4>
+                    <p>Tuesday, 14:00 - 16:00 | Lecture Hall 3</p>
+                    <p>Dr. Johnson</p>
+                  </ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-label>
+                    <h4>Problem Session</h4>
+                    <p>Friday, 11:00 - 13:00 | Math Lab</p>
+                    <p>Teaching Assistant: Robert Chen</p>
+                  </ion-label>
+                </ion-item>
+              </ion-list>
+              
+              <div class="module-materials">
+                <h3>Study Materials</h3>
+                <ion-button fill="clear" color="primary">
+                  <ion-icon name="document" slot="start"></ion-icon>
+                  Course Syllabus
+                </ion-button>
+                <ion-button fill="clear" color="primary">
+                  <ion-icon name="link" slot="start"></ion-icon>
+                  Learning Platform
+                </ion-button>
+              </div>
+            </div>
+          </ion-accordion>
+          
+          <ion-accordion value="module3">
+            <ion-item slot="header">
+              <ion-label>
+                <h2>ENG101: Academic Writing</h2>
+                <p>Prof. Williams | 3 Credits</p>
+              </ion-label>
+            </ion-item>
+            <div slot="content" class="module-content">
+              <div class="module-details">
+                <h3>Module Description</h3>
+                <p>Fundamentals of academic writing including research methods, composition, and citation styles.</p>
+                
+                <h3>Learning Outcomes</h3>
+                <ul>
+                  <li>Compose well-structured academic essays</li>
+                  <li>Implement proper citation techniques</li>
+                  <li>Develop critical reading and analysis skills</li>
+                </ul>
+              </div>
+              
+              <h3>Session Information</h3>
+              <ion-list>
+                <ion-item>
+                  <ion-label>
+                    <h4>Lecture</h4>
+                    <p>Thursday, 09:00 - 11:00 | Humanities Building 2</p>
+                    <p>Prof. Williams</p>
+                  </ion-label>
+                </ion-item>
+                <ion-item>
+                  <ion-label>
+                    <h4>Workshop</h4>
+                    <p>Thursday, 13:00 - 14:00 | Library Room 103</p>
+                    <p>Teaching Assistant: Sarah Thompson</p>
+                  </ion-label>
+                </ion-item>
+              </ion-list>
+              
+              <div class="module-materials">
+                <h3>Study Materials</h3>
+                <ion-button fill="clear" color="primary">
+                  <ion-icon name="document" slot="start"></ion-icon>
+                  Course Syllabus
+                </ion-button>
+                <ion-button fill="clear" color="primary">
+                  <ion-icon name="link" slot="start"></ion-icon>
+                  Learning Platform
+                </ion-button>
+              </div>
+            </div>
+          </ion-accordion>
+        </ion-accordion-group>
+      </div>
+      
+      <!-- My Lecturers Section -->
+      <div class="section-container" *ngIf="currentSection === 'lecturers'">
+        <h1>My Lecturers</h1>
+        
+        <ion-searchbar placeholder="Search lecturers"></ion-searchbar>
+        
+        <ion-list class="user-list">
+          <ion-item>
+            <ion-avatar slot="start">
+              <img src="assets/lecturer1.jpg" alt="Lecturer Avatar">
+            </ion-avatar>
+            <ion-label>
+              <h2>Dr. Smith</h2>
+              <p>CS101: Introduction to Programming</p>
+              <p>Email: smith&#64;university.edu</p>
+              <p>Office: Computer Science Building, Room 302</p>
+              <p>Office Hours: Monday & Wednesday, 14:00 - 16:00</p>
+            </ion-label>
+            <ion-button fill="clear">
+              <ion-icon slot="icon-only" name="mail"></ion-icon>
+            </ion-button>
+          </ion-item>
+          <ion-item>
+            <ion-avatar slot="start">
+              <img src="assets/lecturer2.jpg" alt="Lecturer Avatar">
+            </ion-avatar>
+            <ion-label>
+              <h2>Dr. Johnson</h2>
+              <p>MATH201: Calculus II</p>
+              <p>Email: johnson&#64;university.edu</p>
+              <p>Office: Mathematics Building, Room 105</p>
+              <p>Office Hours: Tuesday & Thursday, 10:00 - 12:00</p>
+            </ion-label>
+            <ion-button fill="clear">
+              <ion-icon slot="icon-only" name="mail"></ion-icon>
+            </ion-button>
+          </ion-item>
+          <ion-item>
+            <ion-avatar slot="start">
+              <img src="assets/lecturer3.jpg" alt="Lecturer Avatar">
+            </ion-avatar>
+            <ion-label>
+              <h2>Prof. Williams</h2>
+              <p>ENG101: Academic Writing</p>
+              <p>Email: williams&#64;university.edu</p>
+              <p>Office: Humanities Building, Room 204</p>
+              <p>Office Hours: Wednesday & Friday, 13:00 - 15:00</p>
+            </ion-label>
+            <ion-button fill="clear">
+              <ion-icon slot="icon-only" name="mail"></ion-icon>
+            </ion-button>
+          </ion-item>
+        </ion-list>
+      </div>
+    </div>
+  </div>
+</ion-content>

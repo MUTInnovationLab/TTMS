@@ -1,0 +1,434 @@
+<ion-header class="app-header">
+  <ion-toolbar>
+    <div class="header-content">
+      <div class="logo-container">
+        <img src="assets/logo.png" alt="TMS Logo" class="logo">
+        <ion-title>Timetable Management System</ion-title>
+      </div>
+      <div class="header-actions">
+        <ion-button class="notification-btn" fill="clear">
+          <ion-icon name="notifications"></ion-icon>
+          <ion-badge>3</ion-badge>
+        </ion-button>
+        <ion-button class="profile-btn" fill="clear" (click)="toggleProfileDropdown()">
+          <ion-avatar>
+            <img src="assets/profile.jpg" alt="Profile">
+          </ion-avatar>
+          <ion-label>Dr. Smith</ion-label>
+          <ion-icon name="chevron-down"></ion-icon>
+        </ion-button>
+        <div class="profile-dropdown" *ngIf="showProfileDropdown">
+          <ion-list lines="none">
+            <ion-item button>
+              <ion-icon name="person" slot="start"></ion-icon>
+              <ion-label>My Profile</ion-label>
+            </ion-item>
+            <ion-item button>
+              <ion-icon name="settings" slot="start"></ion-icon>
+              <ion-label>Settings</ion-label>
+            </ion-item>
+            <ion-item button>
+              <ion-icon name="log-out" slot="start"></ion-icon>
+              <ion-label>Logout</ion-label>
+            </ion-item>
+            </ion-list>
+          </div>
+        </div>
+      </div>
+    </ion-toolbar>
+  </ion-header>
+
+  <ion-content>
+    <div class="dashboard-container">
+      <div class="sidebar" [class.visible]="sidebarVisible">
+        <ion-list lines="none">
+          <ion-item button [class.active]="currentSection === 'timetable'" (click)="changeSection('timetable')">
+            <ion-icon name="calendar"></ion-icon>
+            <ion-label>My Timetable</ion-label>
+          </ion-item>
+          <ion-item button [class.active]="currentSection === 'modules'" (click)="changeSection('modules')">
+            <ion-icon name="library"></ion-icon>
+            <ion-label>My Modules</ion-label>
+          </ion-item>
+          <ion-item button [class.active]="currentSection === 'students'" (click)="changeSection('students')">
+            <ion-icon name="people"></ion-icon>
+            <ion-label>My Students</ion-label>
+          </ion-item>
+          <ion-item button [class.active]="currentSection === 'venues'" (click)="changeSection('venues')">
+            <ion-icon name="business"></ion-icon>
+            <ion-label>Venue Booking</ion-label>
+          </ion-item>
+        </ion-list>
+      </div>
+
+      <ion-button class="sidebar-toggle" (click)="toggleSidebar()">
+        <ion-icon [name]="sidebarVisible ? 'chevron-back' : 'menu'"></ion-icon>
+      </ion-button>
+
+      <div class="main-content" [class.sidebar-visible]="sidebarVisible">
+        <!-- My Timetable Section -->
+        <div class="section-container" *ngIf="currentSection === 'timetable'">
+          <h1>My Timetable</h1>
+          
+          <div class="filter-controls">
+            <ion-segment [(ngModel)]="timetableView" mode="md">
+              <ion-segment-button value="calendar">
+                <ion-label>Calendar</ion-label>
+                <ion-icon name="calendar"></ion-icon>
+              </ion-segment-button>
+              <ion-segment-button value="list">
+                <ion-label>List</ion-label>
+                <ion-icon name="list"></ion-icon>
+              </ion-segment-button>
+            </ion-segment>
+            
+            <ion-button fill="outline" color="primary">
+              <ion-icon name="download" slot="start"></ion-icon>
+              Export
+            </ion-button>
+          </div>
+          
+          <div class="timetable-content">
+            <!-- Replace placeholder with actual timetable grid -->
+            <app-timetable-grid 
+              *ngIf="timetableView === 'calendar'"
+              [sessions]="lecturerSessions" 
+              (sessionClick)="onSessionClick($event)"
+              (sessionDrop)="onSessionDropped($event)">
+            </app-timetable-grid>
+            
+            <ion-list *ngIf="timetableView === 'list'">
+              <ion-item>
+                <ion-label>
+                  <h2>CS101: Introduction to Programming</h2>
+                  <p>Monday, 10:00 - 12:00</p>
+                  <p>Room: CS Lab 1</p>
+                </ion-label>
+              </ion-item>
+              <ion-item>
+                <ion-label>
+                  <h2>CS201: Data Structures</h2>
+                  <p>Tuesday, 14:00 - 16:00</p>
+                  <p>Room: Lecture Hall 3</p>
+                </ion-label>
+              </ion-item>
+              <ion-item>
+                <ion-label>
+                  <h2>CS301: Algorithm Design</h2>
+                  <p>Thursday, 09:00 - 11:00</p>
+                  <p>Room: CS Lab 2</p>
+                </ion-label>
+              </ion-item>
+            </ion-list>
+          </div>
+        </div>
+        
+        <!-- My Modules Section -->
+        <div class="section-container" *ngIf="currentSection === 'modules'">
+          <h1>My Modules</h1>
+          
+          <ion-accordion-group>
+            <ion-accordion value="module1">
+              <ion-item slot="header">
+                <ion-label>
+                  <h2>CS101: Introduction to Programming</h2>
+                  <p>3 Student Groups | 75 Students</p>
+                </ion-label>
+              </ion-item>
+              <div slot="content">
+                <ion-list>
+                  <ion-item-divider>Student Groups</ion-item-divider>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Group A</h3>
+                      <p>25 Students</p>
+                    </ion-label>
+                    <ion-button slot="end" fill="clear">View</ion-button>
+                  </ion-item>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Group B</h3>
+                      <p>25 Students</p>
+                    </ion-label>
+                    <ion-button slot="end" fill="clear">View</ion-button>
+                  </ion-item>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Group C</h3>
+                      <p>25 Students</p>
+                    </ion-label>
+                    <ion-button slot="end" fill="clear">View</ion-button>
+                  </ion-item>
+                  
+                  <ion-item-divider>Session Details</ion-item-divider>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Lecture</h3>
+                      <p>Monday, 10:00 - 12:00 | CS Lab 1</p>
+                    </ion-label>
+                    <ion-button slot="end" fill="clear" (click)="viewModuleTimetable('module1')">View Schedule</ion-button>
+                  </ion-item>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Tutorial</h3>
+                      <p>Wednesday, 14:00 - 15:00 | Room 201</p>
+                    </ion-label>
+                  </ion-item>
+                </ion-list>
+                
+                <!-- Add module timetable view when selected -->
+                <div *ngIf="selectedModuleForTimetable === 'module1'" class="module-timetable">
+                  <ion-item-divider>
+                    <ion-label>Module Schedule</ion-label>
+                    <ion-button fill="clear" slot="end" (click)="selectedModuleForTimetable = null">
+                      <ion-icon name="close"></ion-icon>
+                    </ion-button>
+                  </ion-item-divider>
+                  <app-timetable-grid 
+                    [sessions]="getSessionsByModule('module1')"
+                    (sessionClick)="onSessionClick($event)">
+                  </app-timetable-grid>
+                </div>
+              </div>
+            </ion-accordion>
+            
+            <ion-accordion value="module2">
+              <ion-item slot="header">
+                <ion-label>
+                  <h2>CS201: Data Structures</h2>
+                  <p>2 Student Groups | 50 Students</p>
+                </ion-label>
+              </ion-item>
+              <div slot="content">
+                <ion-list>
+                  <ion-item-divider>Student Groups</ion-item-divider>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Group A</h3>
+                      <p>25 Students</p>
+                    </ion-label>
+                    <ion-button slot="end" fill="clear">View</ion-button>
+                  </ion-item>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Group B</h3>
+                      <p>25 Students</p>
+                    </ion-label>
+                    <ion-button slot="end" fill="clear">View</ion-button>
+                  </ion-item>
+                  
+                  <ion-item-divider>Session Details</ion-item-divider>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Lecture</h3>
+                      <p>Tuesday, 14:00 - 16:00 | Lecture Hall 3</p>
+                    </ion-label>
+                    <ion-button slot="end" fill="clear" (click)="viewModuleTimetable('module2')">View Schedule</ion-button>
+                  </ion-item>
+                  <ion-item>
+                    <ion-label>
+                      <h3>Lab Session</h3>
+                      <p>Friday, 11:00 - 13:00 | CS Lab 2</p>
+                    </ion-label>
+                  </ion-item>
+                </ion-list>
+                
+                <!-- Add module timetable view when selected -->
+                <div *ngIf="selectedModuleForTimetable === 'module2'" class="module-timetable">
+                  <ion-item-divider>
+                    <ion-label>Module Schedule</ion-label>
+                    <ion-button fill="clear" slot="end" (click)="selectedModuleForTimetable = null">
+                      <ion-icon name="close"></ion-icon>
+                    </ion-button>
+                  </ion-item-divider>
+                  <app-timetable-grid 
+                    [sessions]="getSessionsByModule('module2')"
+                    (sessionClick)="onSessionClick($event)">
+                  </app-timetable-grid>
+                </div>
+              </div>
+            </ion-accordion>
+          </ion-accordion-group>
+        </div>
+        
+        <!-- My Students Section -->
+        <div class="section-container" *ngIf="currentSection === 'students'">
+          <h1>My Students</h1>
+          
+          <div class="filter-controls">
+            <ion-searchbar placeholder="Search students"></ion-searchbar>
+            <ion-select placeholder="Filter by Module">
+              <ion-select-option value="all">All Modules</ion-select-option>
+              <ion-select-option value="cs101">CS101</ion-select-option>
+              <ion-select-option value="cs201">CS201</ion-select-option>
+              <ion-select-option value="cs301">CS301</ion-select-option>
+            </ion-select>
+          </div>
+          
+          <ion-list class="user-list">
+            <ion-item>
+              <ion-avatar slot="start">
+                <img src="assets/student1.jpg" alt="Student Avatar">
+              </ion-avatar>
+              <ion-label>
+                <h2>John Doe</h2>
+                <p>Student ID: 100123</p>
+                <p>Email: john.doe&#64;university.edu</p>
+              </ion-label>
+              <ion-button fill="clear">
+                <ion-icon slot="icon-only" name="mail"></ion-icon>
+              </ion-button>
+            </ion-item>
+            <ion-item>
+              <ion-avatar slot="start">
+                <img src="assets/student2.jpg" alt="Student Avatar">
+              </ion-avatar>
+              <ion-label>
+                <h2>Jane Smith</h2>
+                <p>Student ID: 100124</p>
+                <p>Email: jane.smith&#64;university.edu</p>
+              </ion-label>
+              <ion-button fill="clear">
+                <ion-icon slot="icon-only" name="mail"></ion-icon>
+              </ion-button>
+            </ion-item>
+            <ion-item>
+              <ion-avatar slot="start">
+                <img src="assets/student3.jpg" alt="Student Avatar">
+              </ion-avatar>
+              <ion-label>
+                <h2>Michael Johnson</h2>
+                <p>Student ID: 100125</p>
+                <p>Email: michael.johnson&#64;university.edu</p>
+              </ion-label>
+              <ion-button fill="clear">
+                <ion-icon slot="icon-only" name="mail"></ion-icon>
+              </ion-button>
+            </ion-item>
+          </ion-list>
+        </div>
+        
+        <!-- Venue Booking Section -->
+        <div class="section-container" *ngIf="currentSection === 'venues'">
+          <h1>Venue Booking</h1>
+          
+          <ion-segment [(ngModel)]="venueView" mode="md">
+            <ion-segment-button value="available">
+              <ion-label>Available Venues</ion-label>
+            </ion-segment-button>
+            <ion-segment-button value="request">
+              <ion-label>Book a Venue</ion-label>
+            </ion-segment-button>
+            <ion-segment-button value="history">
+              <ion-label>Booking History</ion-label>
+            </ion-segment-button>
+            </ion-segment>
+          
+          <!-- Available Venues List -->
+          <div *ngIf="venueView === 'available'" class="venue-container">
+            <!-- Replace the old venue list with venue-avail component -->
+            <app-venue-avail [venues]="availableVenues" (bookVenue)="onVenueBookingRequest($event)"></app-venue-avail>
+          </div>
+          
+          <!-- Booking Request Form -->
+          <div *ngIf="venueView === 'request'" class="booking-form">
+            <ion-card>
+              <ion-card-header>
+                <ion-card-title>Book a Venue</ion-card-title>
+              </ion-card-header>
+              <ion-card-content>
+                <ion-item>
+                  <ion-label position="floating">Venue</ion-label>
+                  <ion-select [(ngModel)]="bookingForm.venueId">
+                    <ion-select-option *ngFor="let venue of availableVenues" [value]="venue.id">
+                      {{ venue.name }} - {{ venue.building }}, Room {{ venue.room }}
+                    </ion-select-option>
+                  </ion-select>
+                </ion-item>
+                
+                <ion-item>
+                  <ion-label position="floating">Date</ion-label>
+                  <ion-datetime-button datetime="bookingDate"></ion-datetime-button>
+                  <ion-modal [keepContentsMounted]="true">
+                    <ng-template>
+                      <ion-datetime id="bookingDate" 
+                                   presentation="date" 
+                                   [(ngModel)]="bookingForm.date">
+                      </ion-datetime>
+                    </ng-template>
+                  </ion-modal>
+                </ion-item>
+                
+                <ion-item>
+                  <ion-label position="floating">Start Time</ion-label>
+                  <ion-select [(ngModel)]="bookingForm.startSlot">
+                    <ion-select-option *ngFor="let slot of timeSlots" [value]="slot.id">
+                      {{ slot.time }}
+                    </ion-select-option>
+                  </ion-select>
+                </ion-item>
+                
+                <ion-item>
+                  <ion-label position="floating">End Time</ion-label>
+                  <ion-select [(ngModel)]="bookingForm.endSlot">
+                    <ion-select-option *ngFor="let slot of timeSlots" [value]="slot.id">
+                      {{ slot.time }}
+                    </ion-select-option>
+                  </ion-select>
+                </ion-item>
+                
+                <ion-item>
+                  <ion-label position="floating">Purpose</ion-label>
+                  <ion-select [(ngModel)]="bookingForm.purpose">
+                    <ion-select-option value="lecture">Lecture</ion-select-option>
+                    <ion-select-option value="lab">Lab Session</ion-select-option>
+                    <ion-select-option value="exam">Examination</ion-select-option>
+                    <ion-select-option value="meeting">Student Meeting</ion-select-option>
+                  </ion-select>
+                </ion-item>
+                
+                <ion-item>
+                  <ion-label position="floating">Additional Notes</ion-label>
+                  <ion-textarea [(ngModel)]="bookingForm.notes" rows="3"></ion-textarea>
+                </ion-item>
+                
+                <div class="form-buttons">
+                  <ion-button expand="block" color="primary" (click)="submitBookingRequest()">Submit Booking Request</ion-button>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </div>
+          
+          <!-- Booking History -->
+          <div *ngIf="venueView === 'history'" class="booking-history">
+            <ion-list class="booking-list">
+              <ion-item>
+                <ion-label>
+                  <h2>Computer Lab 2</h2>
+                  <p>CS101: Introduction to Programming</p>
+                  <p>Monday, May 15, 2023 | 10:00 - 12:00</p>
+                  <ion-badge color="success">Approved</ion-badge>
+                </ion-label>
+              </ion-item>
+              <ion-item>
+                <ion-label>
+                  <h2>Seminar Room 1A</h2>
+                  <p>Student Group Meeting</p>
+                  <p>Wednesday, May 17, 2023 | 14:00 - 15:00</p>
+                  <ion-badge color="warning">Pending</ion-badge>
+                </ion-label>
+              </ion-item>
+              <ion-item>
+                <ion-label>
+                  <h2>Lecture Hall 3</h2>
+                  <p>CS201: Data Structures Exam</p>
+                  <p>Friday, May 19, 2023 | 09:00 - 11:00</p>
+                  <ion-badge color="success">Approved</ion-badge>
+                </ion-label>
+              </ion-item>
+            </ion-list>
+          </div>
+        </div>
+      </div>
+    </div>
+  </ion-content>
