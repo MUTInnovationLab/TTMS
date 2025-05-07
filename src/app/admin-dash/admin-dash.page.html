@@ -2,23 +2,23 @@
   <ion-toolbar>
     <div class="header-content">
       <div class="logo-container">
-        <img src="assets/logo.png" alt="TTMS Logo" class="logo">
+        <img src="assets/logo.png" alt="TTMS Logo" class="logo" style="height: 50px; width: auto;">
         <ion-title>Timetable Management System</ion-title>
       </div>
-      
+
       <div class="header-actions">
         <ion-button fill="clear" class="notification-btn">
           <ion-badge *ngIf="notificationCount > 0" color="danger">{{notificationCount}}</ion-badge>
           <ion-icon name="notifications-outline" slot="icon-only"></ion-icon>
         </ion-button>
-        
+
         <ion-button fill="clear" class="profile-btn" (click)="toggleProfileMenu()">
           <ion-avatar slot="start">
             <img src="assets/avatar.png" alt="User Avatar">
           </ion-avatar>
           <ion-icon name="chevron-down-outline"></ion-icon>
         </ion-button>
-        
+
         <div class="profile-dropdown" *ngIf="showProfileMenu">
           <ion-list lines="none">
             <ion-item button (click)="navigateToSettings()">
@@ -45,87 +45,90 @@
           <ion-icon name="grid-outline" slot="start"></ion-icon>
           <ion-label>Dashboard</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'timetable'" (click)="changeSection('timetable')">
           <ion-icon name="calendar-outline" slot="start"></ion-icon>
           <ion-label>Timetable Management</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'departments'" (click)="changeSection('departments')">
           <ion-icon name="business-outline" slot="start"></ion-icon>
           <ion-label>Department Management</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'users'" (click)="changeSection('users')">
           <ion-icon name="people-outline" slot="start"></ion-icon>
           <ion-label>User Management</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'venues'" (click)="changeSection('venues')">
           <ion-icon name="business-outline" slot="start"></ion-icon>
           <ion-label>Venue Management</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'reports'" (click)="changeSection('reports')">
           <ion-icon name="bar-chart-outline" slot="start"></ion-icon>
           <ion-label>Reports</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'settings'" (click)="changeSection('settings')">
           <ion-icon name="settings-outline" slot="start"></ion-icon>
           <ion-label>System Settings</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'backup'" (click)="changeSection('backup')">
           <ion-icon name="save-outline" slot="start"></ion-icon>
           <ion-label>Backup & Restore</ion-label>
         </ion-item>
       </ion-list>
     </div>
-    
-    <ion-button class="sidebar-toggle" (click)="toggleSidebar()">
+
+    <!-- Sidebar backdrop for mobile -->
+    <div class="sidebar-backdrop" [class.visible]="sidebarVisible" (click)="toggleSidebar()"></div>
+
+    <ion-button class="sidebar-toggle" [class.sidebar-visible]="sidebarVisible" (click)="toggleSidebar()">
       <ion-icon [name]="sidebarVisible ? 'chevron-back' : 'menu'"></ion-icon>
     </ion-button>
-    
+
     <!-- Main Content Area -->
     <div class="main-content" [class.sidebar-visible]="sidebarVisible">
       <!-- Dashboard Section -->
       <div *ngIf="activeSection === 'dashboard'" class="section-container">
         <h1>Dashboard Overview</h1>
-        
+
         <div class="stats-grid">
           <div class="stat-card">
             <ion-icon name="business"></ion-icon>
             <h2>{{stats.departments}}</h2>
             <p>Departments</p>
           </div>
-          
+
           <div class="stat-card">
             <ion-icon name="business"></ion-icon>
             <h2>{{stats.venues}}</h2>
             <p>Venues</p>
           </div>
-          
+
           <div class="stat-card">
             <ion-icon name="calendar"></ion-icon>
             <h2>{{stats.sessions}}</h2>
             <p>Scheduled Sessions</p>
           </div>
-          
+
           <div class="stat-card alert">
             <ion-icon name="warning"></ion-icon>
             <h2>{{stats.conflicts}}</h2>
             <p>Conflicts</p>
           </div>
         </div>
-        
+
         <div class="dashboard-charts">
           <div class="chart-container">
             <h3>Department Submission Status</h3>
             <!-- Chart placeholder -->
             <div class="chart-placeholder"></div>
           </div>
-          
+
           <div class="activities-container">
             <h3>Recent Activities</h3>
             <div class="timeline">
@@ -141,7 +144,7 @@
             </div>
           </div>
         </div>
-        
+
         <div class="quick-actions">
           <h3>Quick Actions</h3>
           <div class="actions-grid">
@@ -149,17 +152,17 @@
               <ion-icon name="calendar" slot="start"></ion-icon>
               Manage Timetables
             </ion-button>
-            
+
             <ion-button expand="block" (click)="createNewTimetable()">
               <ion-icon name="add-circle" slot="start"></ion-icon>
               New Timetable
             </ion-button>
-            
+
             <ion-button expand="block" (click)="publishTimetable()">
               <ion-icon name="cloud-upload" slot="start"></ion-icon>
               Publish Timetable
             </ion-button>
-            
+
             <ion-button expand="block" (click)="resolveConflicts()">
               <ion-icon name="alert-circle" slot="start"></ion-icon>
               Resolve Conflicts
@@ -167,11 +170,11 @@
           </div>
         </div>
       </div>
-      
+
       <!-- Timetable Management Section -->
       <div *ngIf="activeSection === 'timetable'" class="section-container">
         <h1>Timetable Management</h1>
-        
+
         <ion-segment [(ngModel)]="timetableView" (ionChange)="timetableViewChanged()">
           <ion-segment-button value="master">
             <ion-label>Master Timetable</ion-label>
@@ -186,20 +189,19 @@
             <ion-label>Publication</ion-label>
           </ion-segment-button>
         </ion-segment>
-        
+
         <div class="timetable-content">
           <!-- Replace placeholder with timetable-grid component -->
           <div *ngIf="timetableView === 'master'">
-            <app-timetable-grid 
-              [sessions]="masterTimetableSessions"
-              (sessionClick)="handleSessionClick($event)"
+            <app-timetable-grid [sessions]="masterTimetableSessions" (sessionClick)="handleSessionClick($event)"
               (sessionDrop)="handleMasterTimetableSessionDrop($event)">
             </app-timetable-grid>
           </div>
-          
+
           <div *ngIf="timetableView === 'submissions'">
             <div class="filter-controls submission-filters">
-              <ion-select placeholder="Select Department" [(ngModel)]="selectedDepartment" (ionChange)="loadDepartmentSubmission()">
+              <ion-select placeholder="Select Department" [(ngModel)]="selectedDepartment"
+                (ionChange)="loadDepartmentSubmission()">
                 <ion-select-option *ngFor="let dept of departments" [value]="dept.id">{{dept.name}}</ion-select-option>
               </ion-select>
               <ion-button color="success" [disabled]="!selectedDepartment" (click)="approveDepartmentSubmission()">
@@ -211,15 +213,17 @@
                 Request Changes
               </ion-button>
             </div>
-            
+
             <!-- Conflict warning alert if conflicts are detected -->
-            <ion-card *ngIf="selectedDepartment && departmentSubmissionConflicts.length > 0" color="warning" class="submission-conflict-alert">
+            <ion-card *ngIf="selectedDepartment && departmentSubmissionConflicts.length > 0" color="warning"
+              class="submission-conflict-alert">
               <ion-card-header>
                 <ion-card-title>
                   <ion-icon name="warning-outline"></ion-icon>
                   Conflicts Detected in Submission
                 </ion-card-title>
-                <ion-card-subtitle>{{departmentSubmissionConflicts.length}} conflicts need to be resolved before approval</ion-card-subtitle>
+                <ion-card-subtitle>{{departmentSubmissionConflicts.length}} conflicts need to be resolved before
+                  approval</ion-card-subtitle>
               </ion-card-header>
               <ion-card-content>
                 <ion-button expand="block" (click)="showDepartmentSubmissionConflicts()">
@@ -228,49 +232,44 @@
                 </ion-button>
               </ion-card-content>
             </ion-card>
-            
+
             <!-- Toggle between timetable view and conflict resolution view -->
             <div *ngIf="selectedDepartment && !showingDeptConflictRes">
-              <app-timetable-grid 
-                [sessions]="departmentSubmissionSessions"
-                (sessionClick)="handleSessionClick($event)">
+              <app-timetable-grid [sessions]="departmentSubmissionSessions" (sessionClick)="handleSessionClick($event)">
               </app-timetable-grid>
             </div>
-            
+
             <!-- Department submission conflict resolution interface -->
             <div *ngIf="selectedDepartment && showingDeptConflictRes" class="department-conflict-resolution">
               <ion-button fill="outline" (click)="showingDeptConflictRes = false" class="back-button">
                 <ion-icon name="arrow-back-outline" slot="start"></ion-icon>
                 Back to Timetable
               </ion-button>
-              
-              <app-conflict-res
-                [conflicts]="departmentSubmissionConflicts"
+
+              <app-conflict-res [conflicts]="departmentSubmissionConflicts"
                 (resolveConflict)="handleDepartmentConflictResolution($event)">
               </app-conflict-res>
             </div>
-            
+
             <div *ngIf="!selectedDepartment" class="placeholder-content">
               <p>Please select a department to view their submission</p>
             </div>
           </div>
-          
+
           <div *ngIf="timetableView === 'conflicts'">
             <!-- Replace conflict summary and timetable with conflict resolution component -->
             <div class="conflict-resolution-wrapper">
-              <app-conflict-res
-                [conflicts]="formattedConflicts"
-                (resolveConflict)="handleConflictResolution($event)">
+              <app-conflict-res [conflicts]="formattedConflicts" (resolveConflict)="handleConflictResolution($event)">
               </app-conflict-res>
             </div>
-            
+
             <!-- Show this only when there are no conflicts -->
             <div *ngIf="conflictSummary.length === 0" class="placeholder-content success-content">
               <ion-icon name="checkmark-circle" color="success" style="font-size: 48px;"></ion-icon>
               <p>No conflicts detected in the current timetable</p>
             </div>
           </div>
-          
+
           <div *ngIf="timetableView === 'publication'">
             <div class="publication-controls">
               <ion-card>
@@ -281,17 +280,20 @@
                 <ion-card-content>
                   <ion-item>
                     <ion-label position="stacked">Publication Title</ion-label>
-                    <ion-input [(ngModel)]="publicationTitle" placeholder="e.g., Semester 1 2023-2024 Timetable"></ion-input>
+                    <ion-input [(ngModel)]="publicationTitle"
+                      placeholder="e.g., Semester 1 2023-2024 Timetable"></ion-input>
                   </ion-item>
                   <ion-item>
                     <ion-label position="stacked">Publication Notes</ion-label>
-                    <ion-textarea [(ngModel)]="publicationNotes" placeholder="Any special notes or announcements..."></ion-textarea>
+                    <ion-textarea [(ngModel)]="publicationNotes"
+                      placeholder="Any special notes or announcements..."></ion-textarea>
                   </ion-item>
                   <ion-item>
                     <ion-label>Notify All Users</ion-label>
                     <ion-toggle [(ngModel)]="notifyUsers"></ion-toggle>
                   </ion-item>
-                  <ion-button expand="block" color="primary" (click)="publishFinalTimetable()" [disabled]="conflictSessions.length > 0">
+                  <ion-button expand="block" color="primary" (click)="publishFinalTimetable()"
+                    [disabled]="conflictSessions.length > 0">
                     <ion-icon name="cloud-upload" slot="start"></ion-icon>
                     Publish Timetable
                   </ion-button>
@@ -302,19 +304,17 @@
                 </ion-card-content>
               </ion-card>
             </div>
-            
-            <app-timetable-grid 
-              [sessions]="masterTimetableSessions"
-              (sessionClick)="handleSessionClick($event)">
+
+            <app-timetable-grid [sessions]="masterTimetableSessions" (sessionClick)="handleSessionClick($event)">
             </app-timetable-grid>
           </div>
         </div>
       </div>
-      
+
       <!-- User Management Section -->
       <div *ngIf="activeSection === 'users'" class="section-container">
         <h1>User Management</h1>
-        
+
         <div class="filter-controls">
           <ion-searchbar placeholder="Search users"></ion-searchbar>
           <ion-button (click)="showAddUserModal()">
@@ -322,7 +322,7 @@
             Add User
           </ion-button>
         </div>
-        
+
         <ion-list class="user-list">
           <ion-item *ngFor="let user of users" button detail (click)="editUser(user)">
             <ion-avatar slot="start">
@@ -336,11 +336,11 @@
           </ion-item>
         </ion-list>
       </div>
-      
+
       <!-- Department Management Section -->
       <div *ngIf="activeSection === 'departments'" class="section-container">
         <h1>Department Management</h1>
-        
+
         <div class="filter-controls">
           <ion-searchbar placeholder="Search departments"></ion-searchbar>
           <ion-button (click)="showAddDepartmentModal()">
@@ -348,7 +348,7 @@
             Add Department
           </ion-button>
         </div>
-        
+
         <ion-list class="department-list">
           <ion-item *ngFor="let department of departments" button detail (click)="editDepartment(department)">
             <ion-icon name="business" slot="start"></ion-icon>
@@ -360,11 +360,11 @@
           </ion-item>
         </ion-list>
       </div>
-      
+
       <!-- Venue Management Section -->
       <div *ngIf="activeSection === 'venues'" class="section-container">
         <h1>Venue Management</h1>
-        
+
         <ion-segment [(ngModel)]="venueManagementView" (ionChange)="venueManagementViewChanged()">
           <ion-segment-button value="list">
             <ion-icon name="list-outline"></ion-icon>
@@ -383,7 +383,7 @@
             <ion-label>Special Requests</ion-label>
           </ion-segment-button>
         </ion-segment>
-      
+
         <!-- Venue List View -->
         <div *ngIf="venueManagementView === 'list'">
           <div class="filter-controls">
@@ -399,7 +399,7 @@
               Add Venue
             </ion-button>
           </div>
-          
+
           <ion-list class="venue-list">
             <ion-item *ngFor="let venue of getFilteredVenuesList()" button detail (click)="editVenue(venue)">
               <ion-icon name="business" slot="start"></ion-icon>
@@ -411,7 +411,7 @@
             </ion-item>
           </ion-list>
         </div>
-        
+
         <!-- Venue Availability View -->
         <div *ngIf="venueManagementView === 'availability'" class="venue-availability-wrapper">
           <app-venue-avail 
@@ -419,7 +419,7 @@
             (bookVenue)="handleVenueBookingRequest($event)">
           </app-venue-avail>
         </div>
-        
+
         <!-- Venue Conflicts View -->
         <div *ngIf="venueManagementView === 'conflicts'" class="venue-conflicts-wrapper">
           <div *ngIf="venueConflicts.length > 0" class="conflicts-summary">
@@ -444,21 +444,19 @@
               </ion-card-content>
             </ion-card>
           </div>
-          
+
           <div *ngIf="venueConflicts.length === 0" class="placeholder-content success-content">
             <ion-icon name="checkmark-circle" color="success" style="font-size: 48px;"></ion-icon>
             <p>No venue conflicts detected</p>
           </div>
-          
+
           <div *ngIf="selectedConflict" class="selected-conflict-details">
             <h3>Conflict Details: {{selectedConflict.venue.name}}</h3>
-            <app-venue-avail 
-              [venues]="[selectedConflict.venue]" 
-              (bookVenue)="handleVenueBookingRequest($event)">
+            <app-venue-avail [venues]="[selectedConflict.venue]" (bookVenue)="handleVenueBookingRequest($event)">
             </app-venue-avail>
           </div>
         </div>
-        
+
         <!-- Special Event Requests View -->
         <div *ngIf="venueManagementView === 'requests'" class="venue-requests-wrapper">
           <div class="requests-list">
@@ -466,21 +464,24 @@
               <ion-item-divider>
                 <ion-label>Pending Special Event Requests</ion-label>
               </ion-item-divider>
-              <ion-item *ngFor="let request of specialEventRequests" button detail (click)="viewSpecialEventRequest(request)">
-                <ion-icon name="calendar" slot="start" [color]="request.status === 'pending' ? 'warning' : 'success'"></ion-icon>
+              <ion-item *ngFor="let request of specialEventRequests" button detail
+                (click)="viewSpecialEventRequest(request)">
+                <ion-icon name="calendar" slot="start"
+                  [color]="request.status === 'pending' ? 'warning' : 'success'"></ion-icon>
                 <ion-label>
                   <h2>{{request.title}}</h2>
                   <p>{{request.venue.name}} | {{request.date | date:'medium'}} | {{request.duration}} hours</p>
                   <p>Requested by: {{request.requester}}</p>
                 </ion-label>
-                <ion-badge slot="end" [color]="request.status === 'pending' ? 'warning' : 'success'">{{request.status}}</ion-badge>
+                <ion-badge slot="end"
+                  [color]="request.status === 'pending' ? 'warning' : 'success'">{{request.status}}</ion-badge>
               </ion-item>
               <ion-item *ngIf="specialEventRequests.length === 0">
                 <ion-label color="medium">No pending special event requests</ion-label>
               </ion-item>
             </ion-list>
           </div>
-          
+
           <div *ngIf="selectedSpecialRequest" class="selected-request-details">
             <ion-card>
               <ion-card-header>
@@ -508,35 +509,44 @@
                   <ion-label>Purpose:</ion-label>
                   <ion-text>{{selectedSpecialRequest.purpose}}</ion-text>
                 </ion-item>
-                
+
                 <div class="request-actions">
-                  <ion-button color="success" expand="block" (click)="approveSpecialRequest(selectedSpecialRequest)" *ngIf="selectedSpecialRequest.status === 'pending'">
+                  <ion-button color="success" expand="block" (click)="approveSpecialRequest(selectedSpecialRequest)"
+                    *ngIf="selectedSpecialRequest.status === 'pending'">
                     <ion-icon name="checkmark-circle" slot="start"></ion-icon>
                     Approve Request
                   </ion-button>
-                  <ion-button color="danger" expand="block" (click)="rejectSpecialRequest(selectedSpecialRequest)" *ngIf="selectedSpecialRequest.status === 'pending'">
+                  <ion-button color="danger" expand="block" (click)="rejectSpecialRequest(selectedSpecialRequest)"
+                    *ngIf="selectedSpecialRequest.status === 'pending'">
                     <ion-icon name="close-circle" slot="start"></ion-icon>
                     Reject Request
                   </ion-button>
                 </div>
               </ion-card-content>
             </ion-card>
-            
+
             <div class="venue-availability-check">
               <h4>Venue Availability Check</h4>
-              <app-venue-avail 
-                [venues]="[selectedSpecialRequest.venue]" 
+              <app-venue-avail [venues]="[selectedSpecialRequest.venue]"
                 (bookVenue)="handleVenueBookingRequest($event)">
               </app-venue-avail>
             </div>
           </div>
         </div>
       </div>
-      
+
+      <!-- Reports Section -->
+      <div *ngIf="activeSection === 'reports'" class="section-container">
+        <h1>System Reports</h1>
+
+        <!-- Replace with the app-reports component -->
+        <app-reports></app-reports>
+      </div>
+
       <!-- Settings Section -->
       <div *ngIf="activeSection === 'settings'" class="section-container">
         <h1>System Settings</h1>
-        
+
         <ion-list>
           <ion-item-group>
             <ion-item-divider>
@@ -557,7 +567,7 @@
               </ion-select>
             </ion-item>
           </ion-item-group>
-          
+
           <ion-item-group>
             <ion-item-divider>
               <ion-label>Timetable Configuration</ion-label>
@@ -579,7 +589,7 @@
               </ion-select>
             </ion-item>
           </ion-item-group>
-          
+
           <ion-item-group>
             <ion-item-divider>
               <ion-label>Email Notifications</ion-label>
@@ -598,25 +608,25 @@
             </ion-item>
           </ion-item-group>
         </ion-list>
-        
+
         <div class="settings-actions">
           <ion-button expand="block" color="primary" (click)="saveSettings()">
             Save Settings
           </ion-button>
         </div>
       </div>
-      
+
       <!-- Backup & Restore Section -->
       <div *ngIf="activeSection === 'backup'" class="section-container">
         <h1>Backup & Restore</h1>
-        
+
         <div class="backup-actions">
           <ion-button expand="block" (click)="createBackup()">
             <ion-icon name="save" slot="start"></ion-icon>
             Create New Backup
           </ion-button>
         </div>
-        
+
         <h3>Backup History</h3>
         <ion-list class="backup-list">
           <ion-item *ngFor="let backup of backups">
@@ -636,7 +646,7 @@
             </ion-button>
           </ion-item>
         </ion-list>
-        
+
         <h3>Scheduled Backups</h3>
         <ion-list>
           <ion-item>
@@ -653,10 +663,11 @@
           </ion-item>
           <ion-item>
             <ion-label>Time</ion-label>
-            <ion-datetime displayFormat="HH:mm" placeholder="Select Time" [disabled]="!scheduledBackupsEnabled"></ion-datetime>
+            <ion-datetime displayFormat="HH:mm" placeholder="Select Time"
+              [disabled]="!scheduledBackupsEnabled"></ion-datetime>
           </ion-item>
         </ion-list>
-        
+
         <div class="backup-actions">
           <ion-button expand="block" color="primary" (click)="saveBackupSettings()">
             Save Backup Settings

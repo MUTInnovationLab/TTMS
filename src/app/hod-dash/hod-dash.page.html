@@ -2,7 +2,7 @@
   <ion-toolbar>
     <div class="header-content">
       <div class="logo-container">
-        <img src="assets/logo.png" alt="TTMS Logo" class="logo">
+        <img src="assets/logo.png" alt="TTMS Logo" class="logo" style="height: 50px; width: auto;">
         <ion-title>HOD Dashboard</ion-title>
       </div>
       
@@ -70,10 +70,15 @@
           <ion-icon name="time-outline" slot="start"></ion-icon>
           <ion-label>Submission History</ion-label>
         </ion-item>
+        
+        <ion-item button [class.active]="activeSection === 'reports'" (click)="changeSection('reports')">
+          <ion-icon name="bar-chart-outline" slot="start"></ion-icon>
+          <ion-label>Reports</ion-label>
+        </ion-item>
       </ion-list>
     </div>
     
-    <ion-button class="sidebar-toggle" (click)="toggleSidebar()">
+    <ion-button class="sidebar-toggle" [class.sidebar-visible]="sidebarVisible" (click)="toggleSidebar()">
       <ion-icon [name]="sidebarVisible ? 'chevron-back' : 'menu'"></ion-icon>
     </ion-button>
     
@@ -440,6 +445,13 @@
             </ion-card-content>
           </ion-card>
         </div>
+      </div>
+      
+      <!-- Reports Section -->
+      <div *ngIf="activeSection === 'reports'" class="section-container">
+        <h1>Department Reports</h1>
+        
+        <app-reports></app-reports>
       </div>
     </div>
   </div>

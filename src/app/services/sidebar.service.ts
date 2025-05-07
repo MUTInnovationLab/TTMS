@@ -6,13 +6,21 @@ import { BehaviorSubject } from 'rxjs';
 })
 export class SidebarService {
   // BehaviorSubject to track sidebar visibility state
-  public sidebarVisibleSubject = new BehaviorSubject<boolean>(false);
+  public sidebarVisibleSubject = new BehaviorSubject<boolean>(true); // Default to true for desktop view
   
   // Observable that components can subscribe to
   sidebarVisible$ = this.sidebarVisibleSubject.asObservable();
   
   constructor() {
-    console.log('SidebarService initialized');
+    console.log('SidebarService initialized with sidebar visible:', this.sidebarVisibleSubject.value);
+    
+    // Check if mobile view on init and adjust accordingly
+    this.checkScreenSize();
+    
+    // Add resize listener to adjust sidebar based on screen size
+    window.addEventListener('resize', () => {
+      this.checkScreenSize();
+    });
   }
   
   // Toggle sidebar visibility
@@ -38,5 +46,13 @@ export class SidebarService {
   // Get current sidebar state
   get isSidebarVisible(): boolean {
     return this.sidebarVisibleSubject.value;
+  }
+  
+  // Check screen size and adjust sidebar visibility
+  private checkScreenSize() {
+    if (window.innerWidth < 768) {
+      // On mobile, default to hidden
+      this.sidebarVisibleSubject.next(false);
+    }
   }
 }

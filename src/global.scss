@@ -35,3 +35,134 @@
 /* @import "@ionic/angular/css/palettes/dark.always.css"; */
 /* @import "@ionic/angular/css/palettes/dark.class.css"; */
 @import "@ionic/angular/css/palettes/dark.system.css";
+
+/* Sidebar styles */
+.sidebar {
+  position: fixed;
+  top: 56px; /* Height of the header */
+  left: 0;
+  height: calc(100% - 56px);
+  width: 250px;
+  background-color: var(--ion-color-light);
+  border-right: 1px solid rgba(0, 0, 0, 0.07);
+  overflow-y: auto;
+  z-index: 10;
+  transition: transform 0.3s ease-in-out, box-shadow 0.3s ease;
+  transform: translateX(-100%);
+  box-shadow: none;
+}
+
+.sidebar.visible {
+  transform: translateX(0);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.sidebar ion-item {
+  --border-radius: 8px;
+  margin: 5px 8px;
+  --background: transparent;
+  --background-hover: rgba(var(--ion-color-primary-rgb), 0.1);
+  --ripple-color: rgba(var(--ion-color-primary-rgb), 0.1);
+}
+
+.sidebar ion-item.active {
+  --background: rgba(var(--ion-color-primary-rgb), 0.15);
+  --color: var(--ion-color-primary);
+  font-weight: 500;
+}
+
+.sidebar ion-icon {
+  margin-right: 8px;
+  color: var(--ion-color-medium);
+}
+
+.sidebar ion-item.active ion-icon {
+  color: var(--ion-color-primary);
+}
+
+/* Main content styles */
+.main-content {
+  margin-left: 0;
+  transition: margin-left 0.3s ease-in-out;
+  width: 100%;
+  padding: 16px;
+  transition: padding-left 0.3s ease, width 0.3s ease;
+}
+
+@media (min-width: 992px) {
+  .main-content.sidebar-visible {
+    margin-left: 250px;
+    width: calc(100% - 250px);
+  }
+}
+
+/* Sidebar toggle button styles */
+.sidebar-toggle {
+  position: fixed;
+  left: 0;
+  top: 70px;
+  z-index: 20;
+  transition: left 0.3s ease-in-out, transform 0.2s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.15);
+  height: 40px;
+  width: 40px;
+  --padding-start: 0;
+  --padding-end: 0;
+  --border-radius: 0 50% 50% 0;
+  --background: var(--ion-color-light);
+  --color: var(--ion-color-medium);
+}
+
+.sidebar-toggle:hover {
+  --background: var(--ion-color-light-shade);
+  transform: scale(1.05);
+}
+
+.sidebar-toggle.sidebar-visible {
+  left: 250px;
+}
+
+.sidebar-toggle ion-icon {
+  font-size: 20px;
+  padding-left: 3px; /* Minor adjustment for centered icon */
+}
+
+@media (max-width: 768px) {
+  .main-content.sidebar-visible {
+    margin-left: 0;
+    width: 100%;
+  }
+  
+  .sidebar {
+    box-shadow: none;
+  }
+  
+  .sidebar.visible {
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.3);
+    z-index: 1000; /* Above other content */
+  }
+  
+  /* On mobile, have the sidebar toggle appear on top of the sidebar when open */
+  .sidebar-toggle.sidebar-visible {
+    left: 250px;
+    --background: var(--ion-color-light);
+    box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Add overlay when sidebar is visible on mobile */
+  .sidebar-backdrop {
+    display: none;
+    position: fixed;
+    top: 56px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    z-index: 9;
+    transition: opacity 0.3s ease;
+  }
+  
+  .sidebar-backdrop.visible {
+    display: block;
+  }
+}

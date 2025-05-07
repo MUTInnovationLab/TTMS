@@ -11,6 +11,15 @@ interface ConflictSummary {
   sessions: number[]; // IDs of sessions involved in the conflict
 }
 
+// Add interface for department lecturer stats
+interface DepartmentLecturerStats {
+  name: string;
+  avatar: string | null;
+  weeklyHours: number;
+  moduleCount: number;
+  workloadPercentage: number;
+}
+
 @Component({
   selector: 'app-admin-dash',
   templateUrl: './admin-dash.page.html',
@@ -127,6 +136,89 @@ export class AdminDashPage implements OnInit, OnDestroy {
   // Department submission conflict properties
   departmentSubmissionConflicts: Conflict[] = [];
   showingDeptConflictRes: boolean = false;
+
+  // Reports section properties
+  reportView: string = 'usage';
+  reportDateRange: string = 'month';
+  reportCustomStartDate: string = new Date(Date.now() - 30 * 86400000).toISOString(); // 30 days ago
+  reportCustomEndDate: string = new Date().toISOString();
+  isLoadingReport: boolean = false;
+  selectedDepartmentForReport: string | number = 'all';
+
+  // Usage analytics data
+  usageStats = {
+    activeUsers: 124,
+    sessionsCreated: 532,
+    conflictResolutionRate: 92,
+    userEngagement: 78
+  };
+
+  userActivityLegend = [
+    { label: 'Timetable Creation', color: '#4c8dff' },
+    { label: 'Venue Management', color: '#ffc409' },
+    { label: 'Conflict Resolution', color: '#eb445a' },
+    { label: 'User Management', color: '#2dd36f' },
+    { label: 'System Settings', color: '#92949c' }
+  ];
+  
+  // Venue utilization data
+  venueReportFilter = {
+    building: '',
+    type: ''
+  };
+
+  venueBuildings = ['Main Building', 'Science Block', 'Arts Block', 'Conference Center'];
+  
+  venueUtilizationStats = [
+    { id: 1, name: 'Room A101', type: 'Classroom', capacity: 40, utilizationRate: 85 },
+    { id: 2, name: 'Lab L201', type: 'Laboratory', capacity: 30, utilizationRate: 62 },
+    { id: 3, name: 'Hall H301', type: 'Lecture Hall', capacity: 120, utilizationRate: 45 },
+    { id: 4, name: 'Room B102', type: 'Classroom', capacity: 35, utilizationRate: 78 },
+    { id: 5, name: 'Lab L105', type: 'Laboratory', capacity: 25, utilizationRate: 92 },
+    { id: 6, name: 'Room C204', type: 'Classroom', capacity: 30, utilizationRate: 34 }
+  ];
+  
+  // Department report data
+  departmentLecturerStats: DepartmentLecturerStats[] = [];
+  
+  // Conflict analysis data
+  conflictStats = {
+    total: 42,
+    resolved: 38,
+    avgResolutionTime: '2.4 days',
+    mostCommonType: 'Venue Conflict'
+  };
+  
+  conflictHotspots = [
+    { 
+      type: 'venue', 
+      name: 'Room A101', 
+      conflictCount: 8, 
+      resolutionRate: 87, 
+      commonIssue: 'Double booking' 
+    },
+    { 
+      type: 'lecturer', 
+      name: 'Prof. Johnson', 
+      conflictCount: 6, 
+      resolutionRate: 100, 
+      commonIssue: 'Overlapping schedule' 
+    },
+    { 
+      type: 'time', 
+      name: 'Monday 10:00-12:00', 
+      conflictCount: 12, 
+      resolutionRate: 83, 
+      commonIssue: 'Popular timeslot' 
+    },
+    { 
+      type: 'department', 
+      name: 'Computer Science', 
+      conflictCount: 15, 
+      resolutionRate: 93, 
+      commonIssue: 'Resource allocation' 
+    }
+  ];
 
   constructor(
     private sidebarService: SidebarService,
@@ -972,5 +1064,99 @@ export class AdminDashPage implements OnInit, OnDestroy {
     // this.sidebarVisible = !this.sidebarVisible;
     // this.cdr.detectChanges();
     // this.sidebarService.sidebarVisibleSubject.next(this.sidebarVisible);
+  }
+
+  // Reports section methods
+  reportViewChanged() {
+    console.log('Report view changed to:', this.reportView);
+    this.loadReportData();
+  }
+  
+  loadReportData() {
+    console.log('Loading report data for range:', this.reportDateRange);
+    this.isLoadingReport = true;
+    
+    // Simulate API call to fetch report data
+    setTimeout(() => {
+      if (this.reportView === 'department' && this.selectedDepartmentForReport !== 'all') {
+        this.loadDepartmentReport();
+      }
+      this.isLoadingReport = false;
+    }, 1000);
+  }
+  
+  generateReport() {
+    this.isLoadingReport = true;
+    
+    // Simulate report generation process
+    setTimeout(() => {
+      this.presentToast('Report generated successfully');
+      this.isLoadingReport = false;
+    }, 1500);
+  }
+  
+  exportReport() {
+    // Simulate export process
+    this.presentToast('Report exported successfully');
+  }
+  
+  applyVenueFilters() {
+    console.log('Applying venue filters:', this.venueReportFilter);
+    // In a real app, this would filter the venue data based on building and type
+  }
+  
+  loadDepartmentReport() {
+    console.log('Loading department report for:', this.selectedDepartmentForReport);
+    this.isLoadingReport = true;
+    
+    // Simulate API call to fetch department-specific data
+    setTimeout(() => {
+      if (this.selectedDepartmentForReport !== 'all') {
+        // For demo purposes, we'll populate with mock lecturer data for CS department
+        if (this.selectedDepartmentForReport === 1) { // Computer Science
+          this.departmentLecturerStats = [
+            { name: 'Dr. John Smith', avatar: 'assets/avatar1.png', weeklyHours: 18, moduleCount: 4, workloadPercentage: 0.75 },
+            { name: 'Dr. Sarah Johnson', avatar: 'assets/avatar3.png', weeklyHours: 20, moduleCount: 5, workloadPercentage: 0.83 },
+            { name: 'Prof. Michael Davis', avatar: null, weeklyHours: 22, moduleCount: 6, workloadPercentage: 0.92 },
+            { name: 'Dr. Robert Brown', avatar: 'assets/avatar2.png', weeklyHours: 12, moduleCount: 3, workloadPercentage: 0.5 }
+          ];
+        } else if (this.selectedDepartmentForReport === 2) { // Engineering
+          this.departmentLecturerStats = [
+            { name: 'Dr. Emily Taylor', avatar: 'assets/avatar4.png', weeklyHours: 14, moduleCount: 3, workloadPercentage: 0.58 },
+            { name: 'Prof. James Wilson', avatar: null, weeklyHours: 16, moduleCount: 4, workloadPercentage: 0.67 }
+          ];
+        } else {
+          this.departmentLecturerStats = [];
+        }
+      } else {
+        this.departmentLecturerStats = [];
+      }
+      
+      this.isLoadingReport = false;
+    }, 1000);
+  }
+  
+  getWorkloadClass(percentage: number): string {
+    if (percentage < 0.5) return 'low';
+    if (percentage < 0.75) return 'medium';
+    if (percentage > 0.9) return 'high';
+    return 'optimal';
+  }
+  
+  getUtilizationClass(percentage: number): string {
+    if (percentage < 30) return 'low';
+    if (percentage < 60) return 'medium';
+    if (percentage > 85) return 'high';
+    return 'optimal';
+  }
+  
+  getHotspotIcon(type: string): string {
+    switch (type) {
+      case 'venue': return 'business';
+      case 'lecturer': return 'person';
+      case 'time': return 'time';
+      case 'department': return 'school';
+      default: return 'alert-circle';
+    }
   }
 }

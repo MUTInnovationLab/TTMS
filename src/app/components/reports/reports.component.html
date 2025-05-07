@@ -1,0 +1,118 @@
+<ion-card>
+  <ion-card-header>
+    <ion-card-title>Reports Dashboard</ion-card-title>
+    <ion-card-subtitle>Generate and view system reports</ion-card-subtitle>
+  </ion-card-header>
+
+  <ion-card-content>
+    <ion-grid>
+      <ion-row>
+        <ion-col size="12" size-md="4">
+          <ion-item>
+            <ion-label position="stacked">Report Type</ion-label>
+            <ion-select [(ngModel)]="selectedReportType">
+              <ion-select-option *ngFor="let type of reportTypes" [value]="type.id">{{ type.name }}</ion-select-option>
+            </ion-select>
+          </ion-item>
+        </ion-col>
+        <ion-col size="12" size-md="4">
+          <ion-item>
+            <ion-label position="stacked">Start Date</ion-label>
+            <ion-input type="date" [(ngModel)]="startDate"></ion-input>
+          </ion-item>
+        </ion-col>
+        <ion-col size="12" size-md="4">
+          <ion-item>
+            <ion-label position="stacked">End Date</ion-label>
+            <ion-input type="date" [(ngModel)]="endDate"></ion-input>
+          </ion-item>
+        </ion-col>
+      </ion-row>
+      <ion-row>
+        <ion-col size="12" class="ion-text-center">
+          <ion-button (click)="generateReport()" expand="block">
+            <ion-icon name="analytics-outline" slot="start"></ion-icon>
+            Generate Report
+          </ion-button>
+        </ion-col>
+      </ion-row>
+    </ion-grid>
+
+    <div *ngIf="isLoading" class="ion-text-center ion-padding">
+      <ion-spinner></ion-spinner>
+      <p>Generating report...</p>
+    </div>
+
+    <div *ngIf="!isLoading && reportData.length > 0">
+      <div class="ion-text-end ion-padding-bottom">
+        <ion-button color="success" (click)="exportReport()" size="small">
+          <ion-icon name="download-outline" slot="start"></ion-icon>
+          Export
+        </ion-button>
+      </div>
+
+      <!-- Venue Utilization Report -->
+      <ion-grid *ngIf="selectedReportType === 'utilization'" class="report-table">
+        <ion-row class="header-row">
+          <ion-col>Venue</ion-col>
+          <ion-col>Total Hours Used</ion-col>
+          <ion-col>Utilization Rate</ion-col>
+        </ion-row>
+        <ion-row *ngFor="let item of reportData">
+          <ion-col>{{ item.venue }}</ion-col>
+          <ion-col>{{ item.totalHours }}</ion-col>
+          <ion-col>{{ item.utilizationRate }}</ion-col>
+        </ion-row>
+      </ion-grid>
+
+      <!-- Lecturer Schedule Report -->
+      <ion-grid *ngIf="selectedReportType === 'schedule'" class="report-table">
+        <ion-row class="header-row">
+          <ion-col>Lecturer</ion-col>
+          <ion-col>Courses Assigned</ion-col>
+          <ion-col>Weekly Hours</ion-col>
+          <ion-col>Peak Day</ion-col>
+        </ion-row>
+        <ion-row *ngFor="let item of reportData">
+          <ion-col>{{ item.lecturer }}</ion-col>
+          <ion-col>{{ item.coursesAssigned }}</ion-col>
+          <ion-col>{{ item.weeklyHours }}</ion-col>
+          <ion-col>{{ item.peakDay }}</ion-col>
+        </ion-row>
+      </ion-grid>
+
+      <!-- Conflicts Report -->
+      <ion-grid *ngIf="selectedReportType === 'conflicts'" class="report-table">
+        <ion-row class="header-row">
+          <ion-col>Conflict Type</ion-col>
+          <ion-col>Count</ion-col>
+          <ion-col>Affected Courses</ion-col>
+        </ion-row>
+        <ion-row *ngFor="let item of reportData">
+          <ion-col>{{ item.type }}</ion-col>
+          <ion-col>{{ item.count }}</ion-col>
+          <ion-col>{{ item.affectedCourses }}</ion-col>
+        </ion-row>
+      </ion-grid>
+
+      <!-- Availability Report -->
+      <ion-grid *ngIf="selectedReportType === 'availability'" class="report-table">
+        <ion-row class="header-row">
+          <ion-col>Lecturer</ion-col>
+          <ion-col>Available Slots</ion-col>
+          <ion-col>Preferred Days</ion-col>
+        </ion-row>
+        <ion-row *ngFor="let item of reportData">
+          <ion-col>{{ item.lecturer }}</ion-col>
+          <ion-col>{{ item.availableSlots }}</ion-col>
+          <ion-col>{{ item.preferredDays }}</ion-col>
+        </ion-row>
+      </ion-grid>
+    </div>
+
+    <div *ngIf="!isLoading && reportData.length === 0 && selectedReportType" class="ion-text-center ion-padding">
+      <ion-icon name="analytics-outline" style="font-size: 48px; color: var(--ion-color-medium)"></ion-icon>
+      <p>No report data available. Please generate a report.</p>
+    </div>
+  </ion-card-content>
+</ion-card>

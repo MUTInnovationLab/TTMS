@@ -1,20 +1,75 @@
 <ion-header [translucent]="true">
   <ion-toolbar>
     <ion-title>
-      Blank
     </ion-title>
   </ion-toolbar>
 </ion-header>
 
-<ion-content [fullscreen]="true">
-  <ion-header collapse="condense">
-    <ion-toolbar>
-      <ion-title size="large">Blank</ion-title>
-    </ion-toolbar>
-  </ion-header>
-
-  <div id="container">
-    <strong>Ready to create an app?</strong>
-    <p>Start with Ionic <a target="_blank" rel="noopener noreferrer" href="https://ionicframework.com/docs/components">UI Components</a></p>
+<ion-content>
+  <div class="login-container">
+    <div class="login-content">
+      <!-- Logo and header -->
+      <div class="logo-section">
+        <img src="assets/logo.png" alt="TMS Logo" class="login-logo" style="width: 150px; height: auto;">
+        <h1>Timetable Management System</h1>
+        <p class="subtitle">Sign in to access your account</p>
+      </div>
+      
+      <!-- Login form -->
+      <div class="login-card">
+        <form [formGroup]="loginForm" (ngSubmit)="login()">
+          <!-- Username field -->
+          <div class="form-group">
+            <ion-item>
+              <ion-icon name="person-outline" slot="start"></ion-icon>
+              <ion-label position="floating">Username</ion-label>
+              <ion-input formControlName="username" type="text"></ion-input>
+            </ion-item>
+            <div class="error-message" *ngIf="usernameControl?.invalid && usernameControl?.touched">
+              Username is required
+            </div>
+          </div>
+          
+          <!-- Password field -->
+          <div class="form-group">
+            <ion-item>
+              <ion-icon name="lock-closed-outline" slot="start"></ion-icon>
+              <ion-label position="floating">Password</ion-label>
+              <ion-input formControlName="password" [type]="showPassword ? 'text' : 'password'"></ion-input>
+              <ion-button fill="clear" slot="end" (click)="togglePasswordVisibility()">
+                <ion-icon [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"></ion-icon>
+              </ion-button>
+            </ion-item>
+            <div class="error-message" *ngIf="passwordControl?.invalid && passwordControl?.touched">
+              Password is required
+            </div>
+          </div>
+          
+          <!-- Remember me and forgot password -->
+          <div class="form-options">
+            <ion-item lines="none" class="remember-me">
+              <ion-checkbox formControlName="rememberMe" slot="start"></ion-checkbox>
+              <ion-label>Remember me</ion-label>
+            </ion-item>
+            
+            <div class="forgot-password">
+              <a (click)="forgotPassword()">Forgot password?</a>
+            </div>
+          </div>
+          
+          <!-- Login button -->
+          <ion-button expand="block" type="submit" [disabled]="loginForm.invalid" class="login-button">
+            <ion-icon name="log-in-outline" slot="start"></ion-icon>
+            Sign In
+          </ion-button>
+        </form>
+      </div>
+      
+      <!-- Footer -->
+      <div class="login-footer">
+        <p>&copy; 2025 TMS. All Rights Reserved.</p>
+        <p>Version 1.0.0</p>
+      </div>
+    </div>
   </div>
 </ion-content>
