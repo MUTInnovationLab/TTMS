@@ -7,7 +7,7 @@ import {
   ConflictResolution, 
   ConflictType 
 } from '../components/conflict-res/conflict-res.component';
-import { SidebarService } from '../services/sidebar.service';
+import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
 
 @Component({

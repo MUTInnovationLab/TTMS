@@ -2,7 +2,7 @@ import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { AlertController } from '@ionic/angular';
 import { TimetableSession } from '../components/timetable-grid/timetable-grid.component';
 import { Venue, Booking } from '../components/venue-avail/venue-avail.component';
-import { SidebarService } from '../services/sidebar.service';
+import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
 
 @Component({

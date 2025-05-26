@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { TimetableSession } from '../components/timetable-grid/timetable-grid.component';
-import { SidebarService } from '../services/sidebar.service';
+import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
 
 @Component({

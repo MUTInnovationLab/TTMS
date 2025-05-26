@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import { TimetableSession } from '../components/timetable-grid/timetable-grid.component';
 import { Conflict, ConflictType, ConflictResolution } from '../components/conflict-res/conflict-res.component';
-import { SidebarService } from '../services/sidebar.service';
+import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
 
 interface ConflictSummary {

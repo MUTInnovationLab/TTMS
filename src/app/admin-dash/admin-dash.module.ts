@@ -7,7 +7,7 @@ import { AdminDashPageRoutingModule } from './admin-dash-routing.module';
 import { AdminDashPage } from './admin-dash.page';
 import { SharedModule } from '../components/shared/shared.module';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
-import { SidebarService } from '../services/sidebar.service';
+import { SidebarService } from '../services/Utility Services/sidebar.service';
 
 @NgModule({
   imports: [
