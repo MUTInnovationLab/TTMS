@@ -51,7 +51,6 @@
         </ion-button>
       </div>
 
-      <!-- Venue Utilization Report -->
       <ion-grid *ngIf="selectedReportType === 'utilization'" class="report-table">
         <ion-row class="header-row">
           <ion-col>Venue</ion-col>
@@ -65,7 +64,6 @@
         </ion-row>
       </ion-grid>
 
-      <!-- Lecturer Schedule Report -->
       <ion-grid *ngIf="selectedReportType === 'schedule'" class="report-table">
         <ion-row class="header-row">
           <ion-col>Lecturer</ion-col>
@@ -81,7 +79,6 @@
         </ion-row>
       </ion-grid>
 
-      <!-- Conflicts Report -->
       <ion-grid *ngIf="selectedReportType === 'conflicts'" class="report-table">
         <ion-row class="header-row">
           <ion-col>Conflict Type</ion-col>
@@ -95,7 +92,6 @@
         </ion-row>
       </ion-grid>
 
-      <!-- Availability Report -->
       <ion-grid *ngIf="selectedReportType === 'availability'" class="report-table">
         <ion-row class="header-row">
           <ion-col>Lecturer</ion-col>

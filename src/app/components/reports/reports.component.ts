@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
 
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 @Component({
   selector: 'app-reports',
   templateUrl: './reports.component.html',
@@ -17,21 +20,19 @@ export class ReportsComponent implements OnInit {
     { id: 'conflicts', name: 'Timetable Conflicts Report' },
     { id: 'availability', name: 'Lecturer Availability Report' }
   ];
-  
+
   selectedReportType: string = 'utilization';
   startDate: string = '';
   endDate: string = '';
   reportData: any[] = [];
   isLoading: boolean = false;
 
-  constructor() { }
+  constructor() {}
 
   ngOnInit() {
-    // Set default date range to current month
     const today = new Date();
     const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
     const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-    
     this.startDate = this.formatDate(firstDay);
     this.endDate = this.formatDate(lastDay);
   }
@@ -45,8 +46,7 @@ export class ReportsComponent implements OnInit {
 
   generateReport() {
     this.isLoading = true;
-    
-    // Simulate API call with timeout
+
     setTimeout(() => {
       switch (this.selectedReportType) {
         case 'utilization':
@@ -66,6 +66,47 @@ export class ReportsComponent implements OnInit {
     }, 1000);
   }
 
+  exportReport() {
+    const doc = new jsPDF();
+    const reportName = this.reportTypes.find(r => r.id === this.selectedReportType)?.name || 'Report';
+    const dateRange = `From ${this.startDate} to ${this.endDate}`;
+    let head: string[] = [];
+    let body: any[][] = [];
+
+    switch (this.selectedReportType) {
+      case 'utilization':
+        head = ['Venue', 'Total Hours Used', 'Utilization Rate'];
+        body = this.reportData.map(item => [item.venue, item.totalHours, item.utilizationRate]);
+        break;
+      case 'schedule':
+        head = ['Lecturer', 'Courses Assigned', 'Weekly Hours', 'Peak Day'];
+        body = this.reportData.map(item => [item.lecturer, item.coursesAssigned, item.weeklyHours, item.peakDay]);
+        break;
+      case 'conflicts':
+        head = ['Conflict Type', 'Count', 'Affected Courses'];
+        body = this.reportData.map(item => [item.type, item.count, item.affectedCourses]);
+        break;
+      case 'availability':
+        head = ['Lecturer', 'Available Slots', 'Preferred Days'];
+        body = this.reportData.map(item => [item.lecturer, item.availableSlots, item.preferredDays]);
+        break;
+    }
+
+    doc.setFontSize(14);
+    doc.text(reportName, 14, 20);
+    doc.setFontSize(10);
+    doc.text(dateRange, 14, 27);
+
+    autoTable(doc, {
+      startY: 32,
+      head: [head],
+      body: body
+    });
+
+    doc.save(`${reportName}.pdf`);
+  }
+
+  // Mock Data Generators
   getMockVenueUtilizationData() {
     return [
       { venue: 'Lecture Hall A', totalHours: 42, utilizationRate: '78%' },
@@ -100,10 +141,5 @@ export class ReportsComponent implements OnInit {
       { lecturer: 'Dr. Williams', availableSlots: 15, preferredDays: 'Mon, Tue, Wed' },
       { lecturer: 'Prof. Davis', availableSlots: 10, preferredDays: 'Wed, Thu, Fri' }
     ];
-  }
-
-  exportReport() {
-    // In a real implementation, this would generate a CSV or PDF file
-    alert('Report exported successfully!');
   }
 }
