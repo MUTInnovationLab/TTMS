@@ -2,6 +2,11 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
+import { saveAs } from 'file-saver';
+import * as XLSX from 'xlsx';
+
+
+
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -67,45 +72,51 @@ export class ReportsComponent implements OnInit {
   }
 
   exportReport() {
-    const doc = new jsPDF();
-    const reportName = this.reportTypes.find(r => r.id === this.selectedReportType)?.name || 'Report';
-    const dateRange = `From ${this.startDate} to ${this.endDate}`;
-    let head: string[] = [];
-    let body: any[][] = [];
+  const doc = new jsPDF();
+  const reportName = this.reportTypes.find(r => r.id === this.selectedReportType)?.name || 'Report';
+  const dateRange = `From ${this.startDate} to ${this.endDate}`;
+  let head: string[] = [];
+  let body: any[][] = [];
 
-    switch (this.selectedReportType) {
-      case 'utilization':
-        head = ['Venue', 'Total Hours Used', 'Utilization Rate'];
-        body = this.reportData.map(item => [item.venue, item.totalHours, item.utilizationRate]);
-        break;
-      case 'schedule':
-        head = ['Lecturer', 'Courses Assigned', 'Weekly Hours', 'Peak Day'];
-        body = this.reportData.map(item => [item.lecturer, item.coursesAssigned, item.weeklyHours, item.peakDay]);
-        break;
-      case 'conflicts':
-        head = ['Conflict Type', 'Count', 'Affected Courses'];
-        body = this.reportData.map(item => [item.type, item.count, item.affectedCourses]);
-        break;
-      case 'availability':
-        head = ['Lecturer', 'Available Slots', 'Preferred Days'];
-        body = this.reportData.map(item => [item.lecturer, item.availableSlots, item.preferredDays]);
-        break;
-    }
-
-    doc.setFontSize(14);
-    doc.text(reportName, 14, 20);
-    doc.setFontSize(10);
-    doc.text(dateRange, 14, 27);
-
-    autoTable(doc, {
-      startY: 32,
-      head: [head],
-      body: body
-    });
-
-    doc.save(`${reportName}.pdf`);
+  switch (this.selectedReportType) {
+    case 'utilization':
+      head = ['Venue', 'Total Hours Used', 'Utilization Rate'];
+      body = this.reportData.map(item => [item.venue, item.totalHours, item.utilizationRate]);
+      break;
+    case 'schedule':
+      head = ['Lecturer', 'Courses Assigned', 'Weekly Hours', 'Peak Day'];
+      body = this.reportData.map(item => [item.lecturer, item.coursesAssigned, item.weeklyHours, item.peakDay]);
+      break;
+    case 'conflicts':
+      head = ['Conflict Type', 'Count', 'Affected Courses'];
+      body = this.reportData.map(item => [item.type, item.count, item.affectedCourses]);
+      break;
+    case 'availability':
+      head = ['Lecturer', 'Available Slots', 'Preferred Days'];
+      body = this.reportData.map(item => [item.lecturer, item.availableSlots, item.preferredDays]);
+      break;
   }
 
+  // --- Export to PDF ---
+  doc.setFontSize(14);
+  doc.text(reportName, 14, 20);
+  doc.setFontSize(10);
+  doc.text(dateRange, 14, 27);
+  autoTable(doc, {
+    startY: 32,
+    head: [head],
+    body: body
+  });
+  doc.save(`${reportName}.pdf`);
+
+  // --- Export to Excel ---
+  const worksheetData = [head, ...body];
+  const worksheet: XLSX.WorkSheet = XLSX.utils.aoa_to_sheet(worksheetData);
+  const workbook: XLSX.WorkBook = { Sheets: { data: worksheet }, SheetNames: ['data'] };
+  const excelBuffer: any = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+  const blob: Blob = new Blob([excelBuffer], { type: 'application/octet-stream' });
+  saveAs(blob, `${reportName}.xlsx`);
+}
   // Mock Data Generators
   getMockVenueUtilizationData() {
     return [
