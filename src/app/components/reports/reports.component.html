@@ -30,16 +30,17 @@
       </ion-row>
       <ion-row>
         <ion-col size="12" class="ion-text-center">
-          <ion-button (click)="generateReport()" expand="block">
+          <ion-button (click)="generateReport()" expand="block" [disabled]="isLoading">
             <ion-icon name="analytics-outline" slot="start"></ion-icon>
-            Generate Report
+            <span *ngIf="!isLoading">Generate Report</span>
+            <span *ngIf="isLoading">Generating...</span>
           </ion-button>
         </ion-col>
       </ion-row>
     </ion-grid>
 
     <div *ngIf="isLoading" class="ion-text-center ion-padding">
-      <ion-spinner></ion-spinner>
+      <ion-spinner name="crescent"></ion-spinner>
       <p>Generating report...</p>
     </div>
 
@@ -47,17 +48,27 @@
       <div class="ion-text-end ion-padding-bottom">
         <ion-button color="success" (click)="exportReport()" size="small">
           <ion-icon name="download-outline" slot="start"></ion-icon>
-          Export
+          Export (PDF/Excel)
         </ion-button>
       </div>
 
+      <!-- Chart Section -->
+      <div *ngIf="chartData" class="chart-container ion-padding" style="height: 400px;">
+        <canvas baseChart
+                [data]="chartData"
+                [type]="chartType"
+                [options]="chartOptions">
+        </canvas>
+      </div>
+
+      <!-- Tables Section -->
       <ion-grid *ngIf="selectedReportType === 'utilization'" class="report-table">
         <ion-row class="header-row">
-          <ion-col>Venue</ion-col>
-          <ion-col>Total Hours Used</ion-col>
-          <ion-col>Utilization Rate</ion-col>
+          <ion-col><strong>Venue</strong></ion-col>
+          <ion-col><strong>Total Hours Used</strong></ion-col>
+          <ion-col><strong>Utilization Rate</strong></ion-col>
         </ion-row>
-        <ion-row *ngFor="let item of reportData">
+        <ion-row *ngFor="let item of reportData; let i = index" [class.even-row]="i % 2 === 0">
           <ion-col>{{ item.venue }}</ion-col>
           <ion-col>{{ item.totalHours }}</ion-col>
           <ion-col>{{ item.utilizationRate }}</ion-col>
@@ -66,12 +77,12 @@
 
       <ion-grid *ngIf="selectedReportType === 'schedule'" class="report-table">
         <ion-row class="header-row">
-          <ion-col>Lecturer</ion-col>
-          <ion-col>Courses Assigned</ion-col>
-          <ion-col>Weekly Hours</ion-col>
-          <ion-col>Peak Day</ion-col>
+          <ion-col><strong>Lecturer</strong></ion-col>
+          <ion-col><strong>Courses Assigned</strong></ion-col>
+          <ion-col><strong>Weekly Hours</strong></ion-col>
+          <ion-col><strong>Peak Day</strong></ion-col>
         </ion-row>
-        <ion-row *ngFor="let item of reportData">
+        <ion-row *ngFor="let item of reportData; let i = index" [class.even-row]="i % 2 === 0">
           <ion-col>{{ item.lecturer }}</ion-col>
           <ion-col>{{ item.coursesAssigned }}</ion-col>
           <ion-col>{{ item.weeklyHours }}</ion-col>
@@ -81,11 +92,11 @@
 
       <ion-grid *ngIf="selectedReportType === 'conflicts'" class="report-table">
         <ion-row class="header-row">
-          <ion-col>Conflict Type</ion-col>
-          <ion-col>Count</ion-col>
-          <ion-col>Affected Courses</ion-col>
+          <ion-col><strong>Conflict Type</strong></ion-col>
+          <ion-col><strong>Count</strong></ion-col>
+          <ion-col><strong>Affected Courses</strong></ion-col>
         </ion-row>
-        <ion-row *ngFor="let item of reportData">
+        <ion-row *ngFor="let item of reportData; let i = index" [class.even-row]="i % 2 === 0">
           <ion-col>{{ item.type }}</ion-col>
           <ion-col>{{ item.count }}</ion-col>
           <ion-col>{{ item.affectedCourses }}</ion-col>
@@ -94,11 +105,11 @@
 
       <ion-grid *ngIf="selectedReportType === 'availability'" class="report-table">
         <ion-row class="header-row">
-          <ion-col>Lecturer</ion-col>
-          <ion-col>Available Slots</ion-col>
-          <ion-col>Preferred Days</ion-col>
+          <ion-col><strong>Lecturer</strong></ion-col>
+          <ion-col><strong>Available Slots</strong></ion-col>
+          <ion-col><strong>Preferred Days</strong></ion-col>
         </ion-row>
-        <ion-row *ngFor="let item of reportData">
+        <ion-row *ngFor="let item of reportData; let i = index" [class.even-row]="i % 2 === 0">
           <ion-col>{{ item.lecturer }}</ion-col>
           <ion-col>{{ item.availableSlots }}</ion-col>
           <ion-col>{{ item.preferredDays }}</ion-col>
@@ -108,7 +119,7 @@
 
     <div *ngIf="!isLoading && reportData.length === 0 && selectedReportType" class="ion-text-center ion-padding">
       <ion-icon name="analytics-outline" style="font-size: 48px; color: var(--ion-color-medium)"></ion-icon>
-      <p>No report data available. Please generate a report.</p>
+      <p>No report data available. Please generate a report first.</p>
     </div>
   </ion-card-content>
 </ion-card>
