@@ -3,6 +3,8 @@ import { TimetableSession } from '../components/timetable-grid/timetable-grid.co
 import { Conflict, ConflictType, ConflictResolution } from '../components/conflict-res/conflict-res.component';
 import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
+import { AlertController } from '@ionic/angular';
+import { Router } from '@angular/router';
 
 interface ConflictSummary {
   id: number;
@@ -221,6 +223,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
   ];
 
   constructor(
+     private alertController: AlertController,
+  private router: Router,
     private sidebarService: SidebarService,
     private cdr: ChangeDetectorRef
   ) { 
@@ -269,10 +273,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.showProfileMenu = false;
   }
   
-  logout() {
-    // Handle logout logic
-    console.log('User logged out');
-  }
+
   
   // Navigation
   changeSection(section: string) {
@@ -1159,4 +1160,38 @@ export class AdminDashPage implements OnInit, OnDestroy {
       default: return 'alert-circle';
     }
   }
+
+
+  async logout() {
+  const alert = await this.alertController.create({
+    header: 'Confirm Logout',
+    message: 'Are you sure you want to logout?',
+    buttons: [
+      {
+        text: 'Cancel',
+        role: 'cancel',
+        cssClass: 'secondary'
+      },
+      {
+        text: 'Logout',
+        handler: () => {
+          this.performLogout();
+        }
+      }
+    ]
+  });
+
+  await alert.present();
+}
+
+performLogout() {
+  // Clear any stored user data, tokens, etc.
+  // localStorage.removeItem('authToken');
+  // sessionStorage.clear();
+  
+  // Navigate to home page
+  this.router.navigate(['/home']);
+  
+  console.log('User logged out successfully');
+}
 }
