@@ -5,6 +5,7 @@ import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
 import { ModalController } from '@ionic/angular';
 import { AddUserComponent, User } from '../components/add-user/add-user.component';
+import { AddVenueComponent } from '../components/add-venue/add-venue.component';
 import { AuthService } from '../services/Authentication Services/auth.service';
 import { StaffService } from '../services/Data Services/staff.service';
 import { AlertController } from '@ionic/angular';
@@ -1228,8 +1229,19 @@ export class AdminDashPage implements OnInit, OnDestroy {
   }
   
   // Venue management
-  showAddVenueModal() {
-    console.log('Show add venue modal');
+  async showAddVenueModal() {
+    const modal = await this.modalController.create({
+      component: AddVenueComponent, // Replace with your actual component
+      cssClass: 'add-venue-modal'
+    });
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+    if (data && data.venue) {
+      // Handle the new venue (e.g., add to this.venues)
+      this.venues.push(data.venue);
+      this.presentToast('Venue added successfully');
+    }
   }
   
   editVenue(venue: any) {
