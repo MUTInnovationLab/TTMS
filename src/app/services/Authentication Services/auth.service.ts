@@ -349,12 +349,46 @@ export class AuthService {
   
   // Update first login status after password change
   updateFirstLoginStatus(uid: string, isFirstLogin: boolean): Observable<boolean> {
-    return from(this.firestore.doc(`${this.USER_ROLES_COLLECTION}/${uid}`).update({
-      isFirstLogin
+    console.log(`Updating isFirstLogin status for user ${uid} to ${isFirstLogin}`);
+    
+    // Use raw Firebase API to avoid Angular DI context issues and ensure update happens
+    return from(new Promise<boolean>((resolve, reject) => {
+      try {
+        // Get current Firebase app instance
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        // Update the document using direct Firebase API
+        firestore.collection(this.USER_ROLES_COLLECTION).doc(uid).update({
+          isFirstLogin: isFirstLogin,
+          lastPasswordChange: new Date() // Track when password was changed
+        })
+        .then(() => {
+          console.log(`Successfully updated isFirstLogin status to ${isFirstLogin}`);
+          
+          // Also update our local auth state to reflect the change immediately
+          const currentState = this.authState.getValue();
+          if (currentState.uid === uid) {
+            this.authState.next({
+              ...currentState,
+              isFirstLogin: isFirstLogin
+            });
+          }
+          
+          resolve(true);
+        })
+        .catch(error => {
+          console.error('Error updating first login status:', error);
+          reject(error);
+        });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
     })).pipe(
       map(() => true),
       catchError(error => {
-        console.error('Error updating first login status:', error);
+        console.error('Error in updateFirstLoginStatus:', error);
         return of(false);
       })
     );

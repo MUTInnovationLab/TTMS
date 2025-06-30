@@ -222,9 +222,21 @@ export class ChangePasswordPage implements OnInit, OnDestroy {
           await loading.dismiss();
           
           if (changeResult.success) {
-            // Mark first login as false
+            // IMPORTANT: Always update first login status when successful
             if (this.currentUser?.uid) {
-              this.authService.updateFirstLoginStatus(this.currentUser.uid, false).subscribe();
+              this.authService.updateFirstLoginStatus(this.currentUser.uid, false).subscribe({
+                next: (statusUpdateResult) => {
+                  console.log('First login status updated:', statusUpdateResult);
+                  // Update the local state to prevent redundant updates
+                  this.currentUser = {
+                    ...this.currentUser!,
+                    isFirstLogin: false
+                  };
+                },
+                error: (error) => {
+                  console.error('Failed to update first login status:', error);
+                }
+              });
             }
             
             // Show success message and redirect
@@ -289,9 +301,22 @@ export class ChangePasswordPage implements OnInit, OnDestroy {
                     await loading.dismiss();
                     
                     if (changeResult.success) {
-                      // Mark first login as false if it was a first login
-                      if (this.currentUser?.uid && this.currentUser.isFirstLogin) {
-                        this.authService.updateFirstLoginStatus(this.currentUser.uid, false).subscribe();
+                      // ALWAYS update first login status for EVERY successful password change
+                      // This ensures the flag is updated whether it's first login or not
+                      if (this.currentUser?.uid) {
+                        this.authService.updateFirstLoginStatus(this.currentUser.uid, false).subscribe({
+                          next: (statusUpdateResult) => {
+                            console.log('First login status updated:', statusUpdateResult);
+                            // Update the local state to prevent redundant updates
+                            this.currentUser = {
+                              ...this.currentUser!,
+                              isFirstLogin: false
+                            };
+                          },
+                          error: (error) => {
+                            console.error('Failed to update first login status:', error);
+                          }
+                        });
                       }
                       
                       // Show success message and redirect
