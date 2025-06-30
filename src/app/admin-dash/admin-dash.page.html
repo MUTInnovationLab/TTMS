@@ -317,24 +317,48 @@
 
         <div class="filter-controls">
           <ion-searchbar placeholder="Search users"></ion-searchbar>
+          <ion-select placeholder="Filter by department">
+            <ion-select-option value="">All Departments</ion-select-option>
+            <ion-select-option *ngFor="let dept of departments" [value]="dept.name">{{dept.name}}</ion-select-option>
+          </ion-select>
           <ion-button (click)="showAddUserModal()">
             <ion-icon name="person-add" slot="start"></ion-icon>
-            Add User
+            Add HOD
           </ion-button>
         </div>
 
         <ion-list class="user-list">
-          <ion-item *ngFor="let user of users" button detail (click)="editUser(user)">
-            <ion-avatar slot="start">
-              <img [src]="user.avatar || 'assets/default-avatar.png'" alt="User Avatar">
-            </ion-avatar>
-            <ion-label>
-              <h2>{{user.name}}</h2>
-              <p>{{user.email}}</p>
-              <p>Role: {{user.role}}</p>
-            </ion-label>
-          </ion-item>
+          <ion-item-group>
+            <ion-item-divider>
+              <ion-label>Heads of Department</ion-label>
+            </ion-item-divider>
+            <ion-item *ngFor="let user of users" button detail (click)="editUser(user)">
+              <ion-avatar slot="start">
+                <img [src]="user.avatar || 'assets/default-avatar.png'" alt="User Avatar">
+              </ion-avatar>
+              <ion-label>
+                <h2>{{user.title}} {{user.name}}</h2>
+                <p>{{user.email}}</p>
+                <p>Department: {{user.department}}</p>
+              </ion-label>
+              <ion-badge slot="end" color="primary">{{user.role || 'HOD'}}</ion-badge>
+            </ion-item>
+            <ion-item *ngIf="users.length === 0">
+              <ion-label color="medium">No HODs added yet</ion-label>
+            </ion-item>
+          </ion-item-group>
         </ion-list>
+
+        <ion-card class="help-card">
+          <ion-card-header>
+            <ion-card-title>User Management Help</ion-card-title>
+          </ion-card-header>
+          <ion-card-content>
+            <p>As an administrator, you can add Heads of Department (HODs) for each academic department.</p>
+            <p>When you add a HOD, an authentication account will be automatically created using their email address with a secure default password.</p>
+            <p>HODs will then be able to add lecturers to their departments, and lecturers can add students to their courses.</p>
+          </ion-card-content>
+        </ion-card>
       </div>
 
       <!-- Department Management Section -->

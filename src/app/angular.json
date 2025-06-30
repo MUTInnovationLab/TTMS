@@ -3,7 +3,7 @@
   "version": 1,
   "newProjectRoot": "projects",
   "projects": {
-    "TTMS": {
+    "app": {
       "projectType": "application",
       "schematics": {},
       "root": "",
@@ -135,5 +135,8 @@
       }
     }
   },
-  "defaultProject": "TTMS"
+  "defaultProject": "TTMS",
+  "cli": {
+    "analytics": false
+  }
 }

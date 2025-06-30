@@ -1,0 +1,212 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>{{ isEditMode ? 'Edit' : 'Add' }} User</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismissModal()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form [formGroup]="userForm" (ngSubmit)="onSubmit()">
+    <!-- Role Selection -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label>User Role</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-label position="floating">Role*</ion-label>
+        <ion-select formControlName="role" (ionChange)="onRoleChange()">
+          <ion-select-option *ngFor="let role of availableRoles" [value]="role">{{role}}</ion-select-option>
+        </ion-select>
+        <div *ngIf="submitted && f['role'].errors" class="error-message">
+          <span *ngIf="f['role'].errors['required']">Role is required</span>
+        </div>
+      </ion-item>
+    </ion-item-group>
+    
+    <!-- Personal Information Section -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label>Personal Information</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-label position="floating">Title*</ion-label>
+        <ion-select formControlName="title">
+          <ion-select-option value="MR">Mr</ion-select-option>
+          <ion-select-option value="MRS">Mrs</ion-select-option>
+          <ion-select-option value="MS">Ms</ion-select-option>
+          <ion-select-option value="DR">Dr</ion-select-option>
+          <ion-select-option value="PROF">Prof</ion-select-option>
+        </ion-select>
+        <div *ngIf="submitted && f['title'].errors" class="error-message">
+          <span *ngIf="f['title'].errors['required']">Title is required</span>
+        </div>
+      </ion-item>
+      
+      <ion-item>
+        <ion-label position="floating">Name*</ion-label>
+        <ion-input formControlName="name" type="text"></ion-input>
+        <div *ngIf="submitted && f['name'].errors" class="error-message">
+          <span *ngIf="f['name'].errors['required']">Name is required</span>
+        </div>
+      </ion-item>
+      
+      <ion-item>
+        <ion-label position="floating">Staff/Student ID*</ion-label>
+        <ion-input formControlName="id" type="text"></ion-input>
+        <div *ngIf="submitted && f['id'].errors" class="error-message">
+          <span *ngIf="f['id'].errors['required']">ID is required</span>
+        </div>
+      </ion-item>
+      
+      <ion-item>
+        <ion-label position="floating">Sex</ion-label>
+        <ion-select formControlName="sex">
+          <ion-select-option value="M">Male</ion-select-option>
+          <ion-select-option value="F">Female</ion-select-option>
+          <ion-select-option value="O">Other</ion-select-option>
+        </ion-select>
+      </ion-item>
+    </ion-item-group>
+    
+    <!-- Department Information -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label>Department Information</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-label position="floating">Department*</ion-label>
+        <ion-select formControlName="department">
+          <ion-select-option *ngFor="let dept of departments" [value]="dept">{{ dept }}</ion-select-option>
+        </ion-select>
+        <div *ngIf="submitted && f['department'].errors" class="error-message">
+          <span *ngIf="f['department'].errors['required']">Department is required</span>
+        </div>
+      </ion-item>
+      
+      <!-- Room Name only visible for HOD and Lecturer roles -->
+      <ion-item *ngIf="isStaffRole()">
+        <ion-label position="floating">Room Name</ion-label>
+        <ion-input formControlName="roomName" type="text"></ion-input>
+      </ion-item>
+      
+      <!-- Schedulable only visible for Lecturer role -->
+      <ion-item *ngIf="userForm.get('role')?.value === 'Lecturer'">
+        <ion-label>Schedulable</ion-label>
+        <ion-toggle formControlName="schedulable"></ion-toggle>
+      </ion-item>
+    </ion-item-group>
+    
+    <!-- Contact Information -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label>Contact Information</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-label position="floating">Email*</ion-label>
+        <ion-input formControlName="email" type="email"></ion-input>
+        <div *ngIf="submitted && f['email'].errors" class="error-message">
+          <span *ngIf="f['email'].errors['required']">Email is required</span>
+          <span *ngIf="f['email'].errors['email']">Must be a valid email</span>
+        </div>
+      </ion-item>
+      
+      <!-- Phone fields mainly for staff -->
+      <ion-item *ngIf="isStaffRole()">
+        <ion-label position="floating">Mobile</ion-label>
+        <ion-input formControlName="mobile" type="tel"></ion-input>
+      </ion-item>
+      
+      <ion-item *ngIf="isStaffRole()">
+        <ion-label position="floating">Office Phone</ion-label>
+        <ion-input formControlName="officeTel" type="tel"></ion-input>
+      </ion-item>
+      
+      <ion-item *ngIf="isStaffRole()">
+        <ion-label position="floating">Home Phone</ion-label>
+        <ion-input formControlName="homeTel" type="tel"></ion-input>
+      </ion-item>
+      
+      <ion-item *ngIf="isStaffRole()">
+        <ion-label position="floating">Website</ion-label>
+        <ion-input formControlName="website" type="url"></ion-input>
+      </ion-item>
+    </ion-item-group>
+    
+    <!-- Address Information - Only for staff -->
+    <ion-item-group *ngIf="isStaffRole()">
+      <ion-item-divider>
+        <ion-label>Address Information</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-label position="floating">Address Line 1</ion-label>
+        <ion-input formControlName="addressLine1" type="text"></ion-input>
+      </ion-item>
+      
+      <ion-item>
+        <ion-label position="floating">Address Line 2</ion-label>
+        <ion-input formControlName="addressLine2" type="text"></ion-input>
+      </ion-item>
+      
+      <ion-item>
+        <ion-label position="floating">Postcode</ion-label>
+        <ion-input formControlName="postcode" type="text"></ion-input>
+      </ion-item>
+    </ion-item-group>
+    
+    <!-- Accessibility Information -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label>Accessibility Requirements</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-label>Deaf/Hard of Hearing</ion-label>
+        <ion-toggle formControlName="deafLoop"></ion-toggle>
+      </ion-item>
+      
+      <ion-item>
+        <ion-label>Wheelchair Access</ion-label>
+        <ion-toggle formControlName="wheelchairAccess"></ion-toggle>
+      </ion-item>
+    </ion-item-group>
+    
+    <!-- Allowance Information (for schedulable lecturers) -->
+    <ion-item-group *ngIf="userForm.get('role')?.value === 'Lecturer' && userForm.get('schedulable')?.value">
+      <ion-item-divider>
+        <ion-label>Teaching Allowance</ion-label>
+      </ion-item-divider>
+      
+      <ion-item>
+        <ion-label position="floating">Weekly Target (hours)</ion-label>
+        <ion-input formControlName="weeklyTarget" type="number"></ion-input>
+      </ion-item>
+      
+      <ion-item>
+        <ion-label position="floating">Total Target (hours)</ion-label>
+        <ion-input formControlName="totalTarget" type="number"></ion-input>
+      </ion-item>
+    </ion-item-group>
+    
+    <!-- Form Error Messages -->
+    <div *ngIf="errorMessage" class="ion-text-center ion-padding">
+      <ion-text color="danger">{{ errorMessage }}</ion-text>
+    </div>
+    
+    <!-- Form Actions -->
+    <div class="form-actions">
+      <ion-button expand="block" type="submit" [disabled]="isSubmitting">
+        <ion-spinner *ngIf="isSubmitting" name="crescent"></ion-spinner>
+        <span *ngIf="!isSubmitting">{{ isEditMode ? 'Update' : 'Add' }} User</span>
+      </ion-button>
+    </div>
+  </form>
+</ion-content>

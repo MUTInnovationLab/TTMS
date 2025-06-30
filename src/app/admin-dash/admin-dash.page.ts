@@ -3,6 +3,10 @@ import { TimetableSession } from '../components/timetable-grid/timetable-grid.co
 import { Conflict, ConflictType, ConflictResolution } from '../components/conflict-res/conflict-res.component';
 import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
+import { ModalController } from '@ionic/angular';
+import { AddUserComponent, User } from '../components/add-user/add-user.component';
+import { AuthService } from '../services/Authentication Services/auth.service';
+import { StaffService } from '../services/Data Services/staff.service';
 
 interface ConflictSummary {
   id: number;
@@ -93,9 +97,33 @@ export class AdminDashPage implements OnInit, OnDestroy {
   
   // User management
   users = [
-    { id: 1, name: 'John Smith', email: 'john.smith@example.com', role: 'HOD', avatar: 'assets/avatar1.png' },
-    { id: 2, name: 'Jane Doe', email: 'jane.doe@example.com', role: 'Lecturer', avatar: 'assets/avatar2.png' },
-    { id: 3, name: 'Robert Johnson', email: 'robert.j@example.com', role: 'Admin', avatar: 'assets/avatar3.png' }
+    { 
+      id: 1, 
+      title: 'DR',
+      name: 'John Smith', 
+      email: 'john.smith@example.com', 
+      role: 'HOD', 
+      department: 'COMPUTER SCIENCE',
+      avatar: 'assets/avatar1.png' 
+    },
+    { 
+      id: 2, 
+      title: 'MS',
+      name: 'Jane Doe', 
+      email: 'jane.doe@example.com', 
+      role: 'HOD', 
+      department: 'ELECTRICAL ENGINEERING',
+      avatar: 'assets/avatar2.png' 
+    },
+    { 
+      id: 3, 
+      title: 'PROF',
+      name: 'Robert Johnson', 
+      email: 'robert.j@example.com', 
+      role: 'HOD', 
+      department: 'MATHEMATICS',
+      avatar: 'assets/avatar3.png' 
+    }
   ];
   
   // Department management
@@ -220,9 +248,15 @@ export class AdminDashPage implements OnInit, OnDestroy {
     }
   ];
 
+  // Add isSubmitting property if it doesn't exist
+  isSubmitting: boolean = false;
+
   constructor(
     private sidebarService: SidebarService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private modalController: ModalController,
+    private authService: AuthService,
+    private staffService: StaffService
   ) { 
     console.log('AdminDashPage constructor');
   }
@@ -250,8 +284,35 @@ export class AdminDashPage implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     );
+    
+    // Load Heads of Department from Firebase
+    this.loadHODs();
   }
 
+  // Load HODs from Firebase
+  loadHODs() {
+    console.log('Loading HODs from Firebase');
+    this.staffService.getAllHODs().subscribe({
+      next: (hods) => {
+        console.log('HODs loaded successfully:', hods);
+        // Transform the data to match our display format
+        this.users = hods.map(hod => ({
+          id: Number(hod.id),
+          title: hod.title || '',
+          name: hod.name || '',
+          email: hod.contact?.email || '',
+          role: hod.role || 'HOD',
+          department: hod.department || '',
+          avatar: hod.profile || 'assets/default-avatar.png'
+        }));
+      },
+      error: (error) => {
+        console.error('Error loading HODs:', error);
+        this.presentToast('Failed to load HODs: ' + (error.message || 'Unknown error'));
+      }
+    });
+  }
+  
   ngOnDestroy() {
     // Clean up subscription
     if (this.sidebarSubscription) {
@@ -270,8 +331,17 @@ export class AdminDashPage implements OnInit, OnDestroy {
   }
   
   logout() {
-    // Handle logout logic
-    console.log('User logged out');
+    // Handle logout logic using AuthService
+    this.authService.logout().subscribe(
+      success => {
+        if (success) {
+          console.log('User logged out successfully');
+        } else {
+          console.error('Logout failed');
+          this.presentToast('Failed to log out. Please try again.');
+        }
+      }
+    );
   }
   
   // Navigation
@@ -1009,10 +1079,139 @@ export class AdminDashPage implements OnInit, OnDestroy {
   // User management
   showAddUserModal() {
     console.log('Show add user modal');
+    
+    // Create and present the modal
+    this.presentAddUserModal();
   }
-  
+
+  async presentAddUserModal(userData?: any) {
+    const modal = await this.modalController.create({
+      component: AddUserComponent,
+      componentProps: {
+        user: userData,
+        currentUserRole: 'Admin' // Always 'Admin' in the admin dashboard
+      },
+      cssClass: 'user-modal'
+    });
+    
+    // Present the modal
+    await modal.present();
+    
+    // Handle the modal result
+    const { data } = await modal.onDidDismiss();
+    
+    if (data) {
+      console.log('User data returned:', data);
+      
+      if (userData) {
+        // Editing existing user
+        this.handleExistingUserUpdate(userData, data);
+      } else {
+        // Adding new HOD
+        this.handleNewHodCreation(data);
+      }
+    }
+  }
+
+  // Handle existing user update
+  private handleExistingUserUpdate(userData: any, updatedData: User) {
+    const index = this.users.findIndex(u => u.id === userData.id);
+    if (index !== -1) {
+      this.users[index] = {
+        id: Number(updatedData.id), // Convert string id to number
+        title: updatedData.title,
+        name: updatedData.name,
+        email: updatedData.contact.email, // Use email from contact object
+        role: updatedData.role,
+        department: updatedData.department,
+        avatar: this.users[index].avatar || 'assets/default-avatar.png'
+      };
+      this.presentToast('User updated successfully');
+      
+      // In a real app, you would also update the auth account and staff record
+      // For demo purposes, we'll just log this
+      console.log('Would update auth account and staff record for:', updatedData.id);
+    }
+  }
+
+  // Handle new HOD creation
+  private handleNewHodCreation(hodData: User) {
+    console.log('Starting new HOD creation process:', hodData);
+    
+    // Check data validity before proceeding
+    if (!hodData.contact?.email) {
+      this.presentToast('Error: Email is required for creating an account');
+      return;
+    }
+    
+    // Show loading state
+    this.isSubmitting = true;
+    
+    // First check if email already exists
+    this.authService.checkEmailExists(hodData.contact.email).subscribe({
+      next: exists => {
+        if (exists) {
+          this.presentToast(`Email ${hodData.contact.email} is already in use. Please use a different email.`);
+          this.isSubmitting = false;
+          return;
+        }
+        
+        // 1. Create the authentication account with a secure password
+        const defaultPassword = this.authService.generateDefaultPassword();
+        console.log('Generated default password:', defaultPassword);
+        
+        this.authService.createUserAccount(hodData.contact.email, 'HOD', defaultPassword).subscribe({
+          next: authResult => {
+            if (authResult.success) {
+              console.log('Auth account created successfully, now creating staff record');
+              
+              // 2. Then add to staff collection
+              this.staffService.addStaffMember(hodData).subscribe({
+                next: staffResult => {
+                  if (staffResult.success) {
+                    console.log('Staff record created successfully');
+                    
+                    // Reload HODs from database to ensure list is up-to-date
+                    this.loadHODs();
+                    
+                    // Show success message with password info
+                    this.presentHodCreationSuccess(hodData, defaultPassword);
+                  } else {
+                    console.error('Staff record creation failed:', staffResult.message);
+                    this.presentToast(`Error creating staff record: ${staffResult.message}`);
+                  }
+                  this.isSubmitting = false;
+                },
+                error: error => {
+                  console.error('Error in staff service:', error);
+                  this.presentToast('Error adding staff record: ' + (error.message || 'Unknown error'));
+                  this.isSubmitting = false;
+                }
+              });
+            } else {
+              console.error('Auth creation failed:', authResult.message);
+              this.presentToast(`Auth account error: ${authResult.message}`);
+              this.isSubmitting = false;
+            }
+          },
+          error: error => {
+            console.error('Error in auth service:', error);
+            this.presentToast('Error creating authentication account: ' + (error.message || 'Unknown error'));
+            this.isSubmitting = false;
+          }
+        });
+      },
+      error: error => {
+        console.error('Error checking email existence:', error);
+        this.presentToast('Error checking if email exists: ' + (error.message || 'Unknown error'));
+        this.isSubmitting = false;
+      }
+    });
+  }
+
   editUser(user: any) {
     console.log('Editing user:', user);
+    this.presentAddUserModal(user);
   }
   
   // Department management
@@ -1158,5 +1357,12 @@ export class AdminDashPage implements OnInit, OnDestroy {
       case 'department': return 'school';
       default: return 'alert-circle';
     }
+  }
+
+  private async presentHodCreationSuccess(hodData: User, defaultPassword: string) {
+    // In a real app, you might want to show this in a modal instead of a toast
+    this.presentToast(
+      `HOD account created successfully!\nEmail: ${hodData.contact?.email}\nTemporary Password: ${defaultPassword}\nPlease ensure to communicate these credentials securely.`
+    );
   }
 }
