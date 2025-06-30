@@ -9,6 +9,8 @@ import {
 } from '../components/conflict-res/conflict-res.component';
 import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
+import { AlertController } from '@ionic/angular';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-hod-dash',
@@ -430,7 +432,9 @@ export class HodDashPage implements OnInit, OnDestroy {
   departmentConflicts: Conflict[] = [];
 
   constructor(
-    private modalController: ModalController,
+     private alertController: AlertController,
+  private router: Router,
+  private modalController: ModalController,
     private sidebarService: SidebarService,
     private cdr: ChangeDetectorRef
   ) { 
@@ -478,10 +482,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     this.showProfileMenu = false;
   }
   
-  logout() {
-    // Handle logout logic
-    console.log('User logged out');
-  }
+ 
   
   showNotifications() {
     console.log('Show notifications');
@@ -1261,4 +1262,37 @@ export class HodDashPage implements OnInit, OnDestroy {
     });
     return maxId + 1;
   }
+
+  async logout() {
+  const alert = await this.alertController.create({
+    header: 'Confirm Logout',
+    message: 'Are you sure you want to logout?',
+    buttons: [
+      {
+        text: 'Cancel',
+        role: 'cancel',
+        cssClass: 'secondary'
+      },
+      {
+        text: 'Logout',
+        handler: () => {
+          this.performLogout();
+        }
+      }
+    ]
+  });
+
+  await alert.present();
+}
+
+performLogout() {
+  // Clear any stored user data, tokens, etc.
+  // localStorage.removeItem('authToken');
+  // sessionStorage.clear();
+  
+  // Navigate to home page
+  this.router.navigate(['/home']);
+  
+  console.log('User logged out successfully');
+}
 }

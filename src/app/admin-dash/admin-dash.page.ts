@@ -7,6 +7,8 @@ import { ModalController } from '@ionic/angular';
 import { AddUserComponent, User } from '../components/add-user/add-user.component';
 import { AuthService } from '../services/Authentication Services/auth.service';
 import { StaffService } from '../services/Data Services/staff.service';
+import { AlertController } from '@ionic/angular';
+import { Router } from '@angular/router';
 
 interface ConflictSummary {
   id: number;
@@ -252,6 +254,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
   isSubmitting: boolean = false;
 
   constructor(
+     private alertController: AlertController,
+  private router: Router,
     private sidebarService: SidebarService,
     private cdr: ChangeDetectorRef,
     private modalController: ModalController,
