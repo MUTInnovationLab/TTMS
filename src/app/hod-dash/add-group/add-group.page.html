@@ -1,0 +1,59 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Add New Group</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()"><ion-icon name="close"></ion-icon></ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content>
+  <ion-list>
+    <ion-item>
+      <ion-label>Group Type</ion-label>
+      <ion-select [(ngModel)]="group.groupType">
+        <ion-select-option value="Annual">Annual</ion-select-option>
+        <ion-select-option value="Semester">Semester</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item>
+      <ion-label>Stream Type</ion-label>
+      <ion-select [(ngModel)]="group.stream">
+        <ion-select-option value="ECP">Extended Curriculum Programme (ECP)</ion-select-option>
+        <ion-select-option value="Main">Main Stream</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item *ngIf="group.stream === 'Main'">
+      <ion-label>Year Level</ion-label>
+      <ion-select [(ngModel)]="group.yearLevel">
+        <ion-select-option *ngFor="let y of mainStreamYears()" [value]="y">{{y}}</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item *ngIf="group.stream === 'ECP'">
+      <ion-label>Year Level</ion-label>
+      <ion-select [(ngModel)]="group.yearLevel">
+        <ion-select-option value="Year 1">Year 1</ion-select-option>
+      </ion-select>
+    </ion-item>
+
+    <ion-item>
+      <ion-label position="stacked">Group Name</ion-label>
+      <ion-input [(ngModel)]="group.name" placeholder="e.g., ECP Group A"></ion-input>
+    </ion-item>
+
+    <ion-item>
+      <ion-label position="stacked">Program Name</ion-label>
+      <ion-input [(ngModel)]="group.program" placeholder="e.g., Diploma in IT"></ion-input>
+    </ion-item>
+
+    <ion-item>
+      <ion-label position="stacked">Group Size</ion-label>
+      <ion-input type="number" [(ngModel)]="group.size" placeholder="e.g., 40"></ion-input>
+    </ion-item>
+
+    <ion-button expand="block" (click)="saveGroup()">Save Group</ion-button>
+  </ion-list>
+</ion-content>

@@ -10,6 +10,8 @@ import { TimetableGridComponent } from '../components/timetable-grid/timetable-g
 import { VenueAvailComponent } from '../components/venue-avail/venue-avail.component';
 import { ConflictResComponent } from '../components/conflict-res/conflict-res.component';
 
+import { AddGroupPage } from './add-group/add-group.page';
+
 @NgModule({
   imports: [
     CommonModule,
@@ -19,7 +21,8 @@ import { ConflictResComponent } from '../components/conflict-res/conflict-res.co
     SharedModule,
     TimetableGridComponent,
     VenueAvailComponent,
-    ConflictResComponent
+    ConflictResComponent,
+    AddGroupPage
   ],
   declarations: [HodDashPage],
   schemas: [CUSTOM_ELEMENTS_SCHEMA] // Add schema support for custom elements

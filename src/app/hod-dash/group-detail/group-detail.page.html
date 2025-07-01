@@ -1,0 +1,36 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Group Detail</ion-title>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding" *ngIf="group">
+  <h2>{{ group.name }}</h2>
+  <ion-list>
+    <ion-item>
+      <ion-label position="stacked">Name</ion-label>
+      <ion-input [(ngModel)]="group.name"></ion-input>
+    </ion-item>
+    <ion-item>
+      <ion-label position="stacked">Group Type</ion-label>
+      <ion-select [(ngModel)]="group.groupType">
+        <ion-select-option value="Annual">Annual</ion-select-option>
+        <ion-select-option value="Semester">Semester</ion-select-option>
+      </ion-select>
+    </ion-item>
+    <ion-item>
+      <ion-label position="stacked">Program</ion-label>
+      <ion-input [(ngModel)]="group.program"></ion-input>
+    </ion-item>
+    <ion-item>
+      <ion-label position="stacked">Year</ion-label>
+      <ion-input type="number" [(ngModel)]="group.year"></ion-input>
+    </ion-item>
+    <ion-item>
+      <ion-label position="stacked">Size</ion-label>
+      <ion-input type="number" [(ngModel)]="group.size"></ion-input>
+    </ion-item>
+  </ion-list>
+  <ion-button expand="block" (click)="saveGroup()">Save Changes</ion-button>
+  <ion-button expand="block" color="danger" (click)="deleteGroup()">Delete Group</ion-button>
+</ion-content>

@@ -11,6 +11,8 @@ import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
 import { AlertController } from '@ionic/angular';
 import { Router } from '@angular/router';
+import { GroupService } from '../services/group.service';
+import { Group } from '../models/group.model';
 
 @Component({
   selector: 'app-hod-dash',
@@ -233,43 +235,7 @@ export class HodDashPage implements OnInit, OnDestroy {
   groupView = 'list';
   selectedGroupForTimetable = null;
   
-  groups = [
-    {
-      id: 1,
-      name: 'CS-Year1-A',
-      year: 1,
-      program: 'Computer Science BSc',
-      size: 35
-    },
-    {
-      id: 2,
-      name: 'CS-Year1-B',
-      year: 1,
-      program: 'Computer Science BSc',
-      size: 32
-    },
-    {
-      id: 3,
-      name: 'CS-Year2-A',
-      year: 2,
-      program: 'Computer Science BSc',
-      size: 28
-    },
-    {
-      id: 4,
-      name: 'CS-Year3-A',
-      year: 3,
-      program: 'Computer Science BSc',
-      size: 25
-    },
-    {
-      id: 5,
-      name: 'CS-Year4-A',
-      year: 4,
-      program: 'Computer Science BSc',
-      size: 22
-    }
-  ];
+  groups: Group[] = [];
   
   get filteredGroups() {
     if (!this.groupSearch) return this.groups;
@@ -436,13 +402,19 @@ export class HodDashPage implements OnInit, OnDestroy {
   private router: Router,
   private modalController: ModalController,
     private sidebarService: SidebarService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private groupService: GroupService
   ) { 
     console.log('HodDashPage constructor');
   }
 
   ngOnInit() {
     console.log('HodDashPage ngOnInit');
+    
+    this.groupService.getGroups().subscribe(groups => {
+      this.groups = groups;
+      this.cdr.detectChanges();
+    });
     
     // Initialize dashboard
     this.formatTimetableSessions();
@@ -784,10 +756,15 @@ export class HodDashPage implements OnInit, OnDestroy {
   showAddGroupModal() {
     console.log('Show add group modal');
   }
+
+  addGroup() {
+    this.router.navigate(['/hod-dash/add-group']);
+  }
   
   editGroup(group: any) {
     console.log('Edit group:', group);
-    // Show modal to edit group
+    // Navigate to group detail page
+    this.router.navigate(['/hod-dash/group-detail', group.id]);
   }
   
   getGroupById(groupId: number) {
