@@ -4,36 +4,38 @@ import { RouteReuseStrategy } from '@angular/router';
 import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
 import { NgChartsModule } from 'ng2-charts';
 
-// Use the new Firebase v9+ API consistently
-import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
-import { provideFirestore, getFirestore } from '@angular/fire/firestore';
-
+// Firebase imports
 import { environment } from '../environments/environment';
+import { AngularFireModule } from '@angular/fire/compat';
+import { AngularFireAuthModule } from '@angular/fire/compat/auth';
+import { AngularFirestoreModule } from '@angular/fire/compat/firestore';
+import { AngularFireStorageModule } from '@angular/fire/compat/storage';
+import { AngularFireAnalyticsModule } from '@angular/fire/compat/analytics';
 
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
 import { FormsModule } from '@angular/forms';
-import { ConflictResComponent } from './components/conflict-res/conflict-res.component';
-import { VenueAvailComponent } from './components/venue-avail/venue-avail.component';
 
 @NgModule({
-  declarations: [AppComponent],
+  // Remove AppComponent from declarations since it's standalone
+  declarations: [],
   imports: [
     BrowserModule,
     NgChartsModule,
     IonicModule.forRoot(),
     AppRoutingModule,
     FormsModule,
-    ConflictResComponent, // standalone component
-    VenueAvailComponent,  // standalone component
+    // Initialize Firebase
+    AngularFireModule.initializeApp(environment.firebaseConfig),
+    AngularFireAuthModule,
+    AngularFirestoreModule,
+    AngularFireStorageModule,
+    AngularFireAnalyticsModule
   ],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
-    // Use the new Firebase v9+ providers
-    provideFirebaseApp(() => initializeApp(environment.firebaseConfig)),
-    provideFirestore(() => getFirestore())
   ],
-  bootstrap: [AppComponent],
+  // Remove bootstrap array since we're using standalone bootstrap
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class AppModule {}

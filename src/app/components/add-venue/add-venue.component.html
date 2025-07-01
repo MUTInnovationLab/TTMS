@@ -1,0 +1,116 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>{{ isEditMode ? 'Edit' : 'Add' }} Venue</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismissModal()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form [formGroup]="venueForm" (ngSubmit)="onSubmit()">
+    <!-- Venue Information -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label>Venue Information</ion-label>
+      </ion-item-divider>
+
+      <ion-item>
+        <ion-label position="floating">Venue Name*</ion-label>
+        <ion-input formControlName="name" type="text"></ion-input>
+        <div *ngIf="submitted && f['name'].errors" class="error-message">
+          <span *ngIf="f['name'].errors['required']">Venue name is required</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Building*</ion-label>
+        <ion-input formControlName="building" type="text"></ion-input>
+        <div *ngIf="submitted && f['building'].errors" class="error-message">
+          <span *ngIf="f['building'].errors['required']">Building is required</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Room Number*</ion-label>
+        <ion-input formControlName="roomNumber" type="text"></ion-input>
+        <div *ngIf="submitted && f['roomNumber'].errors" class="error-message">
+          <span *ngIf="f['roomNumber'].errors['required']">Room number is required</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Capacity*</ion-label>
+        <ion-input formControlName="capacity" type="number"></ion-input>
+        <div *ngIf="submitted && f['capacity'].errors" class="error-message">
+          <span *ngIf="f['capacity'].errors['required']">Capacity is required</span>
+          <span *ngIf="f['capacity'].errors['min']">Capacity must be at least 1</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Type*</ion-label>
+        <ion-select formControlName="type">
+          <ion-select-option value="LECTURE">Lecture Hall</ion-select-option>
+          <ion-select-option value="LAB">Laboratory</ion-select-option>
+          <ion-select-option value="SEMINAR">Seminar Room</ion-select-option>
+          <ion-select-option value="AUDITORIUM">Auditorium</ion-select-option>
+          <ion-select-option value="COMPUTER_LAB">Computer Lab</ion-select-option>
+        </ion-select>
+        <div *ngIf="submitted && f['type'].errors" class="error-message">
+          <span *ngIf="f['type'].errors['required']">Type is required</span>
+        </div>
+      </ion-item>
+    </ion-item-group>
+
+    <!-- Equipment Information -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label>Equipment</ion-label>
+      </ion-item-divider>
+
+      <ion-item>
+        <ion-label>Projector</ion-label>
+        <ion-toggle formControlName="hasProjector"></ion-toggle>
+      </ion-item>
+
+      <ion-item>
+        <ion-label>Whiteboard</ion-label>
+        <ion-toggle formControlName="hasWhiteboard"></ion-toggle>
+      </ion-item>
+
+      <ion-item>
+        <ion-label>Smartboard</ion-label>
+        <ion-toggle formControlName="hasSmartboard"></ion-toggle>
+      </ion-item>
+
+      <ion-item>
+        <ion-label>Computers</ion-label>
+        <ion-toggle formControlName="hasComputers"></ion-toggle>
+      </ion-item>
+
+      <ion-item *ngIf="venueForm.get('hasComputers')?.value">
+        <ion-label position="floating">Number of Computers</ion-label>
+        <ion-input formControlName="computerCount" type="number"></ion-input>
+        <div *ngIf="submitted && f['computerCount'].errors" class="error-message">
+          <span *ngIf="f['computerCount'].errors['min']">Must be at least 1 computer</span>
+        </div>
+      </ion-item>
+    </ion-item-group>
+
+    <!-- Form Error Messages -->
+    <div *ngIf="errorMessage" class="ion-text-center ion-padding">
+      <ion-text color="danger">{{ errorMessage }}</ion-text>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions">
+      <ion-button expand="block" type="submit" [disabled]="isSubmitting">
+        <ion-spinner *ngIf="isSubmitting" name="crescent"></ion-spinner>
+        <span *ngIf="!isSubmitting">{{ isEditMode ? 'Update' : 'Add' }} Venue</span>
+      </ion-button>
+    </div>
+  </form>
+</ion-content>
