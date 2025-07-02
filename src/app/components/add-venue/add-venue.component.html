@@ -27,26 +27,26 @@
 
       <ion-item>
         <ion-label position="floating">Building*</ion-label>
-        <ion-input formControlName="building" type="text"></ion-input>
-        <div *ngIf="submitted && f['building'].errors" class="error-message">
-          <span *ngIf="f['building'].errors['required']">Building is required</span>
+        <ion-input formControlName="siteName" type="text"></ion-input>
+        <div *ngIf="submitted && f['siteName'].errors" class="error-message">
+          <span *ngIf="f['siteName'].errors['required']">Building is required</span>
         </div>
       </ion-item>
 
       <ion-item>
-        <ion-label position="floating">Room Number*</ion-label>
-        <ion-input formControlName="roomNumber" type="text"></ion-input>
-        <div *ngIf="submitted && f['roomNumber'].errors" class="error-message">
-          <span *ngIf="f['roomNumber'].errors['required']">Room number is required</span>
+        <ion-label position="floating">Room Number (e.g., 1000_0_NW1)*</ion-label>
+        <ion-input formControlName="id" type="text"></ion-input>
+        <div *ngIf="submitted && f['id'].errors" class="error-message">
+          <span *ngIf="f['id'].errors['required']">Room number is required</span>
         </div>
       </ion-item>
 
       <ion-item>
         <ion-label position="floating">Capacity*</ion-label>
-        <ion-input formControlName="capacity" type="number"></ion-input>
-        <div *ngIf="submitted && f['capacity'].errors" class="error-message">
-          <span *ngIf="f['capacity'].errors['required']">Capacity is required</span>
-          <span *ngIf="f['capacity'].errors['min']">Capacity must be at least 1</span>
+        <ion-input formControlName="defaultCapacity" type="number"></ion-input>
+        <div *ngIf="submitted && f['defaultCapacity'].errors" class="error-message">
+          <span *ngIf="f['defaultCapacity'].errors['required']">Capacity is required</span>
+          <span *ngIf="f['defaultCapacity'].errors['min']">Capacity must be at least 1</span>
         </div>
       </ion-item>
 
