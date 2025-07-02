@@ -15,3 +15,16 @@ ion-item-divider {
   --color: var(--ion-color-dark);
   margin-top: 1rem;
 }
+
+/* Success toast styling */
+.success-toast {
+  --background: var(--ion-color-success);
+  --color: var(--ion-color-success-contrast);
+  --box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  --border-radius: 8px;
+  
+  .toast-icon {
+    font-size: 24px;
+    margin-right: 10px;
+  }
+}

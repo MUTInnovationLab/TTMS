@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { ModalController } from '@ionic/angular';
+import { ModalController, ToastController } from '@ionic/angular'; // Added ToastController
 import { VenueService } from '../../services/Entity Management Services/venue.service';
 import { CommonModule } from '@angular/common'; 
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
@@ -28,7 +28,8 @@ export class AddVenueComponent implements OnInit {
   constructor(
     private fb: FormBuilder,
     public modalController: ModalController,
-    private venueService: VenueService
+    private venueService: VenueService,
+    private toastController: ToastController // Injected ToastController
   ) {
     this.venueForm = this.fb.group({
       name: ['', Validators.required],
@@ -58,7 +59,7 @@ export class AddVenueComponent implements OnInit {
 
   get f() { return this.venueForm.controls; }
 
-  onSubmit() {
+  async onSubmit() {
     this.submitted = true;
     if (this.venueForm.invalid) {
       return;
@@ -93,17 +94,31 @@ export class AddVenueComponent implements OnInit {
       wheelchairAccess: false
     };
 
-    this.venueService.addVenue(venueData)
-      .then(() => {
-        this.dismissModal();
-      })
-      .catch(error => {
-        this.errorMessage = 'Failed to add venue: ' + error.message;
-        console.error('Firestore error:', error);
-      })
-      .finally(() => {
-        this.isSubmitting = false;
+    try {
+      await this.venueService.addVenue(venueData);
+      
+      // Show success toast
+      const toast = await this.toastController.create({
+        message: 'Venue added successfully!',
+        duration: 2000, // Show for 2 seconds
+        color: 'success',
+        position: 'top',
+        icon: 'checkmark-circle',
+        cssClass: 'success-toast'
       });
+      
+      await toast.present();
+      
+      // Wait for toast to complete before closing modal
+      await toast.onDidDismiss();
+      this.modalController.dismiss();
+      
+    } catch (error: any) {
+      this.errorMessage = 'Failed to add venue: ' + error.message;
+      console.error('Firestore error:', error);
+    } finally {
+      this.isSubmitting = false;
+    }
   }
 
   dismissModal() {
