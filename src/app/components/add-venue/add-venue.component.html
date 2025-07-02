@@ -1,4 +1,4 @@
-<ion-header>
+<!-- <ion-header>
   <ion-toolbar>
     <ion-title>{{ isEditMode ? 'Edit' : 'Add' }} Venue</ion-title>
     <ion-buttons slot="end">
@@ -11,7 +11,7 @@
 
 <ion-content class="ion-padding">
   <form [formGroup]="venueForm" (ngSubmit)="onSubmit()">
-    <!-- Venue Information -->
+    < Venue Information 
     <ion-item-group>
       <ion-item-divider>
         <ion-label>Venue Information</ion-label>
@@ -65,7 +65,7 @@
       </ion-item>
     </ion-item-group>
 
-    <!-- Equipment Information -->
+    < Equipment Information --
     <ion-item-group>
       <ion-item-divider>
         <ion-label>Equipment</ion-label>
@@ -100,12 +100,12 @@
       </ion-item>
     </ion-item-group>
 
-    <!-- Form Error Messages -->
+    < Form Error Messages --
     <div *ngIf="errorMessage" class="ion-text-center ion-padding">
       <ion-text color="danger">{{ errorMessage }}</ion-text>
     </div>
 
-    <!-- Form Actions -->
+    < Form Actions --
     <div class="form-actions">
       <ion-button expand="block" type="submit" [disabled]="isSubmitting">
         <ion-spinner *ngIf="isSubmitting" name="crescent"></ion-spinner>
@@ -113,4 +113,4 @@
       </ion-button>
     </div>
   </form>
-</ion-content>
+</ion-content> -->

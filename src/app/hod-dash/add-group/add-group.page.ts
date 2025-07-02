@@ -51,7 +51,11 @@ export class AddGroupPage {
       name: this.group.name,
       program: this.group.program,
       year: this.group.yearLevel.includes('Year') ? parseInt(this.group.yearLevel.replace(/\D/g, '')) : 1,
-      size: this.group.size
+      size: this.group.size,
+      semester: 1, // Default value
+      studentCount: 0, // Default value
+      createdAt: new Date(), // Current timestamp
+      updatedAt: new Date() // Current timestamp
     };
 
     try {

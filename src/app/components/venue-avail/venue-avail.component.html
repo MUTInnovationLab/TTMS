@@ -1,147 +1,236 @@
 <div class="venue-availability-container">
-  <!-- Control Panel -->
-  <div class="control-panel">
-    <div class="panel-section">
-      <h3>Venue Availability</h3>
-      
-      <div class="date-selector">
-        <ion-item>
-          <ion-label position="stacked">Date</ion-label>
-          <ion-datetime-button datetime="datePicker"></ion-datetime-button>
-          <ion-modal [keepContentsMounted]="true">
-            <ng-template>
-              <ion-datetime id="datePicker" 
-                            presentation="date" 
-                            [value]="selectedDate.toISOString()"
-                            (ionChange)="updateDate($event)">
-              </ion-datetime>
-            </ng-template>
-          </ion-modal>
-        </ion-item>
-      </div>
-    </div>
+  <!-- Debug Information (can be removed in production) -->
+  <div *ngIf="isLoading || loadError || venues.length === 0" class="status-info">
+    <ion-card *ngIf="isLoading">
+      <ion-card-content>
+        <div class="loading-state">
+          <ion-spinner></ion-spinner>
+          <p>Loading venues...</p>
+        </div>
+      </ion-card-content>
+    </ion-card>
     
-    <div class="panel-section filter-controls">
-      <ion-select interface="popover" placeholder="Venue Type" [(ngModel)]="filters.type">
-        <ion-select-option value="">All Types</ion-select-option>
-        <ion-select-option *ngFor="let type of venueTypes" [value]="type">{{ type }}</ion-select-option>
-      </ion-select>
-      
-      <ion-input type="number" placeholder="Min. Capacity" [(ngModel)]="filters.minCapacity"></ion-input>
-      
-      <ion-select interface="popover" placeholder="Equipment" [(ngModel)]="filters.equipment" multiple="true">
-        <ion-select-option *ngFor="let item of equipmentOptions" [value]="item">{{ item }}</ion-select-option>
-      </ion-select>
-      
-      <ion-button color="primary" (click)="applyFilters()">
-        <ion-icon name="filter" slot="start"></ion-icon>
-        Apply
-      </ion-button>
-    </div>
+    <ion-card *ngIf="loadError && !isLoading" color="danger">
+      <ion-card-content>
+        <div class="error-state">
+          <ion-icon name="warning" size="large"></ion-icon>
+          <h3>Error Loading Venues</h3>
+          <p>{{ loadError }}</p>
+          <ion-button color="light" (click)="reloadVenues()">
+            <ion-icon name="refresh" slot="start"></ion-icon>
+            Retry
+          </ion-button>
+        </div>
+      </ion-card-content>
+    </ion-card>
     
-    <div class="panel-section view-toggle">
-      <ion-segment [(ngModel)]="viewMode" (ionChange)="changeViewMode(viewMode)">
-        <ion-segment-button value="list">
-          <ion-icon name="list-outline"></ion-icon>
-          <ion-label>List View</ion-label>
-        </ion-segment-button>
-        <ion-segment-button value="calendar">
-          <ion-icon name="calendar-outline"></ion-icon>
-          <ion-label>Calendar View</ion-label>
-        </ion-segment-button>
-      </ion-segment>
-    </div>
+    <ion-card *ngIf="!isLoading && !loadError && venues.length === 0">
+      <ion-card-content>
+        <div class="no-venues-state">
+          <ion-icon name="business-outline" size="large" color="medium"></ion-icon>
+          <h3>No Venues Available</h3>
+          <p>No venues are currently available for booking.</p>
+          <ion-button color="primary" (click)="reloadVenues()">
+            <ion-icon name="refresh" slot="start"></ion-icon>
+            Reload Venues
+          </ion-button>
+        </div>
+      </ion-card-content>
+    </ion-card>
   </div>
-  
-  <!-- Venue List View -->
-  <div class="venue-list-view" *ngIf="viewMode === 'list'">
-    <div class="venue-card" *ngFor="let venue of getFilteredVenues()">
-      <div class="venue-image" *ngIf="venue.image">
-        <img [src]="venue.image" alt="{{ venue.name }}">
-        <div class="status-badge" [class.available]="isVenueAvailable(venue, selectedDate)" [class.unavailable]="!isVenueAvailable(venue, selectedDate)">
-          {{ isVenueAvailable(venue, selectedDate) ? 'Available' : 'Booked' }}
+
+  <!-- Main Content (only show if we have venues and no loading/error states) -->
+  <div *ngIf="!isLoading && !loadError && venues.length > 0" class="venue-content">
+    <!-- Control Panel -->
+    <div class="control-panel">
+      <div class="panel-section">
+        <h3>Venue Availability</h3>
+        
+        <div class="date-selector">
+          <ion-item>
+            <ion-label position="stacked">Date</ion-label>
+            <ion-datetime-button datetime="datePicker"></ion-datetime-button>
+            <ion-modal [keepContentsMounted]="true">
+              <ng-template>
+                <ion-datetime id="datePicker" 
+                              presentation="date" 
+                              [value]="selectedDate.toISOString()"
+                              (ionChange)="updateDate($event)">
+                </ion-datetime>
+              </ng-template>
+            </ion-modal>
+          </ion-item>
         </div>
       </div>
       
-      <div class="venue-details">
-        <h3>{{ venue.name }}</h3>
-        <div class="venue-info">
-          <p>
-            <ion-icon name="location-outline"></ion-icon>
-            {{ venue.building }}, Room {{ venue.room }}
-          </p>
-          <p>
-            <ion-icon name="people-outline"></ion-icon>
-            Capacity: {{ venue.capacity }}
-          </p>
-          <p>
-            <ion-icon name="business-outline"></ion-icon>
-            Type: {{ venue.type }}
-          </p>
-          <div class="equipment-list">
-            <ion-chip *ngFor="let item of venue.equipment" size="small">
-              <ion-icon name="hardware-chip-outline"></ion-icon>
-              <ion-label>{{ item }}</ion-label>
-            </ion-chip>
-          </div>
-        </div>
-      </div>
-      
-      <div class="venue-actions">
-        <ion-button color="primary" [disabled]="!isVenueAvailable(venue, selectedDate)" (click)="handleBooking(venue)">
-          <ion-icon name="calendar-outline" slot="start"></ion-icon>
-          Book Venue
+      <div class="panel-section filter-controls">
+        <ion-select interface="popover" placeholder="Venue Type" [(ngModel)]="filters.type">
+          <ion-select-option value="">All Types</ion-select-option>
+          <ion-select-option *ngFor="let type of venueTypes" [value]="type">{{ type }}</ion-select-option>
+        </ion-select>
+        
+        <ion-input type="number" placeholder="Min. Capacity" [(ngModel)]="filters.minCapacity"></ion-input>
+        
+        <ion-select interface="popover" placeholder="Equipment" [(ngModel)]="filters.equipment" multiple="true">
+          <ion-select-option *ngFor="let item of equipmentOptions" [value]="item">{{ item }}</ion-select-option>
+        </ion-select>
+        
+        <ion-button color="primary" (click)="applyFilters()">
+          <ion-icon name="filter" slot="start"></ion-icon>
+          Apply
         </ion-button>
       </div>
-    </div>
-  </div>
-  
-  <!-- Venue Calendar View -->
-  <div class="venue-calendar-view" *ngIf="viewMode === 'calendar'">
-    <div class="venue-calendar" *ngFor="let venue of getFilteredVenues()">
-      <div class="venue-header">
-        <h3>{{ venue.name }}</h3>
-        <span>{{ venue.building }}, Room {{ venue.room }} | Capacity: {{ venue.capacity }}</span>
+      
+      <div class="panel-section view-toggle">
+        <ion-segment [(ngModel)]="viewMode" (ionChange)="changeViewMode(viewMode)">
+          <ion-segment-button value="list">
+            <ion-icon name="list-outline"></ion-icon>
+            <ion-label>List View</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="calendar">
+            <ion-icon name="calendar-outline"></ion-icon>
+            <ion-label>Calendar View</ion-label>
+          </ion-segment-button>
+        </ion-segment>
       </div>
       
-      <div class="time-grid">
-        <!-- Time column -->
-        <div class="time-column">
-          <div class="time-label-header"></div>
-          <div class="time-label" *ngFor="let slot of timeSlots">
-            {{ slot.time }}
+      <!-- Results info -->
+      <div class="results-info">
+        <ion-chip color="secondary">
+          <ion-label>{{ getFilteredVenues().length }} venues found</ion-label>
+        </ion-chip>
+      </div>
+    </div>
+    
+    <!-- Venue List View -->
+    <div class="venue-list-view" *ngIf="viewMode === 'list'">
+      <div class="venue-card" *ngFor="let venue of getFilteredVenues(); trackBy: trackVenueById">
+        <div class="venue-image">
+          <img [src]="getVenueImage(venue)" 
+               [alt]="getVenueDisplayName(venue)"
+               (error)="onImageError($event, venue)">
+          <div class="status-badge" 
+               [class.available]="isVenueAvailable(venue, selectedDate)" 
+               [class.unavailable]="!isVenueAvailable(venue, selectedDate)">
+            {{ isVenueAvailable(venue, selectedDate) ? 'Available' : 'Booked' }}
           </div>
         </div>
         
-        <!-- Slots grid -->
-        <div class="slots-grid">
-          <div class="day-label">
-            {{ days[getDayFromDate(selectedDate)] }} ({{ selectedDate | date:'MMM d, y' }})
-          </div>
-          
-          <div class="time-slots">
-            <ng-container *ngFor="let slot of timeSlots; let slotIndex = index">
-              <div class="time-slot" 
-                  [class.available]="isVenueAvailable(venue, selectedDate, slot.id)" 
-                  [class.unavailable]="!isVenueAvailable(venue, selectedDate, slot.id)"
-                  (click)="isVenueAvailable(venue, selectedDate, slot.id) && handleBooking(venue, slot.id, slot.id + 1)">
-                
-                <!-- Check booking for this slot -->
-                <ng-container *ngIf="isSlotBooked(venue, getDayFromDate(selectedDate), slot.id) as booking">
-                  <div *ngIf="isSlotStart(venue, getDayFromDate(selectedDate), slot.id, booking)" 
-                      class="booked-session"
-                      [style.grid-row]="getBookingRowSpan(booking)"
-                      [style.background-color]="booking.color">
-                    <div class="session-content">
-                      <h4>{{ booking.title }}</h4>
-                      <p>{{ booking.module }} ({{ booking.moduleCode }})</p>
-                    </div>
-                  </div>
-                </ng-container>
-              </div>
-            </ng-container>
+        <div class="venue-details">
+          <h3>{{ getVenueDisplayName(venue) }}</h3>
+          <div class="venue-info">
+            <p>
+              <ion-icon name="location-outline"></ion-icon>
+              {{ getVenueLocation(venue) }}
+            </p>
+            <p>
+              <ion-icon name="people-outline"></ion-icon>
+              Capacity: {{ getVenueCapacity(venue) }}
+            </p>
+            <p>
+              <ion-icon name="business-outline"></ion-icon>
+              Type: {{ getVenueType(venue) }}
+            </p>
+            <div class="equipment-list" *ngIf="getVenueEquipment(venue).length > 0">
+              <ion-chip *ngFor="let item of getVenueEquipment(venue)" size="small">
+                <ion-icon name="hardware-chip-outline"></ion-icon>
+                <ion-label>{{ item }}</ion-label>
+              </ion-chip>
+            </div>
+            <div *ngIf="getVenueEquipment(venue).length === 0" class="no-equipment">
+              <p><em>No equipment listed</em></p>
+            </div>
           </div>
         </div>
+        
+        <div class="venue-actions">
+          <ion-button color="primary" 
+                      [disabled]="!isVenueAvailable(venue, selectedDate)" 
+                      (click)="handleBooking(venue)">
+            <ion-icon name="calendar-outline" slot="start"></ion-icon>
+            {{ isVenueAvailable(venue, selectedDate) ? 'Book Venue' : 'View Bookings' }}
+          </ion-button>
+        </div>
+      </div>
+      
+      <!-- No filtered venues message -->
+      <div *ngIf="getFilteredVenues().length === 0" class="no-filtered-venues">
+        <ion-card>
+          <ion-card-content class="text-center">
+            <ion-icon name="filter-outline" size="large" color="medium"></ion-icon>
+            <h3>No venues match your filters</h3>
+            <p>Try adjusting your search criteria.</p>
+            <ion-button fill="clear" (click)="filters = {type: '', minCapacity: 0, equipment: []}; applyFilters()">
+              <ion-icon name="refresh" slot="start"></ion-icon>
+              Clear Filters
+            </ion-button>
+          </ion-card-content>
+        </ion-card>
+      </div>
+    </div>
+    
+    <!-- Venue Calendar View -->
+    <div class="venue-calendar-view" *ngIf="viewMode === 'calendar'">
+      <div class="venue-calendar" *ngFor="let venue of getFilteredVenues(); trackBy: trackVenueById">
+        <div class="venue-header">
+          <h3>{{ getVenueDisplayName(venue) }}</h3>
+          <span>{{ getVenueLocation(venue) }} | Capacity: {{ getVenueCapacity(venue) }}</span>
+        </div>
+        
+        <div class="time-grid">
+          <!-- Time column -->
+          <div class="time-column">
+            <div class="time-label-header"></div>
+            <div class="time-label" *ngFor="let slot of timeSlots">
+              {{ slot.time }}
+            </div>
+          </div>
+          
+          <!-- Slots grid -->
+          <div class="slots-grid">
+            <div class="day-label">
+              {{ days[getDayFromDate(selectedDate)] }} ({{ selectedDate | date:'MMM d, y' }})
+            </div>
+            
+            <div class="time-slots">
+              <ng-container *ngFor="let slot of timeSlots; let slotIndex = index">
+                <div class="time-slot" 
+                    [class.available]="isVenueAvailable(venue, selectedDate, slot.id)" 
+                    [class.unavailable]="!isVenueAvailable(venue, selectedDate, slot.id)"
+                    (click)="isVenueAvailable(venue, selectedDate, slot.id) && handleBooking(venue, slot.id, slot.id + 1)">
+                  
+                  <!-- Check booking for this slot -->
+                  <ng-container *ngIf="isSlotBooked(venue, getDayFromDate(selectedDate), slot.id) as booking">
+                    <div *ngIf="isSlotStart(venue, getDayFromDate(selectedDate), slot.id, booking)" 
+                        class="booked-session"
+                        [style.grid-row]="getBookingRowSpan(booking)"
+                        [style.background-color]="booking.color || '#4c8dff'">
+                      <div class="session-content">
+                        <h4>{{ booking.title || 'Booked Session' }}</h4>
+                        <p>{{ booking.module || '' }} {{ booking.moduleCode ? '(' + booking.moduleCode + ')' : '' }}</p>
+                      </div>
+                    </div>
+                  </ng-container>
+                </div>
+              </ng-container>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- No venues message for calendar view -->
+      <div *ngIf="getFilteredVenues().length === 0" class="no-filtered-venues">
+        <ion-card>
+          <ion-card-content class="text-center">
+            <ion-icon name="calendar-outline" size="large" color="medium"></ion-icon>
+            <h3>No venues to display</h3>
+            <p>Try adjusting your filters to see venue availability.</p>
+            <ion-button fill="clear" (click)="filters = {type: '', minCapacity: 0, equipment: []}; applyFilters()">
+              <ion-icon name="refresh" slot="start"></ion-icon>
+              Clear Filters
+            </ion-button>
+          </ion-card-content>
+        </ion-card>
       </div>
     </div>
   </div>

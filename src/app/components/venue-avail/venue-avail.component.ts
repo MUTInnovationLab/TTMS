@@ -1,7 +1,9 @@
-import { Component, OnInit, Input, Output, EventEmitter } from '@angular/core';
+import { Component, OnInit, Input, Output, EventEmitter, OnChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
+import { SessionService } from '../../services/Timetable Core Services/session.service';
+import { VenueService, VenueDisplayInfo } from '../../services/Entity Management Services/venue.service';
 
 interface VenueFilters {
   type: string;
@@ -10,20 +12,30 @@ interface VenueFilters {
 }
 
 export interface Venue {
-  id: number;
+  id: string;
   name: string;
-  building?: string;
-  room?: string;
+  building?: string; // Optional for database venues
+  room?: string; // Optional for database venues
   type: string;
   capacity: number;
   equipment: string[];
-  image?: string;
-  bookings?: Booking[];
+  description?: string; // Optional for database venues
+  floor?: number; // Optional for database venues
+  availability?: boolean; // Optional for database venues, true by default
+  image?: string; // Optional for database venues
+  department?: string; // From database
+  site?: string; // From database
+  schedulable?: boolean; // From database
+  autoSchedulable?: boolean; // From database
+  accessibility?: { // From database
+    wheelchairAccess: boolean;
+    deafLoop: boolean;
+  };
 }
 
 export interface Booking {
   id: number;
-  venueId: number;
+  venueId: string;
   date: string;
   startSlot: number;
   endSlot: number;
@@ -40,11 +52,13 @@ export interface Booking {
   standalone: true,
   imports: [CommonModule, FormsModule, IonicModule]
 })
-export class VenueAvailComponent implements OnInit {
+export class VenueAvailComponent implements OnInit, OnChanges {
   // Input property to allow parent component to pass venues
   @Input() venues: Venue[] = [];
+  @Input() session: any = null;
   // Output event when a booking request is made
-  @Output() bookVenue = new EventEmitter<{venue: Venue, date: Date, startSlot?: number, endSlot?: number}>();
+  @Output() venueBooked = new EventEmitter<{venue: Venue, date: Date, startSlot?: number, endSlot?: number}>();
+  @Output() modalClosed = new EventEmitter<void>();
 
   // View properties
   viewMode: 'list' | 'calendar' = 'list';
@@ -83,36 +97,196 @@ export class VenueAvailComponent implements OnInit {
   // Temporary storage for session display
   currentBooking: Booking | null = null;
 
-  constructor() { }
+  // Add loading state
+  isLoading = false;
+  loadError: string | null = null;
+  hasTriedLoading = false;
+
+  constructor(
+    private sessionService: SessionService,
+    private venueService: VenueService
+  ) { }
 
   ngOnInit() {
-    // Initialize with mock data if none provided
-    if (this.venues.length === 0) {
-      this.initializeMockData();
+    console.log('VenueAvailComponent initialized');
+    console.log('Initial venues provided:', this.venues?.length || 0);
+    
+    // Always try to load venues if none provided or if array is empty
+    if (!this.venues || this.venues.length === 0) {
+      console.log('No venues provided via input, loading from VenueService');
+      this.loadVenuesFromService();
+    } else {
+      console.log('Using provided venues:', this.venues.length);
+      this.venues = this.venues.map(venue => this.normalizeVenueData(venue));
+      console.log('Normalized venues:', this.venues.length);
     }
     
     // Initialize mock bookings
     this.initializeMockBookings();
   }
 
+  // Load venues from the VenueService
+  private loadVenuesFromService() {
+    if (this.hasTriedLoading && this.isLoading) {
+      console.log('Already loading venues, skipping...');
+      return;
+    }
+
+    this.isLoading = true;
+    this.loadError = null;
+    this.hasTriedLoading = true;
+    
+    console.log('Loading venues from VenueService...');
+    
+    this.venueService.getAllVenues().subscribe({
+      next: (venueDisplayInfos: VenueDisplayInfo[]) => {
+        console.log('Venues loaded from service:', venueDisplayInfos.length);
+        
+        if (venueDisplayInfos.length === 0) {
+          this.loadError = 'No venues found in the database';
+          console.warn('No venues found');
+        } else {
+          // Convert VenueDisplayInfo to Venue format
+          this.venues = venueDisplayInfos.map(venueInfo => this.convertDisplayInfoToVenue(venueInfo));
+          console.log('Converted venues for component:', this.venues.length);
+          console.log('Sample converted venue:', this.venues[0]);
+        }
+        
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading venues from service:', error);
+        this.loadError = `Failed to load venues: ${error.message}`;
+        this.isLoading = false;
+      }
+    });
+  }
+
+  // Convert VenueDisplayInfo to Venue format for component compatibility
+  private convertDisplayInfoToVenue(venueInfo: VenueDisplayInfo): Venue {
+    return {
+      id: venueInfo.id,
+      name: venueInfo.name,
+      type: venueInfo.type,
+      capacity: venueInfo.capacity,
+      equipment: venueInfo.equipment,
+      department: venueInfo.department,
+      site: venueInfo.site,
+      schedulable: venueInfo.schedulable,
+      autoSchedulable: venueInfo.autoSchedulable,
+      accessibility: venueInfo.accessibility,
+      // Add the optional properties expected by the component
+      building: venueInfo.site,
+      room: this.extractRoomFromName(venueInfo.name),
+      image: 'assets/default-venue.jpg',
+      description: `${venueInfo.type} located at ${venueInfo.site} with capacity of ${venueInfo.capacity}`,
+      floor: this.extractFloorFromId(venueInfo.id),
+      availability: true
+    };
+  }
+
+  // Extract room identifier from venue name or ID
+  private extractRoomFromName(name: string): string {
+    // Try to extract room identifier from name like "LECTURE THEATRE - NW1"
+    const match = name.match(/- (\w+\d+)$/);
+    if (match) {
+      return match[1];
+    }
+    
+    // Fallback to the name itself
+    return name;
+  }
+
+  // Extract floor from venue ID pattern (e.g., "1000_0_NW1" -> floor 0)
+  private extractFloorFromId(id: string): number {
+    const parts = id.split('_');
+    if (parts.length >= 2) {
+      const floorStr = parts[1];
+      const floor = parseInt(floorStr);
+      return isNaN(floor) ? 0 : floor;
+    }
+    return 0;
+  }
+
+  // Add method to handle when venues are updated from parent
+  ngOnChanges(changes: any) {
+    if (changes.venues && changes.venues.currentValue) {
+      console.log('Venues updated in component via ngOnChanges:', changes.venues.currentValue.length);
+      if (changes.venues.currentValue.length > 0) {
+        this.venues = changes.venues.currentValue.map((venue: any) => this.normalizeVenueData(venue));
+        console.log('Updated venues after normalization:', this.venues.length);
+        // Reset loading states since we have data
+        this.isLoading = false;
+        this.loadError = null;
+      }
+    }
+  }
+
+  // Reload venues manually
+  reloadVenues() {
+    console.log('Manually reloading venues...');
+    this.loadVenuesFromService();
+  }
+
+  // Normalize venue data to ensure all required properties exist
+  private normalizeVenueData(venue: any): Venue {
+    return {
+      id: venue.id || 'unknown',
+      name: venue.name || 'Unknown Venue',
+      type: venue.type || 'Unknown',
+      capacity: venue.capacity || 0,
+      equipment: venue.equipment || [],
+      department: venue.department || '',
+      site: venue.site || venue.building || 'Unknown Site',
+      schedulable: venue.schedulable !== false,
+      autoSchedulable: venue.autoSchedulable !== false,
+      accessibility: venue.accessibility || { wheelchairAccess: false, deafLoop: false },
+      building: venue.building || venue.site || 'Unknown Building',
+      room: venue.room || venue.name || 'Unknown Room',
+      image: venue.image || 'assets/default-venue.jpg',
+      description: venue.description || `${venue.type || 'Venue'} with capacity of ${venue.capacity || 0}`
+    };
+  }
+
   // Handle date selection change
   updateDate(event: any) {
     this.selectedDate = new Date(event.detail.value);
+    console.log('Date updated to:', this.selectedDate);
   }
   
   // Change view mode between list and calendar
   changeViewMode(mode: 'list' | 'calendar') {
     this.viewMode = mode;
+    console.log('View mode changed to:', mode);
   }
   
   // Apply filters to the venue list
   applyFilters() {
     console.log('Filters applied:', this.filters);
+    // Force re-render by triggering change detection
+    this.venues = [...this.venues];
   }
   
   // Get filtered venues based on current filter settings
   getFilteredVenues(): Venue[] {
-    return this.venues.filter(venue => {
+    if (this.isLoading) {
+      console.log('Still loading venues...');
+      return [];
+    }
+    
+    if (!this.venues || this.venues.length === 0) {
+      console.warn('No venues available for filtering. Venues array:', this.venues);
+      return [];
+    }
+    
+    console.log('Filtering from', this.venues.length, 'venues');
+    
+    let filtered = this.venues.filter(venue => {
+      // Only show schedulable venues
+      if (!venue.schedulable && !venue.autoSchedulable) {
+        return false;
+      }
+      
       // Type filter
       if (this.filters.type && venue.type !== this.filters.type) {
         return false;
@@ -126,7 +300,7 @@ export class VenueAvailComponent implements OnInit {
       // Equipment filter
       if (this.filters.equipment && this.filters.equipment.length > 0) {
         const hasAllEquipment = this.filters.equipment.every(item => 
-          venue.equipment.includes(item)
+          venue.equipment && venue.equipment.includes(item)
         );
         if (!hasAllEquipment) {
           return false;
@@ -135,31 +309,44 @@ export class VenueAvailComponent implements OnInit {
       
       return true;
     });
+    
+    console.log('Filtered venues count:', filtered.length);
+    return filtered;
   }
   
   // Check if venue is available on a specific date and time slot
   isVenueAvailable(venue: Venue, date: Date, timeSlot?: number): boolean {
-    if (!timeSlot) {
+    if (!venue || !date) {
+      return false;
+    }
+    
+    if (timeSlot === undefined) {
       // For the list view (full day check)
       const dateString = this.formatDateString(date);
-      return !this.bookings.some(booking => 
+      const hasBookings = this.bookings.some(booking => 
         booking.venueId === venue.id && 
         booking.date === dateString
       );
+      return !hasBookings;
     } else {
       // For the calendar view (specific time slot check)
       const dateString = this.formatDateString(date);
-      return !this.bookings.some(booking => 
+      const isBooked = this.bookings.some(booking => 
         booking.venueId === venue.id && 
         booking.date === dateString &&
         booking.startSlot <= timeSlot &&
         booking.endSlot > timeSlot
       );
+      return !isBooked;
     }
   }
   
   // Check if a specific time slot is booked
   isSlotBooked(venue: Venue, day: number, slot: number): Booking | null {
+    if (!venue) {
+      return null;
+    }
+    
     const dateString = this.formatDateString(this.selectedDate);
     const booking = this.bookings.find(b => 
       b.venueId === venue.id && 
@@ -169,7 +356,6 @@ export class VenueAvailComponent implements OnInit {
     );
     
     if (booking) {
-      // Store the booking for template access
       this.currentBooking = booking;
       return booking;
     }
@@ -190,60 +376,81 @@ export class VenueAvailComponent implements OnInit {
   
   // Format date to string for comparisons
   private formatDateString(date: Date): string {
-    return date.toISOString().split('T')[0];
+    try {
+      return date.toISOString().split('T')[0];
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return new Date().toISOString().split('T')[0];
+    }
   }
   
   // Handle booking request
   handleBooking(venue: Venue, startSlot?: number, endSlot?: number) {
-    this.bookVenue.emit({
+    console.log('Handling booking for venue:', venue, 'slots:', startSlot, endSlot);
+    this.bookVenue(venue, startSlot, endSlot);
+  }
+
+  bookVenue(venue: Venue, startSlot?: number, endSlot?: number) {
+    console.log('Booking venue:', venue, 'from slot', startSlot, 'to slot', endSlot);
+    
+    // Emit the venue booking event with the correct structure
+    this.venueBooked.emit({
       venue: venue,
       date: this.selectedDate,
       startSlot: startSlot,
-      endSlot: endSlot ? endSlot : (startSlot ? startSlot + 1 : undefined)
+      endSlot: endSlot
     });
   }
   
   // Calculate the grid row span for a booking
   getBookingRowSpan(booking: Booking): string {
+    if (!booking || booking.endSlot === undefined || booking.startSlot === undefined) {
+      return 'span 1';
+    }
     return `span ${booking.endSlot - booking.startSlot}`;
   }
   
-  // Initialize mock venues if none provided
-  private initializeMockData() {
-    this.venues = [
-      {
-        id: 1,
-        name: 'Room A101',
-        building: 'Main Building',
-        room: 'A101',
-        type: 'Classroom',
-        capacity: 40,
-        equipment: ['Projector', 'Whiteboard'],
-        image: 'assets/venue1.jpg'
-      },
-      {
-        id: 2,
-        name: 'Lab L201',
-        building: 'Science Block',
-        room: 'L201',
-        type: 'Laboratory',
-        capacity: 30,
-        equipment: ['Computer Workstations', 'Projector', 'Whiteboard'],
-        image: 'assets/venue2.jpg'
-      },
-      {
-        id: 3,
-        name: 'Hall H301',
-        building: 'Conference Center',
-        room: 'H301',
-        type: 'Lecture Hall',
-        capacity: 120,
-        equipment: ['Audio System', 'Projector', 'Smart Board'],
-        image: 'assets/venue3.jpg'
-      }
-    ];
+  // Get venue display name
+  getVenueDisplayName(venue: Venue): string {
+    if (!venue) return 'Unknown Venue';
+    return venue.name || `${venue.building} - ${venue.room}` || 'Unknown Venue';
   }
   
+  // Get venue location string
+  getVenueLocation(venue: Venue): string {
+    if (!venue) return 'Unknown Location';
+    
+    const building = venue.building || 'Unknown Building';
+    const room = venue.room || venue.name || 'Unknown Room';
+    
+    return `${building}, Room ${room}`;
+  }
+  
+  // Get venue capacity display
+  getVenueCapacity(venue: Venue): number {
+    return venue?.capacity || 0;
+  }
+  
+  // Get venue type display
+  getVenueType(venue: Venue): string {
+    return venue?.type || 'Unknown Type';
+  }
+  
+  // Get venue equipment list
+  getVenueEquipment(venue: Venue): string[] {
+    return venue?.equipment || [];
+  }
+  
+  // Get venue image
+  getVenueImage(venue: Venue): string {
+    return venue?.image || 'assets/default-venue.jpg';
+  }
+  
+  // Initialize mock venues if none provided
+  // private initializeMockData() {
+  //   console.log('Mock data initialization disabled - venues should come from database');
+  // }
+
   // Initialize mock bookings
   private initializeMockBookings() {
     const today = new Date();
@@ -252,7 +459,7 @@ export class VenueAvailComponent implements OnInit {
     this.bookings = [
       {
         id: 1,
-        venueId: 1,
+        venueId: '1',
         date: formattedDate,
         startSlot: 2, // 10:00
         endSlot: 4,   // 12:00
@@ -263,7 +470,7 @@ export class VenueAvailComponent implements OnInit {
       },
       {
         id: 2,
-        venueId: 2,
+        venueId: '2',
         date: formattedDate,
         startSlot: 6, // 14:00
         endSlot: 8,   // 16:00
@@ -271,7 +478,48 @@ export class VenueAvailComponent implements OnInit {
         module: 'Database Systems',
         moduleCode: 'CSC2291',
         color: '#ffc409'
+      },
+      {
+        id: 3,
+        venueId: '3',
+        date: formattedDate,
+        startSlot: 1, // 09:00
+        endSlot: 3,   // 11:00
+        title: 'Advanced Programming',
+        module: 'Advanced Programming',
+        moduleCode: 'CSC3001',
+        color: '#2dd36f'
       }
     ];
+    
+    console.log('Mock bookings initialized:', this.bookings);
+  }
+
+  // Add trackBy function for better performance
+  trackVenueById(index: number, venue: Venue): string | number {
+    return venue?.id || index;
+  }
+
+  // Add method to handle image loading errors with proper typing
+  onImageError(event: Event, venue: Venue) {
+    console.warn('Failed to load image for venue:', venue.name);
+    const target = event.target as HTMLImageElement;
+    if (target) {
+      target.src = 'assets/default-venue.jpg';
+      target.classList.add('error');
+    }
+  }
+
+  // Add debugging method
+  debugVenue(venue: Venue) {
+    console.log('Venue debug info:', {
+      venue,
+      name: this.getVenueDisplayName(venue),
+      location: this.getVenueLocation(venue),
+      capacity: this.getVenueCapacity(venue),
+      type: this.getVenueType(venue),
+      equipment: this.getVenueEquipment(venue),
+      available: this.isVenueAvailable(venue, this.selectedDate)
+    });
   }
 }

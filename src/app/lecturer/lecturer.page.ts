@@ -145,23 +145,17 @@ export class LecturerPage implements OnInit, OnDestroy {
   }
   
   // Handle venue booking requests from venue-avail component
-  onVenueBookingRequest(bookingData: {venue: Venue, date: Date, startSlot?: number, endSlot?: number}) {
-    console.log('Booking request received:', bookingData);
+  onVenueBookingRequest(event: { venue: Venue; date: Date; startSlot?: number; endSlot?: number }) {
+    console.log('Venue booking request received:', event);
     
-    // Populate the booking form with the selected venue and date
-    this.bookingForm.venueId = bookingData.venue.id;
-    this.bookingForm.date = bookingData.date.toISOString();
+    // Handle the venue booking request
+    // You can add your logic here to process the booking
     
-    // If time slots were selected, use them
-    if (bookingData.startSlot !== undefined) {
-      this.bookingForm.startSlot = bookingData.startSlot;
+    // Example: Show confirmation message
+    console.log(`Booking requested for ${event.venue.name} on ${event.date.toDateString()}`);
+    if (event.startSlot !== undefined && event.endSlot !== undefined) {
+      console.log(`Time slots: ${event.startSlot} to ${event.endSlot}`);
     }
-    if (bookingData.endSlot !== undefined) {
-      this.bookingForm.endSlot = bookingData.endSlot;
-    }
-    
-    // Switch to the request form view
-    this.venueView = 'request';
   }
   
   // Submit the booking request
@@ -222,59 +216,54 @@ export class LecturerPage implements OnInit, OnDestroy {
   private initializeVenueData() {
     this.availableVenues = [
       {
-        id: 1,
+        id: '1',
         name: 'Room A101',
         building: 'Main Building',
         room: 'A101',
         type: 'Classroom',
         capacity: 40,
         equipment: ['Projector', 'Whiteboard'],
-        image: 'assets/venue1.jpg',
-        bookings: []
+        image: 'assets/venue1.jpg'
       },
       {
-        id: 2,
+        id: '2',
         name: 'Lab L201',
         building: 'Science Block',
         room: 'L201',
         type: 'Laboratory',
         capacity: 30,
         equipment: ['Computer Workstations', 'Projector', 'Whiteboard'],
-        image: 'assets/venue2.jpg',
-        bookings: []
+        image: 'assets/venue2.jpg'
       },
       {
-        id: 3,
+        id: '3',
         name: 'Hall H301',
         building: 'Conference Center',
         room: 'H301',
         type: 'Lecture Hall',
         capacity: 120,
         equipment: ['Audio System', 'Projector', 'Smart Board'],
-        image: 'assets/venue3.jpg',
-        bookings: []
+        image: 'assets/venue3.jpg'
       },
       {
-        id: 4,
+        id: '4',
         name: 'Seminar Room S102',
         building: 'Business School',
         room: 'S102',
         type: 'Seminar Room',
         capacity: 50,
         equipment: ['Smart Board', 'Video Conferencing'],
-        image: 'assets/venue4.jpg',
-        bookings: []
+        image: 'assets/venue4.jpg'
       },
       {
-        id: 5,
+        id: '5',
         name: 'Conference Room CR1',
         building: 'Administration',
         room: 'CR1',
         type: 'Conference Room',
         capacity: 25,
         equipment: ['Video Conferencing', 'Audio System', 'Whiteboard'],
-        image: 'assets/venue5.jpg',
-        bookings: []
+        image: 'assets/venue5.jpg'
       }
     ];
   }

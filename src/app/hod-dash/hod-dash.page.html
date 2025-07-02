@@ -5,20 +5,20 @@
         <img src="assets/logo.png" alt="TTMS Logo" class="logo" style="height: 50px; width: auto;">
         <ion-title>HOD Dashboard</ion-title>
       </div>
-      
+
       <div class="header-actions">
         <ion-button fill="clear" class="notification-btn" (click)="showNotifications()">
           <ion-badge *ngIf="notificationCount > 0" color="danger">{{notificationCount}}</ion-badge>
           <ion-icon name="notifications-outline" slot="icon-only"></ion-icon>
         </ion-button>
-        
+
         <ion-button fill="clear" class="profile-btn" (click)="toggleProfileMenu()">
           <ion-avatar slot="start">
             <img src="assets/avatar.png" alt="User Avatar">
           </ion-avatar>
           <ion-icon name="chevron-down-outline"></ion-icon>
         </ion-button>
-        
+
         <div class="profile-dropdown" *ngIf="showProfileMenu">
           <ion-list lines="none">
             <ion-item button (click)="navigateToSettings()">
@@ -45,85 +45,85 @@
           <ion-icon name="grid-outline" slot="start"></ion-icon>
           <ion-label>Dashboard</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'timetable'" (click)="changeSection('timetable')">
           <ion-icon name="calendar-outline" slot="start"></ion-icon>
           <ion-label>Department Timetable</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'lecturers'" (click)="changeSection('lecturers')">
           <ion-icon name="people-outline" slot="start"></ion-icon>
           <ion-label>Lecturers Management</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'groups'" (click)="changeSection('groups')">
           <ion-icon name="people-circle-outline" slot="start"></ion-icon>
           <ion-label>Groups Management</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'modules'" (click)="changeSection('modules')">
           <ion-icon name="book-outline" slot="start"></ion-icon>
           <ion-label>Modules Management</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'submissions'" (click)="changeSection('submissions')">
           <ion-icon name="time-outline" slot="start"></ion-icon>
           <ion-label>Submission History</ion-label>
         </ion-item>
-        
+
         <ion-item button [class.active]="activeSection === 'reports'" (click)="changeSection('reports')">
           <ion-icon name="bar-chart-outline" slot="start"></ion-icon>
           <ion-label>Reports</ion-label>
         </ion-item>
 
-            <ion-item button (click)="logout()">
-  <ion-icon name="log-out-outline" slot="start"></ion-icon>
-  <ion-label>Logout</ion-label>
-</ion-item>
+        <ion-item button (click)="logout()">
+          <ion-icon name="log-out-outline" slot="start"></ion-icon>
+          <ion-label>Logout</ion-label>
+        </ion-item>
       </ion-list>
     </div>
-    
+
     <ion-button class="sidebar-toggle" [class.sidebar-visible]="sidebarVisible" (click)="toggleSidebar()">
       <ion-icon [name]="sidebarVisible ? 'chevron-back' : 'menu'"></ion-icon>
     </ion-button>
-    
+
     <!-- Main Content Area -->
     <div class="main-content" [class.sidebar-visible]="sidebarVisible">
       <!-- Dashboard Content -->
       <div *ngIf="activeSection === 'dashboard'" class="section-container">
         <h1>Department Dashboard</h1>
-        
+
         <div class="department-info">
           <h2>{{departmentInfo.name}}</h2>
           <p>Head of Department: {{departmentInfo.hodName}}</p>
         </div>
-        
+
         <div class="stats-grid">
           <div class="stat-card">
             <ion-icon name="people"></ion-icon>
             <h2>{{departmentStats.lecturers}}</h2>
             <p>Lecturers</p>
           </div>
-          
+
           <div class="stat-card">
             <ion-icon name="people-circle"></ion-icon>
             <h2>{{departmentStats.groups}}</h2>
             <p>Student Groups</p>
           </div>
-          
+
           <div class="stat-card">
             <ion-icon name="book"></ion-icon>
             <h2>{{departmentStats.modules}}</h2>
             <p>Modules</p>
           </div>
-          
+
           <div class="stat-card">
             <ion-icon name="calendar"></ion-icon>
             <h2>{{departmentStats.sessions}}</h2>
             <p>Scheduled Sessions</p>
           </div>
         </div>
-        
+
         <div class="dashboard-rows">
           <div class="submission-status">
             <h3>Timetable Submission Status</h3>
@@ -139,7 +139,7 @@
               </ion-button>
             </div>
           </div>
-          
+
           <div class="conflicts-notifications">
             <h3>Conflict Notifications</h3>
             <div *ngIf="conflicts.length === 0" class="no-conflicts">
@@ -160,7 +160,7 @@
             </ion-list>
           </div>
         </div>
-        
+
         <div class="recent-sessions">
           <h3>Recently Scheduled Sessions</h3>
           <ion-list class="sessions-list">
@@ -175,68 +175,66 @@
           </ion-list>
         </div>
       </div>
-      
+
       <!-- Department Timetable Section -->
       <div *ngIf="activeSection === 'timetable'" class="section-container">
         <h1>Department Timetable</h1>
-        
+
         <div class="timetable-controls">
           <div class="filters-group">
             <ion-select placeholder="Lecturer" [(ngModel)]="timetableFilters.lecturer">
               <ion-select-option [value]="null">All Lecturers</ion-select-option>
-              <ion-select-option *ngFor="let lecturer of lecturers" [value]="lecturer.id">{{lecturer.name}}</ion-select-option>
+              <ion-select-option *ngFor="let lecturer of lecturers"
+                [value]="lecturer.id">{{lecturer.name}}</ion-select-option>
             </ion-select>
-            
+
             <ion-select placeholder="Group" [(ngModel)]="timetableFilters.group">
               <ion-select-option [value]="null">All Groups</ion-select-option>
               <ion-select-option *ngFor="let group of groups" [value]="group.id">{{group.name}}</ion-select-option>
             </ion-select>
-            
+
             <ion-select placeholder="Module" [(ngModel)]="timetableFilters.module">
               <ion-select-option [value]="null">All Modules</ion-select-option>
               <ion-select-option *ngFor="let module of modules" [value]="module.id">{{module.name}}</ion-select-option>
             </ion-select>
           </div>
-          
+
           <div class="action-buttons">
             <ion-button color="primary" (click)="addSession()">
               <ion-icon name="add-circle" slot="start"></ion-icon>
               Add Session
             </ion-button>
-            
-            <ion-button color="warning" [disabled]="departmentConflicts.length === 0" (click)="toggleConflictResolver()">
+
+            <ion-button color="warning" [disabled]="departmentConflicts.length === 0"
+              (click)="toggleConflictResolver()">
               <ion-icon name="warning" slot="start"></ion-icon>
               Resolve Conflicts ({{ departmentConflicts.length }})
             </ion-button>
-            
-            <ion-button color="success" [disabled]="!canSubmitTimetable || departmentConflicts.length > 0" (click)="submitTimetable()">
+
+            <ion-button color="success" [disabled]="!canSubmitTimetable || departmentConflicts.length > 0"
+              (click)="submitTimetable()">
               <ion-icon name="cloud-upload" slot="start"></ion-icon>
               Submit Timetable
             </ion-button>
           </div>
         </div>
-        
+
         <!-- Conflict Resolution Component -->
         <div *ngIf="showConflictResolver" class="conflict-resolver-container">
-          <app-conflict-res 
-            [conflicts]="departmentConflicts" 
-            (resolveConflict)="handleConflictResolution($event)">
+          <app-conflict-res [conflicts]="departmentConflicts" (resolveConflict)="handleConflictResolution($event)">
           </app-conflict-res>
         </div>
-        
+
         <!-- Timetable Grid (hidden when conflict resolver is shown) -->
-        <app-timetable-grid 
-          *ngIf="!showConflictResolver"
-          [sessions]="formattedTimetableSessions" 
-          (sessionClick)="handleSessionClick($event)"
-          (sessionDrop)="handleSessionDrop($event)">
+        <app-timetable-grid *ngIf="!showConflictResolver" [sessions]="formattedTimetableSessions"
+          (sessionClick)="handleSessionClick($event)" (sessionDrop)="handleSessionDrop($event)">
         </app-timetable-grid>
       </div>
-      
+
       <!-- Lecturers Management Section -->
       <div *ngIf="activeSection === 'lecturers'" class="section-container">
         <h1>Lecturers Management</h1>
-        
+
         <div class="filter-controls">
           <ion-searchbar placeholder="Search lecturers" [(ngModel)]="lecturerSearch"></ion-searchbar>
           <ion-button (click)="showAddLecturerModal()">
@@ -244,7 +242,7 @@
             Add Lecturer
           </ion-button>
         </div>
-        
+
         <ion-segment [(ngModel)]="lecturerView" (ionChange)="lecturerViewChanged()">
           <ion-segment-button value="list">
             <ion-label>Lecturers List</ion-label>
@@ -256,7 +254,7 @@
             <ion-label>Module Assignments</ion-label>
           </ion-segment-button>
         </ion-segment>
-        
+
         <!-- Lecturers List View -->
         <div *ngIf="lecturerView === 'list'" class="lecturers-list-container">
           <ion-list class="lecturers-list">
@@ -272,14 +270,14 @@
             </ion-item>
           </ion-list>
         </div>
-        
+
         <!-- Workload View -->
         <div *ngIf="lecturerView === 'workload'" class="workload-container">
           <div class="workload-chart">
             <h3>Lecturer Workload Distribution</h3>
             <div class="chart-placeholder">Workload chart will be displayed here</div>
           </div>
-          
+
           <ion-list class="workload-list">
             <ion-item *ngFor="let lecturer of lecturers">
               <ion-label>
@@ -293,7 +291,7 @@
             </ion-item>
           </ion-list>
         </div>
-        
+
         <!-- Module Assignments View -->
         <div *ngIf="lecturerView === 'modules'" class="module-assignments-container">
           <ion-list>
@@ -301,22 +299,24 @@
               <ion-item-divider>
                 <ion-label>{{module.name}} ({{module.code}})</ion-label>
               </ion-item-divider>
-              
+
               <ion-item>
                 <ion-label>Assigned Lecturers</ion-label>
-                <ion-select multiple="true" [(ngModel)]="module.lecturerIds" (ionChange)="updateModuleLecturers(module)">
-                  <ion-select-option *ngFor="let lecturer of lecturers" [value]="lecturer.id">{{lecturer.name}}</ion-select-option>
+                <ion-select multiple="true" [(ngModel)]="module.lecturerIds"
+                  (ionChange)="updateModuleLecturers(module)">
+                  <ion-select-option *ngFor="let lecturer of lecturers"
+                    [value]="lecturer.id">{{lecturer.name}}</ion-select-option>
                 </ion-select>
               </ion-item>
             </ion-item-group>
           </ion-list>
         </div>
       </div>
-      
+
       <!-- Groups Management Section -->
       <div *ngIf="activeSection === 'groups'" class="section-container">
         <h1>Groups Management</h1>
-        
+
         <div class="filter-controls">
           <ion-searchbar placeholder="Search groups" [(ngModel)]="groupSearch"></ion-searchbar>
           <ion-button (click)="addGroup()">
@@ -324,7 +324,7 @@
             Add Group
           </ion-button>
         </div>
-        
+
         <ion-segment [(ngModel)]="groupView" (ionChange)="groupViewChanged()">
           <ion-segment-button value="list">
             <ion-label>Groups List</ion-label>
@@ -333,7 +333,7 @@
             <ion-label>Group Timetables</ion-label>
           </ion-segment-button>
         </ion-segment>
-        
+
         <!-- Groups List View -->
         <div *ngIf="groupView === 'list'" class="groups-list-container">
           <ion-list class="groups-list">
@@ -347,30 +347,33 @@
             </ion-item>
           </ion-list>
         </div>
-        
+
         <!-- Group Timetables View -->
         <div *ngIf="groupView === 'timetable'" class="group-timetable-container">
-          <ion-select placeholder="Select Group" [(ngModel)]="selectedGroupForTimetable" (ionChange)="loadGroupTimetable()">
+          <ion-select placeholder="Select Group" [(ngModel)]="selectedGroupForTimetable"
+            (ionChange)="loadGroupTimetable()">
             <ion-select-option *ngFor="let group of groups" [value]="group.id">{{group.name}}</ion-select-option>
           </ion-select>
-          
+
           <div *ngIf="selectedGroupForTimetable" class="group-timetable">
             <h3>Timetable for {{getGroupById(selectedGroupForTimetable)?.name}}</h3>
-            
+
             <div class="mini-timetable-grid">
               <div class="timetable-header">
                 <div class="time-header"></div>
                 <div class="day-header" *ngFor="let day of weekDays">{{day}}</div>
               </div>
-              
+
               <div class="timetable-body">
                 <div class="timetable-row" *ngFor="let timeSlot of timeSlots">
                   <div class="time-slot">{{timeSlot}}</div>
-                  <div class="day-slot" *ngFor="let day of weekDays" 
-                      [ngClass]="{'has-session': hasGroupSession(selectedGroupForTimetable, day, timeSlot)}">
+                  <div class="day-slot" *ngFor="let day of weekDays"
+                    [ngClass]="{'has-session': hasGroupSession(selectedGroupForTimetable, day, timeSlot)}">
                     <div *ngIf="hasGroupSession(selectedGroupForTimetable, day, timeSlot)" class="session-info">
-                      <div class="session-module">{{getGroupSession(selectedGroupForTimetable, day, timeSlot).moduleName}}</div>
-                      <div class="session-venue">{{getGroupSession(selectedGroupForTimetable, day, timeSlot).venue}}</div>
+                      <div class="session-module">{{getGroupSession(selectedGroupForTimetable, day,
+                        timeSlot).moduleName}}</div>
+                      <div class="session-venue">{{getGroupSession(selectedGroupForTimetable, day, timeSlot).venue}}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -379,11 +382,11 @@
           </div>
         </div>
       </div>
-      
+
       <!-- Modules Management Section -->
       <div *ngIf="activeSection === 'modules'" class="section-container">
         <h1>Modules Management</h1>
-        
+
         <div class="filter-controls">
           <ion-searchbar placeholder="Search modules" [(ngModel)]="moduleSearch"></ion-searchbar>
           <ion-button (click)="showAddModuleModal()">
@@ -391,7 +394,7 @@
             Add Module
           </ion-button>
         </div>
-        
+
         <ion-list class="modules-list">
           <ion-item *ngFor="let module of filteredModules" button detail (click)="editModule(module)">
             <ion-icon name="book" slot="start"></ion-icon>
@@ -403,19 +406,22 @@
           </ion-item>
         </ion-list>
       </div>
-      
+
       <!-- Submission History Section -->
       <div *ngIf="activeSection === 'submissions'" class="section-container">
         <h1>Submission History</h1>
-        
+
         <ion-list class="submissions-list">
-          <ion-item *ngFor="let submission of submissionHistory" button detail (click)="viewSubmissionDetails(submission)">
-            <ion-icon [name]="getSubmissionIcon(submission.status)" slot="start" [color]="getSubmissionColor(submission.status)"></ion-icon>
+          <ion-item *ngFor="let submission of submissionHistory" button detail
+            (click)="viewSubmissionDetails(submission)">
+            <ion-icon [name]="getSubmissionIcon(submission.status)" slot="start"
+              [color]="getSubmissionColor(submission.status)"></ion-icon>
             <ion-label>
               <h2>Submission for {{submission.academicPeriod}}</h2>
               <p>Submitted: {{submission.submittedAt | date:'medium'}}</p>
-              <p>Status: {{submission.status}} 
-                <ion-badge *ngIf="submission.conflictCount > 0" color="warning">{{submission.conflictCount}} conflicts</ion-badge>
+              <p>Status: {{submission.status}}
+                <ion-badge *ngIf="submission.conflictCount > 0" color="warning">{{submission.conflictCount}}
+                  conflicts</ion-badge>
               </p>
             </ion-label>
             <ion-note slot="end" color="medium">
@@ -423,12 +429,12 @@
             </ion-note>
           </ion-item>
         </ion-list>
-        
+
         <div *ngIf="submissionHistory.length === 0" class="no-submissions">
           <ion-icon name="document-text-outline"></ion-icon>
           <p>No submission history available yet</p>
         </div>
-        
+
         <!-- Submission Details with Timetable View -->
         <div *ngIf="selectedSubmission" class="submission-details">
           <ion-card>
@@ -441,45 +447,81 @@
                 <h3>Admin Feedback</h3>
                 <p>{{selectedSubmission.adminFeedback}}</p>
               </div>
-              
+
               <h3>Timetable Details</h3>
-              <app-timetable-grid 
-                [sessions]="selectedSubmissionTimetable"
+              <app-timetable-grid [sessions]="selectedSubmissionTimetable"
                 (sessionClick)="viewSubmissionSessionDetails($event)">
               </app-timetable-grid>
             </ion-card-content>
           </ion-card>
         </div>
       </div>
-      
+
       <!-- Reports Section -->
       <div *ngIf="activeSection === 'reports'" class="section-container">
         <h1>Department Reports</h1>
-        
+
         <app-reports></app-reports>
       </div>
     </div>
   </div>
-  
+
   <!-- Venue Availability Modal -->
-  <ion-modal [isOpen]="showVenueModal">
+  <ion-modal [isOpen]="showVenueModal" (didDismiss)="closeVenueModal()" class="venue-modal">
     <ng-template>
       <ion-header>
         <ion-toolbar>
-          <ion-title>Venue Availability</ion-title>
+          <ion-title>Select Venue</ion-title>
           <ion-buttons slot="end">
-            <ion-button (click)="closeVenueModal()">
+            <ion-button fill="clear" (click)="closeVenueModal()">
               <ion-icon name="close"></ion-icon>
             </ion-button>
           </ion-buttons>
         </ion-toolbar>
       </ion-header>
-      <ion-content>
+      
+      <ion-content class="modal-content">
+        <!-- Show loading state -->
+        <div *ngIf="venuesLoading" class="loading-container">
+          <ion-spinner></ion-spinner>
+          <p>Loading venues from database...</p>
+        </div>
+        
+        <!-- Show venue count for debugging -->
+        <div *ngIf="!venuesLoading && availableVenues.length > 0" class="venue-debug-info">
+          <ion-chip color="primary">
+            <ion-label>{{availableVenues.length}} venues available</ion-label>
+          </ion-chip>
+        </div>
+        
+        <!-- Error state -->
+        <div *ngIf="!venuesLoading && availableVenues.length === 0" class="error-container">
+          <ion-card>
+            <ion-card-content class="text-center">
+              <ion-icon name="warning" color="warning" size="large"></ion-icon>
+              <h3>No Venues Available</h3>
+              <p>No venues could be loaded from the database.</p>
+              <ion-button color="primary" (click)="loadVenuesAndInitialize()">
+                <ion-icon name="refresh" slot="start"></ion-icon>
+                Reload Venues
+              </ion-button>
+            </ion-card-content>
+          </ion-card>
+        </div>
+        
+        <!-- Venue availability component -->
         <app-venue-avail 
-          [venues]="availableVenues"
-          (bookVenue)="handleVenueBooking($event)">
+          *ngIf="!venuesLoading && availableVenues.length > 0"
+          [venues]="availableVenues" 
+          [session]="currentSession"
+          (venueBooked)="handleVenueBooking($event)"
+          (modalClosed)="closeVenueModal()">
         </app-venue-avail>
       </ion-content>
     </ng-template>
   </ion-modal>
 </ion-content>
+<!-- <ion-content [fullscreen]="true" class="hod-dash-content">
+    <app-venue-avail [venues]="availableVenues" (bookVenue)="handleVenueBooking($event)">
+    </app-venue-avail>
+</ion-content> -->

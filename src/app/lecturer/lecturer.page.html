@@ -330,7 +330,7 @@
           <!-- Available Venues List -->
           <div *ngIf="venueView === 'available'" class="venue-container">
             <!-- Replace the old venue list with venue-avail component -->
-            <app-venue-avail [venues]="availableVenues" (bookVenue)="onVenueBookingRequest($event)"></app-venue-avail>
+            <app-venue-avail [venues]="availableVenues" (venueBooked)="onVenueBookingRequest($event)"></app-venue-avail>
           </div>
           
           <!-- Booking Request Form -->

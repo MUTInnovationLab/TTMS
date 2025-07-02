@@ -2,28 +2,32 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 90vh; // Increased minimum height
   background: #f5f7f9;
   border-radius: 10px;
   overflow: hidden;
+  padding: 0;
+  margin: 0;
 }
 
 // Control Panel Styles (similar to timetable-grid)
 .control-panel {
   background: white;
-  padding: 20px;
+  padding: 30px; // Increased padding
   border-radius: 8px;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  margin-bottom: 30px; // Increased margin
   
   h3 {
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 25px; // Increased margin
     color: var(--ion-color-dark);
-    font-size: 18px;
+    font-size: 24px; // Increased font size
+    font-weight: bold;
   }
   
   .panel-section {
-    margin-bottom: 15px;
+    margin-bottom: 25px; // Increased margin
     
     &:last-child {
       margin-bottom: 0;
@@ -31,12 +35,33 @@
   }
   
   .date-selector {
-    max-width: 300px;
+    max-width: 400px; // Increased width
+    
+    ion-item {
+      --min-height: 60px; // Increased height
+      
+      ion-label {
+        font-size: 16px; // Increased font size
+      }
+    }
   }
   
   .view-toggle {
     ion-segment {
-      max-width: 300px;
+      max-width: 400px; // Increased width
+      --min-height: 50px; // Increased height
+      
+      ion-segment-button {
+        --min-height: 50px;
+        
+        ion-label {
+          font-size: 16px; // Increased font size
+        }
+        
+        ion-icon {
+          font-size: 20px; // Increased icon size
+        }
+      }
     }
   }
 }
@@ -46,50 +71,77 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 15px; // Increased gap
   
   ion-select, ion-input {
-    max-width: 200px;
-    --padding-start: 15px;
-    --padding-end: 15px;
+    max-width: 250px; // Increased width
+    min-height: 50px; // Added minimum height
+    --padding-start: 20px; // Increased padding
+    --padding-end: 20px;
     --background: #fff;
     --border-radius: 8px;
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    font-size: 16px; // Increased font size
+  }
+  
+  ion-button {
+    --min-height: 50px; // Increased button height
+    --padding-start: 25px; // Increased padding
+    --padding-end: 25px;
+    font-size: 16px; // Increased font size
   }
 }
 
 // Venue List View
 .venue-list-view {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-  grid-gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); // Increased minimum card width
+  grid-gap: 30px; // Increased gap
+  padding: 0 30px 30px; // Increased padding
+  overflow-y: auto;
+  max-height: calc(100vh - 300px); // Adjusted for larger header
   
   .venue-card {
     background: white;
-    border-radius: 8px;
+    border-radius: 12px; // Increased border radius
     overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); // Enhanced shadow
     display: flex;
     flex-direction: column;
+    height: auto;
+    min-height: 550px; // Added minimum height
+    transform: scale(1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    
+    &:hover {
+      transform: scale(1.02); // Added hover effect
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+    }
     
     .venue-image {
       position: relative;
-      height: 160px;
+      height: 220px; // Increased height
       
       img {
         width: 100%;
         height: 100%;
         object-fit: cover;
+        transition: opacity 0.3s ease;
+        
+        &.error {
+          opacity: 0.5;
+        }
       }
       
       .status-badge {
         position: absolute;
-        top: 10px;
-        right: 10px;
-        padding: 5px 10px;
-        border-radius: 4px;
-        font-size: 12px;
+        top: 15px; // Increased positioning
+        right: 15px;
+        padding: 8px 15px; // Increased padding
+        border-radius: 6px; // Increased border radius
+        font-size: 14px; // Increased font size
         font-weight: bold;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2); // Added shadow
         
         &.available {
           background-color: var(--ion-color-success);
@@ -104,48 +156,66 @@
     }
     
     .venue-details {
-      padding: 15px;
+      padding: 25px; // Increased padding
+      flex: 1;
       
       h3 {
         margin-top: 0;
-        margin-bottom: 10px;
+        margin-bottom: 15px; // Increased margin
         color: var(--ion-color-dark);
+        font-size: 22px; // Increased font size
+        font-weight: bold;
       }
       
       .venue-info {
         p {
-          margin: 5px 0;
+          margin: 8px 0; // Increased margin
           display: flex;
           align-items: center;
           color: var(--ion-color-medium);
+          font-size: 16px; // Increased font size
           
           ion-icon {
-            margin-right: 8px;
+            margin-right: 12px; // Increased margin
             color: var(--ion-color-primary);
+            font-size: 20px; // Increased icon size
           }
         }
         
         .equipment-list {
           display: flex;
           flex-wrap: wrap;
-          gap: 5px;
-          margin-top: 10px;
+          gap: 8px; // Increased gap
+          margin-top: 15px; // Increased margin
           
           ion-chip {
             --background: var(--ion-color-light);
-            font-size: 12px;
-            height: 24px;
+            font-size: 14px; // Increased font size
+            height: 32px; // Increased height
+            --padding-start: 12px; // Increased padding
+            --padding-end: 12px;
           }
         }
       }
     }
     
     .venue-actions {
-      padding: 15px;
+      padding: 25px; // Increased padding
       border-top: 1px solid #eee;
       margin-top: auto;
       display: flex;
       justify-content: flex-end;
+      
+      ion-button {
+        --min-height: 50px; // Increased button height
+        --padding-start: 25px; // Increased padding
+        --padding-end: 25px;
+        font-size: 16px; // Increased font size
+        
+        ion-icon {
+          font-size: 18px; // Increased icon size
+        }
+      }
     }
   }
 }
@@ -154,42 +224,53 @@
 .venue-calendar-view {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 30px; // Increased gap
+  padding: 0 30px 30px; // Increased padding
+  overflow-y: auto;
+  max-height: calc(100vh - 300px); // Adjusted for larger header
   
   .venue-calendar {
     background: white;
-    border-radius: 8px;
+    border-radius: 12px; // Increased border radius
     overflow: hidden;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); // Enhanced shadow
+    min-height: 500px; // Added minimum height
     
     .venue-header {
       background: var(--ion-color-primary);
       color: white;
-      padding: 15px;
+      padding: 25px; // Increased padding
       
       h3 {
-        margin: 0 0 5px;
+        margin: 0 0 8px; // Increased margin
+        font-size: 22px; // Increased font size
+        font-weight: bold;
       }
       
       span {
-        font-size: 14px;
+        font-size: 16px; // Increased font size
         opacity: 0.9;
       }
     }
     
     .time-grid {
       display: flex;
-      height: 400px;
+      height: 500px; // Increased height
       
       .time-column {
-        width: 80px;
+        width: 100px; // Increased width
         display: flex;
         flex-direction: column;
         background: #f5f5f5;
         
         .time-label-header {
-          height: 40px;
+          height: 50px; // Increased height
           border-bottom: 1px solid #eee;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: bold;
+          font-size: 16px; // Added font size
         }
         
         .time-label {
@@ -197,9 +278,11 @@
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 13px;
+          font-size: 15px; // Increased font size
+          font-weight: 500; // Added font weight
           color: var(--ion-color-medium);
           border-bottom: 1px solid #eee;
+          min-height: 45px; // Added minimum height
         }
       }
       
@@ -209,13 +292,14 @@
         flex-direction: column;
         
         .day-label {
-          height: 40px;
+          height: 50px; // Increased height
           background: var(--ion-color-primary-shade);
           color: white;
           display: flex;
           align-items: center;
           justify-content: center;
           font-weight: bold;
+          font-size: 18px; // Increased font size
           border-bottom: 1px solid #eee;
         }
         
@@ -229,13 +313,16 @@
             flex: 1;
             border-bottom: 1px solid #eee;
             position: relative;
+            min-height: 45px; // Added minimum height
+            transition: background-color 0.2s ease; // Added transition
             
             &.available {
               background-color: rgba(45, 211, 111, 0.1);
               cursor: pointer;
               
               &:hover {
-                background-color: rgba(45, 211, 111, 0.2);
+                background-color: rgba(45, 211, 111, 0.25); // Enhanced hover effect
+                transform: scale(1.01); // Added hover transform
               }
             }
             
@@ -248,27 +335,29 @@
               top: 0;
               left: 0;
               right: 0;
+              height: 100%;
               z-index: 1;
-              margin: 2px;
-              border-radius: 4px;
+              margin: 3px; // Increased margin
+              border-radius: 6px; // Increased border radius
               overflow: hidden;
               cursor: pointer;
               transition: all 0.2s ease;
-              box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+              box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15); // Enhanced shadow
               
               &:hover {
-                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-                transform: translateY(-1px);
+                box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25); // Enhanced hover shadow
+                transform: translateY(-2px); // Increased transform
               }
               
               .session-content {
-                padding: 8px;
+                padding: 12px; // Increased padding
                 height: 100%;
                 color: white;
                 
                 h4 {
-                  margin: 0 0 5px;
-                  font-size: 14px;
+                  margin: 0 0 6px; // Increased margin
+                  font-size: 16px; // Increased font size
+                  font-weight: bold;
                   white-space: nowrap;
                   overflow: hidden;
                   text-overflow: ellipsis;
@@ -276,7 +365,7 @@
                 
                 p {
                   margin: 0;
-                  font-size: 12px;
+                  font-size: 14px; // Increased font size
                   opacity: 0.9;
                 }
               }
@@ -288,28 +377,122 @@
   }
 }
 
+// Add styles for no venues state
+.no-venues {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px; // Increased height
+  
+  ion-card {
+    width: 100%;
+    max-width: 500px; // Increased width
+    margin: 0;
+    
+    ion-card-content {
+      padding: 60px 30px; // Increased padding
+      
+      &.text-center {
+        text-align: center;
+      }
+      
+      ion-icon {
+        margin-bottom: 20px; // Increased margin
+        font-size: 60px; // Increased icon size
+      }
+      
+      h3 {
+        margin: 0 0 12px; // Increased margin
+        color: var(--ion-color-medium);
+        font-size: 22px; // Increased font size
+      }
+      
+      p {
+        margin: 0;
+        color: var(--ion-color-medium);
+        font-size: 16px; // Increased font size
+      }
+    }
+  }
+}
+
+// No equipment message
+.no-equipment {
+  margin-top: 15px; // Increased margin
+  
+  p {
+    margin: 8px 0; // Increased margin
+    color: var(--ion-color-medium);
+    font-style: italic;
+    font-size: 16px; // Increased font size
+  }
+}
+
+// Add loading state styles
+.loading-venues {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 300px; // Increased height
+  
+  ion-spinner {
+    --color: var(--ion-color-primary);
+    width: 50px; // Increased size
+    height: 50px;
+  }
+}
+
 // Status indicators
 .available {
   color: var(--ion-color-success);
+  font-size: 16px; // Increased font size
 }
 
 .unavailable {
   color: var(--ion-color-danger);
+  font-size: 16px; // Increased font size
 }
 
 // Responsive adjustments
 @media (max-width: 768px) {
   .venue-list-view {
     grid-template-columns: 1fr;
+    grid-gap: 20px; // Reduced gap on mobile
+    padding: 0 20px 20px; // Reduced padding on mobile
+    
+    .venue-card {
+      min-height: 500px; // Reduced minimum height on mobile
+    }
   }
   
   .venue-calendar {
     .time-grid {
-      height: 300px;
+      height: 400px; // Reduced height on mobile
       
       .time-column {
-        width: 60px;
+        width: 80px; // Reduced width on mobile
       }
     }
+  }
+  
+  .control-panel {
+    padding: 20px; // Reduced padding on mobile
+    margin-bottom: 20px; // Reduced margin on mobile
+    
+    h3 {
+      font-size: 20px; // Reduced font size on mobile
+    }
+  }
+}
+
+@media (min-width: 1200px) {
+  .venue-list-view {
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); // Even larger cards on large screens
+    grid-gap: 40px; // Increased gap on large screens
+  }
+  
+  .venue-calendar .time-grid {
+    height: 600px; // Increased height on large screens
   }
 }

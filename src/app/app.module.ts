@@ -3,6 +3,7 @@ import { BrowserModule } from '@angular/platform-browser';
 import { RouteReuseStrategy } from '@angular/router';
 import { IonicModule, IonicRouteStrategy } from '@ionic/angular';
 import { NgChartsModule } from 'ng2-charts';
+import { HttpClientModule } from '@angular/common/http'; // Add this import
 
 // Firebase imports
 import { environment } from '../environments/environment';
@@ -25,6 +26,7 @@ import { FormsModule } from '@angular/forms';
     IonicModule.forRoot(),
     AppRoutingModule,
     FormsModule,
+    HttpClientModule,  // Add this to imports array
     // Initialize Firebase
     AngularFireModule.initializeApp(environment.firebaseConfig),
     AngularFireAuthModule,

@@ -11,7 +11,6 @@ export const environment = {
     storageBucket: "timetable-system-1e98f.firebasestorage.app",
     messagingSenderId: "461472034448",
     appId: "1:461472034448:web:1c1e1312e7ca1ddcaef215",
-    measurementId: "G-R0DBTVC95B"
   }
 };
 

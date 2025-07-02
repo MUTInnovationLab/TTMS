@@ -10,6 +10,7 @@ import { AuthService } from '../services/Authentication Services/auth.service';
 import { StaffService } from '../services/Data Services/staff.service';
 import { AlertController } from '@ionic/angular';
 import { Router } from '@angular/router';
+import { VenueService, VenueDisplayInfo } from '../services/Entity Management Services/venue.service';
 
 interface ConflictSummary {
   id: number;
@@ -136,12 +137,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
     { id: 3, name: 'Business Studies', hod: 'Prof. Michael Davis', moduleCount: 10 }
   ];
   
-  // Venue management
-  venues = [
-    { id: 1, name: 'Room A101', type: 'Classroom', capacity: 40, equipment: ['Projector', 'Whiteboard'] },
-    { id: 2, name: 'Lab L201', type: 'Laboratory', capacity: 30, equipment: ['Computers', 'Projector'] },
-    { id: 3, name: 'Hall H301', type: 'Lecture Hall', capacity: 120, equipment: ['Sound System', 'Projector', 'Smart Board'] }
-  ];
+  // Venue management - Update to use VenueDisplayInfo type
+  venues: VenueDisplayInfo[] = [];
+  venuesLoading: boolean = false;
   
   // Backup management
   backups = [
@@ -200,14 +198,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   venueBuildings = ['Main Building', 'Science Block', 'Arts Block', 'Conference Center'];
   
-  venueUtilizationStats = [
-    { id: 1, name: 'Room A101', type: 'Classroom', capacity: 40, utilizationRate: 85 },
-    { id: 2, name: 'Lab L201', type: 'Laboratory', capacity: 30, utilizationRate: 62 },
-    { id: 3, name: 'Hall H301', type: 'Lecture Hall', capacity: 120, utilizationRate: 45 },
-    { id: 4, name: 'Room B102', type: 'Classroom', capacity: 35, utilizationRate: 78 },
-    { id: 5, name: 'Lab L105', type: 'Laboratory', capacity: 25, utilizationRate: 92 },
-    { id: 6, name: 'Room C204', type: 'Classroom', capacity: 30, utilizationRate: 34 }
-  ];
+  venueUtilizationStats: { id: string; name: string; type: string; capacity: number; utilizationRate: number; }[] = [];
   
   // Department report data
   departmentLecturerStats: DepartmentLecturerStats[] = [];
@@ -255,13 +246,14 @@ export class AdminDashPage implements OnInit, OnDestroy {
   isSubmitting: boolean = false;
 
   constructor(
-     private alertController: AlertController,
-  private router: Router,
+    private alertController: AlertController,
+    private router: Router,
     private sidebarService: SidebarService,
     private cdr: ChangeDetectorRef,
     private modalController: ModalController,
     private authService: AuthService,
-    private staffService: StaffService
+    private staffService: StaffService,
+    private venueService: VenueService
   ) { 
     console.log('AdminDashPage constructor');
   }
@@ -271,11 +263,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
     
     // Initialize dashboard
     this.generateMockTimetableData();
+    this.loadVenues(); // Load venues from database
     
-    // Initialize venue conflicts and special requests
-    this.generateMockVenueConflicts();
-    this.generateMockSpecialEventRequests();
-
     // Set initial sidebar state
     this.sidebarVisible = this.sidebarService.isSidebarVisible;
     console.log('Initial sidebar state:', this.sidebarVisible);
@@ -316,6 +305,46 @@ export class AdminDashPage implements OnInit, OnDestroy {
         this.presentToast('Failed to load HODs: ' + (error.message || 'Unknown error'));
       }
     });
+  }
+  
+  // Load venues from database
+  loadVenues() {
+    console.log('Loading venues from database');
+    this.venuesLoading = true;
+    
+    this.venueService.getAllVenues().subscribe({
+      next: (venues) => {
+        console.log('Venues loaded successfully:', venues);
+        this.venues = venues;
+        this.venuesLoading = false;
+        
+        // Update stats
+        this.stats.venues = venues.length;
+        
+        // Update venue utilization stats for reports
+        this.updateVenueUtilizationStats(venues);
+        
+        // Initialize venue conflicts and special requests after venues are loaded
+        this.generateMockVenueConflicts();
+        this.generateMockSpecialEventRequests();
+      },
+      error: (error) => {
+        console.error('Error loading venues:', error);
+        this.presentToast('Failed to load venues: ' + (error.message || 'Unknown error'));
+        this.venuesLoading = false;
+      }
+    });
+  }
+
+  // Update venue utilization stats for reports
+  updateVenueUtilizationStats(venues: VenueDisplayInfo[]) {
+    this.venueUtilizationStats = venues.map((venue, index) => ({
+      id: venue.id,
+      name: venue.name,
+      type: venue.type,
+      capacity: venue.capacity,
+      utilizationRate: Math.floor(Math.random() * 100) // Mock utilization - replace with actual calculation
+    }));
   }
   
   ngOnDestroy() {
@@ -1004,10 +1033,24 @@ export class AdminDashPage implements OnInit, OnDestroy {
     // Create some mock venue conflicts for demonstration
     const today = new Date();
     
+    // Transform VenueDisplayInfo to Venue format for conflicts
+    const transformedVenues = this.venues.map(venue => ({
+      id: venue.id, // Keep as string
+      name: venue.name,
+      type: venue.type,
+      capacity: venue.capacity,
+      equipment: venue.equipment,
+      department: venue.department,
+      site: venue.site,
+      schedulable: venue.schedulable,
+      autoSchedulable: venue.autoSchedulable,
+      accessibility: venue.accessibility
+    }));
+    
     this.venueConflicts = [
       {
         id: 1,
-        venue: this.venues[0], // Room A101
+        venue: transformedVenues.length > 0 ? transformedVenues[0] : null,
         date: today,
         sessions: [
           {
@@ -1028,7 +1071,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
       },
       {
         id: 2,
-        venue: this.venues[2], // Hall H301
+        venue: transformedVenues.length > 2 ? transformedVenues[2] : (transformedVenues.length > 0 ? transformedVenues[0] : null),
         date: new Date(today.getTime() + 86400000), // tomorrow
         sessions: [
           {
@@ -1055,11 +1098,25 @@ export class AdminDashPage implements OnInit, OnDestroy {
     const today = new Date();
     const nextWeek = new Date(today.getTime() + 7 * 86400000);
     
+    // Transform VenueDisplayInfo to Venue format for special requests
+    const transformedVenues = this.venues.map(venue => ({
+      id: venue.id, // Keep as string
+      name: venue.name,
+      type: venue.type,
+      capacity: venue.capacity,
+      equipment: venue.equipment,
+      department: venue.department,
+      site: venue.site,
+      schedulable: venue.schedulable,
+      autoSchedulable: venue.autoSchedulable,
+      accessibility: venue.accessibility
+    }));
+    
     this.specialEventRequests = [
       {
         id: 1,
         title: 'Tech Conference',
-        venue: this.venues[2], // Hall H301
+        venue: transformedVenues.length > 2 ? transformedVenues[2] : (transformedVenues.length > 0 ? transformedVenues[0] : null),
         date: nextWeek,
         duration: 4,
         requester: 'Dr. Jane Smith',
@@ -1070,7 +1127,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
       {
         id: 2,
         title: 'Research Symposium',
-        venue: this.venues[1], // Lab L201
+        venue: transformedVenues.length > 1 ? transformedVenues[1] : (transformedVenues.length > 0 ? transformedVenues[0] : null),
         date: new Date(today.getTime() + 3 * 86400000),
         duration: 3,
         requester: 'Prof. Robert Johnson',
@@ -1244,8 +1301,43 @@ export class AdminDashPage implements OnInit, OnDestroy {
     }
   }
   
-  editVenue(venue: any) {
+  editVenue(venue: VenueDisplayInfo) {
     console.log('Editing venue:', venue);
+    // Open venue edit modal with venue data
+  }
+
+  // Add method to delete venue
+  async deleteVenue(venue: VenueDisplayInfo) {
+    const alert = await this.alertController.create({
+      header: 'Confirm Delete',
+      message: `Are you sure you want to delete venue "${venue.name}"?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          handler: () => {
+            this.venueService.deleteVenue(venue.id).subscribe({
+              next: (result) => {
+                if (result.success) {
+                  this.presentToast('Venue deleted successfully');
+                  this.loadVenues(); // Reload venues
+                } else {
+                  this.presentToast('Failed to delete venue: ' + result.message);
+                }
+              },
+              error: (error) => {
+                this.presentToast('Error deleting venue: ' + error.message);
+              }
+            });
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
   
   // Settings management
@@ -1382,3 +1474,10 @@ export class AdminDashPage implements OnInit, OnDestroy {
     );
   }
 }
+  // private async presentHodCreationSuccess(hodData: User, defaultPassword: string) {
+  //   // In a real app, you might want to show this in a modal instead of a toast
+  //   this.presentToast(
+  //     `HOD account created successfully!\nEmail: ${hodData.contact?.email}\nTemporary Password: ${defaultPassword}\nPlease ensure to communicate these credentials securely.`
+  //   );
+  // }
+
