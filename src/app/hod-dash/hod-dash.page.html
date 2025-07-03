@@ -237,10 +237,16 @@
 
         <div class="filter-controls">
           <ion-searchbar placeholder="Search lecturers" [(ngModel)]="lecturerSearch"></ion-searchbar>
-          <ion-button (click)="showAddLecturerModal()">
-            <ion-icon name="person-add" slot="start"></ion-icon>
-            Add Lecturer
-          </ion-button>
+          <div class="lecturer-action-buttons">
+            <ion-button (click)="showAddLecturerModal()">
+              <ion-icon name="person-add" slot="start"></ion-icon>
+              Add Lecturer
+            </ion-button>
+            <ion-button color="secondary" (click)="showBulkUploadModal()">
+              <ion-icon name="cloud-upload" slot="start"></ion-icon>
+              Bulk Upload
+            </ion-button>
+          </div>
         </div>
 
         <ion-segment [(ngModel)]="lecturerView" (ionChange)="lecturerViewChanged()">

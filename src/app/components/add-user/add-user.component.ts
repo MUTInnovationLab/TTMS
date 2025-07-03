@@ -1,4 +1,3 @@
-
 import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl } from '@angular/forms';
@@ -10,7 +9,7 @@ export interface User {
   name: string;
   staffId?: number;
   sex?: string;
-  department: string;
+  department: string; // Make sure this is always string, not string | null
   roomName?: string;
   role: string;
   schedulable?: boolean;
@@ -297,3 +296,4 @@ export class AddUserComponent implements OnInit {
     this.modalController.dismiss();
   }
 }
+

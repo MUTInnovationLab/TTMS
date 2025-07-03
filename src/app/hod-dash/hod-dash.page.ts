@@ -5,14 +5,18 @@ import { Venue } from '../components/venue-avail/venue-avail.component';
 import { Conflict, ConflictResolution, ConflictType } from '../components/conflict-res/conflict-res.component';
 import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
-import { AlertController } from '@ionic/angular';
+import { AlertController, ToastController } from '@ionic/angular';
 import { Router } from '@angular/router';
 // Remove GroupService import temporarily
 // import { GroupService } from '../services/group.service';
 import { Group } from '../models/group.model';
+import { User } from '../components/add-user/add-user.component';
 import { TimetableService, TimetableSession as TimetableServiceSession } from '../services/Timetable Core Services/timetable.service';
 import { SessionService, SessionRequest } from '../services/Timetable Core Services/session.service';
 import { VenueService, VenueDisplayInfo } from '../services/Entity Management Services/venue.service';
+import { AddUserComponent } from '../components/add-user/add-user.component';
+import { BulkUploadLecturersComponent } from '../components/bulk-upload-lecturers/bulk-upload-lecturers.component';
+import { LecturerService } from '../services/Entity Management Services/lecturer.service';
 
 interface SessionForGrid {
   id: number;
@@ -300,14 +304,6 @@ export class HodDashPage implements OnInit, OnDestroy {
     }
   ];
 
-  get filteredGroups() {
-    if (!this.groupSearch) return this.groups;
-    return this.groups.filter(group =>
-      group.name.toLowerCase().includes(this.groupSearch.toLowerCase()) ||
-      group.program.toLowerCase().includes(this.groupSearch.toLowerCase())
-    );
-  }
-
   // Modules Data
   moduleSearch = '';
 
@@ -363,14 +359,6 @@ export class HodDashPage implements OnInit, OnDestroy {
       lecturerIds: [1]
     }
   ];
-
-  get filteredModules() {
-    if (!this.moduleSearch) return this.modules;
-    return this.modules.filter(module =>
-      module.name.toLowerCase().includes(this.moduleSearch.toLowerCase()) ||
-      module.code.toLowerCase().includes(this.moduleSearch.toLowerCase())
-    );
-  }
 
   // Submission History
   submissionHistory = [
@@ -432,7 +420,9 @@ export class HodDashPage implements OnInit, OnDestroy {
     private cdr: ChangeDetectorRef,
     private timetableService: TimetableService,
     private sessionService: SessionService,
-    private venueService: VenueService
+    private venueService: VenueService,
+    private lecturerService: LecturerService,
+    private toastController: ToastController
   ) {
     console.log('HodDashPage constructor');
   }
@@ -466,7 +456,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     this.venueService.getAllVenues().subscribe({
       next: (venues) => {
         console.log('HOD: Initial venue load completed:', venues.length);
-        
+
         if (venues.length > 0) {
           this.availableVenues = venues.map(venue => ({
             id: venue.id,
@@ -486,12 +476,12 @@ export class HodDashPage implements OnInit, OnDestroy {
             floor: this.extractFloorFromVenueId(venue.id),
             availability: true
           }));
-          
+
           console.log('HOD: Venues transformed and ready:', this.availableVenues.length);
         }
-        
+
         this.venuesLoading = false;
-        
+
         // Now initialize timetable after venues are loaded
         this.initializeTimetable();
       },
@@ -507,7 +497,7 @@ export class HodDashPage implements OnInit, OnDestroy {
   // Separate method to initialize timetable
   private initializeTimetable() {
     console.log('HOD: Initializing timetable...');
-    
+
     // Initialize the current timetable
     this.timetableService.getCurrentTimetable(this.departmentId).subscribe(timetable => {
       if (timetable) {
@@ -633,7 +623,7 @@ export class HodDashPage implements OnInit, OnDestroy {
       category: 'Lecture',
       notes: ''
     };
-    
+
     // Open venue selection modal
     this.openVenueAvailability();
   }
@@ -694,7 +684,7 @@ export class HodDashPage implements OnInit, OnDestroy {
   async openSessionDetailsModal() {
     // In a real app, you would use a modal here
     // For now, let's just prompt for the details using alerts
-    
+
     // 1. First, select module
     const moduleSelect = await this.alertController.create({
       header: 'Select Module',
@@ -725,7 +715,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         }
       ]
     });
-    
+
     await moduleSelect.present();
   }
 
@@ -762,7 +752,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         }
       ]
     });
-    
+
     await lecturerSelect.present();
   }
 
@@ -799,7 +789,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         }
       ]
     });
-    
+
     await groupSelect.present();
   }
 
@@ -855,31 +845,31 @@ export class HodDashPage implements OnInit, OnDestroy {
         }
       ]
     });
-    
+
     await typeSelect.present();
   }
 
   // Create the session
   createSession() {
     if (!this.sessionToAdd) return;
-    
+
     this.sessionService.createSession(this.sessionToAdd).subscribe(
       (newSession) => {
         console.log('Session created:', newSession);
-        
+
         // Show success message
         this.alertController.create({
           header: 'Success',
           message: 'Session has been added to the timetable',
           buttons: ['OK']
         }).then(alert => alert.present());
-        
+
         // Reset session to add
         this.sessionToAdd = null;
       },
       (error) => {
         console.error('Error creating session:', error);
-        
+
         // Show error message
         this.alertController.create({
           header: 'Error',
@@ -907,7 +897,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     this.timetableService.submitTimetable().subscribe(
       (submittedTimetable) => {
         console.log('Timetable submitted:', submittedTimetable);
-        
+
         // Update submission status
         this.submissionStatus = {
           status: 'submitted',
@@ -928,7 +918,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         };
 
         this.submissionHistory.unshift(newSubmission);
-        
+
         // Show success message
         this.alertController.create({
           header: 'Success',
@@ -938,7 +928,7 @@ export class HodDashPage implements OnInit, OnDestroy {
       },
       (error) => {
         console.error('Error submitting timetable:', error);
-        
+
         // Show error message
         this.alertController.create({
           header: 'Error',
@@ -1036,7 +1026,7 @@ export class HodDashPage implements OnInit, OnDestroy {
 
     // Map start slot to time slot string
     const newStartHour = event.startSlot + 8;
-    const newEndHour = newStartHour + (event.session.endSlot - event.session.startSlot);
+    const newEndHour = newStartHour + 1; // Assuming 1-hour sessions
     const newTimeSlot = `${newStartHour}:00 - ${newEndHour}:00`;
 
     // Find and update the session
@@ -1051,6 +1041,529 @@ export class HodDashPage implements OnInit, OnDestroy {
       // Re-format sessions for the grid
       this.formatTimetableSessions();
     }
+  }
+
+  editLecturer(lecturer: any) {
+    console.log('Editing lecturer:', lecturer);
+    // Show edit lecturer modal
+  }
+
+  updateModuleLecturers(module: any) {
+    console.log('Updating module lecturers:', module);
+    // Save the updated lecturer assignments for the module
+  }
+
+  // Group Management
+  groupViewChanged() {
+    console.log('Group view changed to:', this.groupView);
+  }
+
+  get filteredGroups() {
+    if (!this.groupSearch) return this.groups;
+    return this.groups.filter(group =>
+      group.name.toLowerCase().includes(this.groupSearch.toLowerCase()) ||
+      group.program.toLowerCase().includes(this.groupSearch.toLowerCase())
+    );
+  }
+
+  addGroup() {
+    console.log('Adding new group');
+    // Show add group modal
+  }
+
+  editGroup(group: Group) {
+    console.log('Editing group:', group);
+    // Show edit group modal
+  }
+
+  loadGroupTimetable() {
+    console.log('Loading timetable for group:', this.selectedGroupForTimetable);
+    // Load timetable data for selected group
+  }
+
+  hasGroupSession(groupId: number | null, day: string, timeSlot: string): boolean {
+    if (!groupId) return false;
+
+    return this.timetableSessions.some(session =>
+      session.groupId === groupId && session.day === day && session.timeSlot === timeSlot
+    );
+  }
+
+  getGroupSession(groupId: number | null, day: string, timeSlot: string): any {
+    if (!groupId) return null;
+
+    return this.timetableSessions.find(session =>
+      session.groupId === groupId && session.day === day && session.timeSlot === timeSlot
+    );
+  }
+
+  getGroupById(groupId: number | null): Group | undefined {
+    if (!groupId) return undefined;
+    return this.groups.find(g => g.id === groupId);
+  }
+
+  // Module Management
+  get filteredModules() {
+    if (!this.moduleSearch) return this.modules;
+    return this.modules.filter(module =>
+      module.name.toLowerCase().includes(this.moduleSearch.toLowerCase()) ||
+      module.code.toLowerCase().includes(this.moduleSearch.toLowerCase())
+    );
+  }
+
+  showAddModuleModal() {
+    console.log('Show add module modal');
+    // Show add module modal
+  }
+
+  editModule(module: any) {
+    console.log('Editing module:', module);
+    // Show edit module modal
+  }
+
+  // Submission History
+  getSubmissionIcon(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'approved': return 'checkmark-circle';
+      case 'rejected': return 'close-circle';
+      case 'pending': return 'time';
+      default: return 'document-text';
+    }
+  }
+
+  getSubmissionColor(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'approved': return 'success';
+      case 'rejected': return 'danger';
+      case 'pending': return 'warning';
+      default: return 'medium';
+    }
+  }
+
+  // Venue Availability Methods
+  openVenueAvailability(session?: any) {
+    console.log('Opening venue availability modal');
+
+    if (session) {
+      this.currentSession = session;
+    }
+
+    this.showVenueModal = true;
+  }
+
+  closeVenueModal() {
+    this.showVenueModal = false;
+    this.currentSession = null;
+  }
+
+  // Create mock venues if database load fails
+  createMockVenues() {
+    console.log('Creating mock venues as fallback');
+    this.availableVenues = [
+      {
+        id: '1',
+        name: 'Room A101',
+        type: 'Lecture Hall',
+        capacity: 50,
+        equipment: ['Projector', 'Whiteboard', 'Sound System'],
+        building: 'Academic Block A',
+        room: 'A101',
+        floor: 1,
+        image: 'assets/default-venue.jpg',
+        description: 'Standard lecture hall with modern equipment',
+        department: 'General',
+        site: 'Main Campus',
+        schedulable: true,
+        autoSchedulable: true,
+        accessibility: {
+          deafLoop: false,
+          wheelchairAccess: true
+        },
+        availability: true
+      },
+      {
+        id: '2',
+        name: 'Lab L201',
+        type: 'Computer Lab',
+        capacity: 30,
+        equipment: ['Computers', 'Projector', 'Air Conditioning'],
+        building: 'Science Block',
+        room: 'L201',
+        floor: 2,
+        image: 'assets/default-venue.jpg',
+        description: 'Computer lab with 30 workstations',
+        department: 'Computer Science',
+        site: 'Main Campus',
+        schedulable: true,
+        autoSchedulable: true,
+        accessibility: {
+          deafLoop: false,
+          wheelchairAccess: true
+        },
+        availability: true
+      }
+    ];
+  }
+
+  // Extract room name from venue name or ID
+  extractRoomFromVenueName(venueName: string, venueId: string): string {
+    // Try to extract room number from venue name
+    const roomMatch = venueName.match(/([A-Z]\d+)/);
+    if (roomMatch) {
+      return roomMatch[1];
+    }
+
+    // Fallback to using part of venue ID
+    return venueId.substring(0, 4).toUpperCase();
+  }
+
+  // Extract floor from venue ID (simple logic)
+  extractFloorFromVenueId(venueId: string): number {
+    // Simple logic: use second character of ID to determine floor
+    const floorNum = venueId.charAt(1) || '1';
+    return parseInt(floorNum);
+  }
+
+  // Helper method to get ordinal suffix
+  getOrdinalSuffix(num: number): string {
+    const lastDigit = num % 10;
+    const lastTwoDigits = num % 100;
+
+    if (lastTwoDigits >= 11 && lastTwoDigits <= 13) {
+      return 'th';
+    }
+
+    switch (lastDigit) {
+      case 1: return 'st';
+      case 2: return 'nd';
+      case 3: return 'rd';
+      default: return 'th';
+    }
+  }
+
+  // Conflict Resolution Methods
+  toggleConflictResolver() {
+    this.showConflictResolver = !this.showConflictResolver;
+
+    if (this.showConflictResolver) {
+      this.detectTimetableConflicts();
+    }
+  }
+
+  detectTimetableConflicts() {
+    console.log('Detecting timetable conflicts');
+    this.departmentConflicts = [];
+
+    // Check for venue conflicts
+    for (let i = 0; i < this.timetableSessions.length; i++) {
+      for (let j = i + 1; j < this.timetableSessions.length; j++) {
+        const session1 = this.timetableSessions[i];
+        const session2 = this.timetableSessions[j];
+
+        // Check if sessions overlap in time and day
+        if (session1.day === session2.day && session1.timeSlot === session2.timeSlot) {
+          // Venue conflict
+          if (session1.venueId === session2.venueId) {
+            const venueConflict: Conflict = {
+              id: this.departmentConflicts.length + 1,
+              type: ConflictType.VENUE,
+              priority: 'high',
+              sessions: [this.convertToTimetableSession(session1), this.convertToTimetableSession(session2)],
+              details: `Venue conflict: ${session1.venue} is double-booked on ${session1.day} at ${session1.timeSlot}`,
+              possibleResolutions: [
+                {
+                  id: 1,
+                  type: 'Relocate',
+                  action: 'changeVenue',
+                  newVenue: this.findAlternativeVenue(session1.venueId)
+                },
+                {
+                  id: 2,
+                  type: 'Reschedule',
+                  action: 'changeTime',
+                  newDay: this.findAlternativeDay(session1.day),
+                  newStartSlot: this.findAlternativeTimeSlot(session1.timeSlot)
+                }
+              ],
+              resolved: false
+            };
+            this.departmentConflicts.push(venueConflict);
+          }
+
+          // Lecturer conflict
+          if (session1.lecturerId === session2.lecturerId) {
+            const lecturerConflict: Conflict = {
+              id: this.departmentConflicts.length + 1,
+              type: ConflictType.LECTURER,
+              priority: 'high',
+              sessions: [this.convertToTimetableSession(session1), this.convertToTimetableSession(session2)],
+              details: `Lecturer conflict: ${session1.lecturer} is scheduled for multiple sessions on ${session1.day} at ${session1.timeSlot}`,
+              possibleResolutions: [
+                {
+                  id: 3,
+                  type: 'Reschedule',
+                  action: 'changeTime',
+                  newDay: this.findAlternativeDay(session1.day),
+                  newStartSlot: this.findAlternativeTimeSlot(session1.timeSlot)
+                }
+              ],
+              resolved: false
+            };
+            this.departmentConflicts.push(lecturerConflict);
+          }
+
+          // Group conflict
+          if (session1.groupId === session2.groupId) {
+            const groupConflict: Conflict = {
+              id: this.departmentConflicts.length + 1,
+              type: ConflictType.GROUP,
+              priority: 'medium',
+              sessions: [this.convertToTimetableSession(session1), this.convertToTimetableSession(session2)],
+              details: `Group conflict: ${session1.group} has multiple sessions scheduled on ${session1.day} at ${session1.timeSlot}`,
+              possibleResolutions: [
+                {
+                  id: 4,
+                  type: 'Reschedule',
+                  action: 'changeTime',
+                  newDay: this.findAlternativeDay(session1.day),
+                  newStartSlot: this.findAlternativeTimeSlot(session1.timeSlot)
+                }
+              ],
+              resolved: false
+            };
+            this.departmentConflicts.push(groupConflict);
+          }
+        }
+      }
+    }
+
+    console.log('Detected conflicts:', this.departmentConflicts.length);
+  }
+
+  // Convert SessionForGrid to TimetableSession
+  convertToTimetableSession(session: SessionForGrid): TimetableSession {
+    const dayMap: { [key: string]: number } = {
+      'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4
+    };
+
+    const timeSlotParts = session.timeSlot.split(' - ');
+    const startHour = parseInt(timeSlotParts[0].split(':')[0]);
+    const endHour = parseInt(timeSlotParts[1].split(':')[0]);
+
+    return {
+      id: session.id,
+      title: session.moduleName,
+      module: session.moduleName,
+      moduleCode: this.getModuleCode(session.moduleId),
+      lecturer: session.lecturer,
+      venue: session.venue,
+      group: session.group,
+      day: dayMap[session.day],
+      startSlot: startHour - 8,
+      endSlot: endHour - 8,
+      category: this.getModuleCategory(session.moduleId),
+      color: this.getModuleColor(session.moduleId),
+      departmentId: this.departmentInfo.id,
+      hasConflict: session.hasConflict
+    };
+  }
+
+  // Helper methods for conflict resolution
+  findAlternativeVenue(currentVenueId: string): string {
+    const currentVenue = this.availableVenues.find(v => v.id === currentVenueId);
+    const alternatives = this.availableVenues.filter(v =>
+      v.id !== currentVenueId &&
+      v.type === currentVenue?.type &&
+      v.capacity >= (currentVenue?.capacity || 0)
+    );
+
+    return alternatives.length > 0 ? alternatives[0].name : 'Alternative Venue';
+  }
+
+  findAlternativeDay(currentDay: string): number {
+    const dayMap: { [key: string]: number } = {
+      'Monday': 0, 'Tuesday': 1, 'Wednesday': 2, 'Thursday': 3, 'Friday': 4
+    };
+
+    const currentDayNum = dayMap[currentDay];
+    const nextDay = (currentDayNum + 1) % 5; // Cycle through weekdays
+
+    return nextDay;
+  }
+
+  findAlternativeTimeSlot(currentTimeSlot: string): number {
+    const startHour = parseInt(currentTimeSlot.split(' - ')[0].split(':')[0]);
+    const currentSlot = startHour - 8;
+
+    // Try to find next available slot
+    const nextSlot = (currentSlot + 1) % 9; // Assuming 9 time slots per day
+
+    return nextSlot;
+  }
+
+  // Handle conflict resolution
+  handleConflictResolution(event: { conflict: Conflict, resolution: ConflictResolution }) {
+    console.log('Resolving conflict:', event);
+
+    const { conflict, resolution } = event;
+
+    // Find the session to update
+    const sessionToUpdate = this.timetableSessions.find(
+      s => s.id === conflict.sessions[0].id
+    );
+
+    if (sessionToUpdate) {
+      // Apply the resolution
+      if (resolution.action === 'changeVenue' && resolution.newVenue) {
+        sessionToUpdate.venue = resolution.newVenue;
+        sessionToUpdate.venueId = this.findVenueIdByName(resolution.newVenue);
+      } else if (resolution.action === 'changeTime') {
+        if (resolution.newDay !== undefined) {
+          const dayMap = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+          sessionToUpdate.day = dayMap[resolution.newDay];
+        }
+
+        if (resolution.newStartSlot !== undefined) {
+          const newStartHour = resolution.newStartSlot + 8;
+          const newEndHour = newStartHour + 1; // Assuming 1-hour sessions
+          sessionToUpdate.timeSlot = `${newStartHour}:00 - ${newEndHour}:00`;
+        }
+      }
+
+      // Mark session as no longer having conflict
+      sessionToUpdate.hasConflict = false;
+    }
+
+    // Remove the resolved conflict
+    this.departmentConflicts = this.departmentConflicts.filter(c => c.id !== conflict.id);
+
+    // Re-format sessions for the grid
+    this.formatTimetableSessions();
+
+    // Re-check for any remaining conflicts
+    this.detectTimetableConflicts();
+
+    this.presentToast('Conflict resolved successfully');
+  }
+
+  findVenueIdByName(venueName: string): string {
+    const venue = this.availableVenues.find(v => v.name === venueName);
+    return venue ? venue.id : '1';
+  }
+
+  async presentToast(message: string) {
+    const toast = await this.toastController.create({
+      message: message,
+      duration: 2000,
+      position: 'bottom',
+      color: 'success'
+    });
+    toast.present();
+  }
+
+  logout() {
+    console.log('Logging out...');
+    this.router.navigate(['/login']);
+  }
+
+  // Lecturer Management
+  lecturerViewChanged() {
+    console.log('Lecturer view changed to:', this.lecturerView);
+  }
+
+  async showAddLecturerModal() {
+    const modal = await this.modalController.create({
+      component: AddUserComponent,
+      componentProps: {
+        user: null,
+        currentUserRole: 'HOD' // HODs can add lecturers
+      },
+      cssClass: 'user-modal'
+    });
+    
+    await modal.present();
+    
+    const { data } = await modal.onDidDismiss();
+    
+    if (data) {
+      console.log('Lecturer data returned:', data);
+      this.handleNewLecturerCreation(data);
+    }
+  }
+
+  // Handle new lecturer creation for HODs
+  private handleNewLecturerCreation(lecturerData: User) {
+    console.log('Creating new lecturer:', lecturerData);
+    
+    // Set the department to the current HOD's department
+    lecturerData.department = this.departmentInfo.name;
+    
+    this.lecturerService.addLecturer(lecturerData).subscribe({
+      next: (result) => {
+        if (result.success) {
+          this.presentToast('Lecturer added successfully');
+          this.loadDepartmentLecturers(); // Reload lecturers list
+        } else {
+          this.presentToast(`Error adding lecturer: ${result.message}`);
+        }
+      },
+      error: (error) => {
+        console.error('Error adding lecturer:', error);
+        this.presentToast('Error adding lecturer: ' + (error.message || 'Unknown error'));
+      }
+    });
+  }
+
+  // Add bulk upload method
+  async showBulkUploadModal() {
+    const modal = await this.modalController.create({
+      component: BulkUploadLecturersComponent,
+      cssClass: 'bulk-upload-modal'
+    });
+    
+    await modal.present();
+    
+    const { data } = await modal.onDidDismiss();
+    
+    if (data && data.success) {
+      console.log('Bulk upload completed:', data);
+      
+      let message = `Successfully added ${data.addedCount} lecturers.`;
+      if (data.errors && data.errors.length > 0) {
+        message += ` ${data.errors.length} errors occurred.`;
+      }
+      
+      this.presentToast(message);
+      this.loadDepartmentLecturers(); // Reload lecturers list
+    }
+  }
+
+  // Load lecturers from database for the current department
+  loadDepartmentLecturers() {
+    this.lecturerService.getDepartmentLecturers().subscribe({
+      next: (lecturers) => {
+        console.log('Department lecturers loaded:', lecturers);
+        
+        // Update the lecturers array with data from database
+        this.lecturers = lecturers.map(lecturer => ({
+          id: parseInt(lecturer.id) || 0,
+          name: lecturer.name,
+          email: lecturer.contact?.email || '',
+          avatar: lecturer.profile || 'assets/default-avatar.png',
+          moduleCount: 0, // This would be calculated based on module assignments
+          weeklyHours: lecturer.weeklyTarget || 0,
+          workloadPercentage: (lecturer.weeklyTarget || 0) / 24, // Assuming 24 hours max
+          specialization: lecturer.tags?.join(', ') || 'General'
+        }));
+        
+        // Update department stats
+        this.departmentStats.lecturers = this.lecturers.length;
+      },
+      error: (error) => {
+        console.error('Error loading department lecturers:', error);
+        this.presentToast('Error loading lecturers: ' + (error.message || 'Unknown error'));
+      }
+    });
   }
 
   // View submission details
@@ -1116,699 +1629,4 @@ export class HodDashPage implements OnInit, OnDestroy {
     console.log('Viewing submission session details:', session);
     // Show details of the session, e.g., in a modal
   }
-
-  // Lecturer Management
-  lecturerViewChanged() {
-    console.log('Lecturer view changed to:', this.lecturerView);
-  }
-
-  showAddLecturerModal() {
-    console.log('Show add lecturer modal');
-  }
-
-  editLecturer(lecturer: any) {
-    console.log('Edit lecturer:', lecturer);
-    // Show modal to edit lecturer
-  }
-
-  updateModuleLecturers(module: any) {
-    console.log('Updated module lecturers:', module);
-    // Update module lecturers logic
-  }
-
-  // Groups Management
-  groupViewChanged() {
-    console.log('Group view changed to:', this.groupView);
-  }
-
-  showAddGroupModal() {
-    console.log('Show add group modal');
-  }
-
-  addGroup() {
-    this.router.navigate(['/hod-dash/add-group']);
-  }
-
-  editGroup(group: any) {
-    console.log('Edit group:', group);
-    // Navigate to group detail page
-    this.router.navigate(['/hod-dash/group-detail', group.id]);
-  }
-
-  getGroupById(groupId: number) {
-    return this.groups.find(group => group.id === groupId);
-  }
-
-  loadGroupTimetable() {
-    console.log('Loading timetable for group:', this.selectedGroupForTimetable);
-    // Load group timetable logic
-  }
-
-  hasGroupSession(groupId: number, day: string, timeSlot: string): boolean {
-    return this.timetableSessions.some(session =>
-      session.groupId === groupId && session.day === day && session.timeSlot === timeSlot
-    );
-  }
-
-  getGroupSession(groupId: number, day: string, timeSlot: string): any {
-    return this.timetableSessions.find(session =>
-      session.groupId === groupId && session.day === day && session.timeSlot === timeSlot
-    );
-  }
-
-  // Modules Management
-  showAddModuleModal() {
-    console.log('Show add module modal');
-  }
-
-  editModule(module: any) {
-    console.log('Edit module:', module);
-    // Show modal to edit module
-  }
-
-  // Submission History
-  getSubmissionIcon(status: string): string {
-    switch (status) {
-      case 'Approved': return 'checkmark-circle';
-      case 'Rejected': return 'close-circle';
-      case 'Pending': return 'time';
-      default: return 'document';
-    }
-  }
-
-  getSubmissionColor(status: string): string {
-    switch (status) {
-      case 'Approved': return 'success';
-      case 'Rejected': return 'danger';
-      case 'Pending': return 'warning';
-      default: return 'medium';
-    }
-  }
-
-  // Load venues from database
-  loadVenues() {
-    console.log('HOD: Loading venues from database');
-    this.venuesLoading = true;
-    
-    // First test the database connection
-    this.venueService.testDatabaseConnection().subscribe({
-      next: (result) => {
-        console.log('HOD: Database connection test result:', result);
-      },
-      error: (error) => {
-        console.error('HOD: Database connection test error:', error);
-      }
-    });
-    
-    // Load venues directly from service
-    this.venueService.getAllVenues().subscribe({
-      next: (venues) => {
-        console.log('HOD: Venues loaded successfully from database:', venues.length);
-        
-        if (venues.length === 0) {
-          console.warn('HOD: No venues found in database');
-          this.alertController.create({
-            header: 'No Venues Available',
-            message: 'No schedulable venues were found in the database. Please contact your administrator.',
-            buttons: [
-              {
-                text: 'Use Demo Data',
-                handler: () => {
-                  this.createMockVenues();
-                }
-              },
-              {
-                text: 'OK'
-              }
-            ]
-          }).then(alert => alert.present());
-          
-        } else {
-          // Transform VenueDisplayInfo to Venue format for the venue availability component
-          this.availableVenues = venues.map(venue => ({
-            id: venue.id,
-            name: venue.name,
-            type: venue.type,
-            capacity: venue.capacity,
-            equipment: venue.equipment,
-            department: venue.department,
-            site: venue.site,
-            schedulable: venue.schedulable,
-            autoSchedulable: venue.autoSchedulable,
-            accessibility: venue.accessibility,
-            // Add missing properties that the venue-avail component expects
-            building: venue.site || 'Unknown Building',
-            room: this.extractRoomFromVenueName(venue.name, venue.id),
-            image: 'assets/default-venue.jpg',
-            description: `${venue.type} located at ${venue.site} with capacity of ${venue.capacity}`,
-            floor: this.extractFloorFromVenueId(venue.id),
-            availability: true
-          }));
-          
-          console.log('HOD: Transformed venues for venue-avail component:', this.availableVenues.length);
-          console.log('HOD: Sample venue after transformation:', this.availableVenues[0]);
-        }
-        this.venuesLoading = false;
-      },
-      error: (error) => {
-        console.error('HOD: Error loading venues from database:', error);
-        this.venuesLoading = false;
-        
-        // Show error message with retry option
-        this.alertController.create({
-          header: 'Database Error',
-          message: `Failed to load venues: ${error.message}. Please check your connection and try again.`,
-          buttons: [
-            {
-              text: 'Retry',
-              handler: () => {
-                this.loadVenues();
-              }
-            },
-            {
-              text: 'Use Demo Data',
-              handler: () => {
-                this.createMockVenues();
-              }
-            }
-          ]
-        }).then(alert => alert.present());
-      }
-    });
-  }
-
-  // Helper method to extract room from venue name or ID
-  private extractRoomFromVenueName(name: string, id: string): string {
-    // Try to extract room from name like "LECTURE THEATRE - NW1"
-    const nameMatch = name.match(/- (\w+\d+)$/);
-    if (nameMatch) {
-      return nameMatch[1];
-    }
-    
-    // Try to extract from ID like "1000_0_NW1"
-    const idParts = id.split('_');
-    if (idParts.length >= 3) {
-      return idParts[2];
-    }
-    
-    return name;
-  }
-
-  // Helper method to extract floor from venue ID
-  private extractFloorFromVenueId(id: string): number {
-    const parts = id.split('_');
-    if (parts.length >= 2) {
-      const floor = parseInt(parts[1]);
-      return isNaN(floor) ? 0 : floor;
-    }
-    return 0;
-  }
-
-  // Open venue availability modal
-  async openVenueAvailability(session?: any) {
-    this.currentSession = session || {};
-    
-    console.log('HOD: Opening venue availability modal');
-    console.log('HOD: Available venues count:', this.availableVenues.length);
-    
-    // Check if venues are available
-    if (this.availableVenues.length === 0) {
-      console.log('HOD: No venues available, showing error');
-      this.alertController.create({
-        header: 'No Venues Available',
-        message: 'No venues are currently loaded. Please wait for venues to load or contact support.',
-        buttons: [
-          {
-            text: 'Reload Venues',
-            handler: () => {
-              this.loadVenuesAndInitialize();
-            }
-          },
-          {
-            text: 'OK'
-          }
-        ]
-      }).then(alert => alert.present());
-      return;
-    }
-    
-    // Open the modal
-    console.log('HOD: Opening modal with venues:', this.availableVenues.length);
-    this.showVenueModal = true;
-  }
-
-  // Close venue availability modal
-  closeVenueModal() {
-    this.showVenueModal = false;
-  }
-  
-  // Create mock venues for demo purposes
-  private createMockVenues() {
-    console.log('Creating mock venues for demo purposes');
-    
-    this.availableVenues = [
-      {
-        id: '1000_0_LT1',
-        name: 'Lecture Theatre 1',
-        type: 'Lecture Theatre',
-        capacity: 200,
-        equipment: ['Projector', 'Computer', 'Whiteboard'],
-        department: 'Central',
-        site: 'Main Building',
-        schedulable: true,
-        autoSchedulable: true,
-        // accessibility: true,
-        building: 'Main Building',
-        room: 'LT1',
-        image: 'assets/default-venue.jpg',
-        description: 'Large lecture theatre located in the Main Building',
-        floor: 0,
-        availability: true
-      },
-      {
-        id: '1001_1_CR1',
-        name: 'Classroom 1',
-        type: 'Classroom',
-        capacity: 50,
-        equipment: ['Projector', 'Computer'],
-        department: 'Computer Science',
-        site: 'CS Building',
-        schedulable: true,
-        autoSchedulable: true,
-        // accessibility: true,
-        building: 'CS Building',
-        room: 'CR1',
-        image: 'assets/default-venue.jpg',
-        description: 'Standard classroom in the CS Building',
-        floor: 1,
-        availability: true
-      },
-      {
-        id: '1002_1_LAB1',
-        name: 'Computer Lab 1',
-        type: 'Laboratory',
-        capacity: 30,
-        equipment: ['Computers', 'Projector', 'Specialized Software'],
-        department: 'Computer Science',
-        site: 'CS Building',
-        schedulable: true,
-        autoSchedulable: true,
-        // accessibility: true,
-        building: 'CS Building',
-        room: 'LAB1',
-        image: 'assets/default-venue.jpg',
-        description: 'Computer laboratory with 30 workstations',
-        floor: 1,
-        availability: true
-      }
-    ];
-    
-    console.log('Created mock venues:', this.availableVenues.length);
-  }
-
-  // Toggle conflict resolver visibility
-  toggleConflictResolver() {
-    this.showConflictResolver = !this.showConflictResolver;
-
-    // Re-detect conflicts if needed
-    if (this.showConflictResolver && this.departmentConflicts.length === 0) {
-      this.detectTimetableConflicts();
-    }
-  }
-
-  // Detect conflicts in the timetable
-  detectTimetableConflicts() {
-    // Clear existing conflicts
-    this.departmentConflicts = [];
-
-    // Create lookup maps for faster conflict detection
-    const sessions = this.timetableSessions;
-
-    // 1. Detect venue conflicts (same venue, same time)
-    this.detectVenueConflicts(sessions);
-
-    // 2. Detect lecturer conflicts (same lecturer, same time)
-    this.detectLecturerConflicts(sessions);
-
-    // 3. Detect group conflicts (same group, same time)
-    this.detectGroupConflicts(sessions);
-
-    // Update notification count
-    this.notificationCount = Math.max(this.departmentConflicts.length, this.notificationCount);
-
-    // Update UI elements
-    this.canSubmitTimetable = this.departmentConflicts.length === 0;
-  }
-
-  // Detect venue conflicts
-  private detectVenueConflicts(sessions: any[]) {
-    // Group sessions by venue and day
-    const venueMap: { [key: string]: any[] } = {};
-
-    sessions.forEach(session => {
-      const key = `${session.venue}-${session.day}-${session.timeSlot}`;
-      if (!venueMap[key]) {
-        venueMap[key] = [];
-      }
-      venueMap[key].push(session);
-    });
-
-    // Create conflicts for venues with multiple sessions
-    Object.values(venueMap).forEach(venueSessions => {
-      if (venueSessions.length > 1) {
-        // Create conflict
-        const conflictSessions: TimetableSession[] = venueSessions.map(session => this.convertToTimetableSession(session));
-
-        // Get alternative venues
-        const alternativeVenues = this.availableVenues
-          .filter(venue => venue.name !== venueSessions[0].venue)
-          .map(venue => venue.name);
-
-        // Create possible resolutions
-        const possibleResolutions: ConflictResolution[] = [
-          {
-            id: this.getNextResolutionId(),
-            type: 'Relocate',
-            action: 'changeVenue',
-            newVenue: alternativeVenues[0] || 'TBD'
-          },
-          {
-            id: this.getNextResolutionId(),
-            type: 'Reschedule',
-            action: 'changeTime',
-            newDay: this.getNextAvailableDay(venueSessions[0].day),
-            newStartSlot: this.convertTimeToSlot(venueSessions[0].timeSlot.split(' - ')[0]),
-            newEndSlot: this.convertTimeToSlot(venueSessions[0].timeSlot.split(' - ')[1])
-          }
-        ];
-
-        const conflict: Conflict = {
-          id: this.departmentConflicts.length + 1,
-          type: ConflictType.VENUE,
-          priority: 'high',
-          sessions: conflictSessions,
-          details: `Venue ${venueSessions[0].venue} is double-booked on ${venueSessions[0].day} at ${venueSessions[0].timeSlot}`,
-          possibleResolutions,
-          resolved: false
-        };
-
-        this.departmentConflicts.push(conflict);
-
-        // Mark sessions as having conflicts
-        venueSessions.forEach(session => {
-          session.hasConflict = true;
-        });
-      }
-    });
-  }
-
-  // Detect lecturer conflicts
-  private detectLecturerConflicts(sessions: any[]) {
-    // Group sessions by lecturer and day
-    const lecturerMap: { [key: string]: any[] } = {};
-
-    sessions.forEach(session => {
-      const key = `${session.lecturer}-${session.day}-${session.timeSlot}`;
-      if (!lecturerMap[key]) {
-        lecturerMap[key] = [];
-      }
-      lecturerMap[key].push(session);
-    });
-
-    // Create conflicts for lecturers with multiple sessions
-    Object.values(lecturerMap).forEach(lecturerSessions => {
-      if (lecturerSessions.length > 1) {
-        // Create conflict
-        const conflictSessions: TimetableSession[] = lecturerSessions.map(session => this.convertToTimetableSession(session));
-
-        // Create possible resolutions
-        const possibleResolutions: ConflictResolution[] = [
-          {
-            id: this.getNextResolutionId(),
-            type: 'Reschedule',
-            action: 'changeTime',
-            newDay: this.getNextAvailableDay(lecturerSessions[0].day),
-            newStartSlot: this.convertTimeToSlot(lecturerSessions[0].timeSlot.split(' - ')[0]),
-            newEndSlot: this.convertTimeToSlot(lecturerSessions[0].timeSlot.split(' - ')[1])
-          }
-        ];
-
-        const conflict: Conflict = {
-          id: this.departmentConflicts.length + 1,
-          type: ConflictType.LECTURER,
-          priority: 'high',
-          sessions: conflictSessions,
-          details: `${lecturerSessions[0].lecturer} is scheduled for multiple classes on ${lecturerSessions[0].day} at ${lecturerSessions[0].timeSlot}`,
-          possibleResolutions,
-          resolved: false
-        };
-
-        this.departmentConflicts.push(conflict);
-
-        // Mark sessions as having conflicts
-        lecturerSessions.forEach(session => {
-          session.hasConflict = true;
-        });
-      }
-    });
-  }
-
-  // Detect group conflicts
-  private detectGroupConflicts(sessions: any[]) {
-    // Group sessions by group and day
-    const groupMap: { [key: string]: any[] } = {};
-
-    sessions.forEach(session => {
-      const key = `${session.group}-${session.day}-${session.timeSlot}`;
-      if (!groupMap[key]) {
-        groupMap[key] = [];
-      }
-      groupMap[key].push(session);
-    });
-
-    // Create conflicts for groups with multiple sessions
-    Object.values(groupMap).forEach(groupSessions => {
-      if (groupSessions.length > 1) {
-        // Create conflict
-        const conflictSessions: TimetableSession[] = groupSessions.map(session => this.convertToTimetableSession(session));
-
-        // Create possible resolutions
-        const possibleResolutions: ConflictResolution[] = [
-          {
-            id: this.getNextResolutionId(),
-            type: 'Reschedule',
-            action: 'changeTime',
-            newDay: this.getNextAvailableDay(groupSessions[0].day),
-            newStartSlot: this.convertTimeToSlot(groupSessions[0].timeSlot.split(' - ')[0]),
-            newEndSlot: this.convertTimeToSlot(groupSessions[0].timeSlot.split(' - ')[1])
-          },
-          {
-            id: this.getNextResolutionId(),
-            type: 'Split Group',
-            action: 'splitGroup'
-          }
-        ];
-
-        const conflict: Conflict = {
-          id: this.departmentConflicts.length + 1,
-          type: ConflictType.GROUP,
-          priority: 'medium',
-          sessions: conflictSessions,
-          details: `${groupSessions[0].group} has multiple classes on ${groupSessions[0].day} at ${groupSessions[0].timeSlot}`,
-          possibleResolutions,
-          resolved: false
-        };
-
-        this.departmentConflicts.push(conflict);
-
-        // Mark sessions as having conflicts
-        groupSessions.forEach(session => {
-          session.hasConflict = true;
-        });
-      }
-    });
-  }
-
-  // Handle resolution of conflicts
-  handleConflictResolution(event: { conflict: Conflict, resolution: ConflictResolution }) {
-    console.log('Conflict resolution:', event);
-    const { conflict, resolution } = event;
-
-    // 1. Find affected sessions
-    const affectedSessions = this.timetableSessions.filter(session => {
-      return conflict.sessions.some(s => s.id === session.id);
-    });
-
-    // 2. Apply resolution based on action type
-    switch (resolution.action) {
-      case 'changeVenue':
-        if (resolution.newVenue) {
-          // Apply venue change
-          affectedSessions.forEach(session => {
-            if (session.id === conflict.sessions[0].id) {
-              session.venue = resolution.newVenue || session.venue;
-              session.hasConflict = false;
-            }
-          });
-        }
-        break;
-
-      case 'changeTime':
-        if (resolution.newDay !== undefined && resolution.newStartSlot !== undefined && resolution.newEndSlot !== undefined) {
-          // Apply time change
-          const sessionToChange = affectedSessions.find(s => s.id === conflict.sessions[0].id);
-          if (sessionToChange) {
-            // Convert the day and time slots to the right format
-            const dayMap = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-            const newDay = dayMap[resolution.newDay];
-            const newStartTime = this.convertSlotToTime(resolution.newStartSlot);
-            const newEndTime = this.convertSlotToTime(resolution.newEndSlot);
-
-            sessionToChange.day = newDay;
-            sessionToChange.timeSlot = `${newStartTime} - ${newEndTime}`;
-            sessionToChange.hasConflict = false;
-          }
-        }
-        break;
-
-      case 'splitGroup':
-        // Handle group splitting (more complex - would require UI for assignment)
-        // For this example, just mark as resolved
-        affectedSessions.forEach(session => {
-          session.hasConflict = false;
-        });
-        break;
-    }
-
-    // 3. Re-format all sessions
-    this.formatTimetableSessions();
-
-    // 4. Re-detect remaining conflicts
-    this.detectTimetableConflicts();
-
-    // 5. Hide conflict resolver if all conflicts are resolved
-    if (this.departmentConflicts.length === 0) {
-      this.showConflictResolver = false;
-    }
-  }
-
-  // Helper to convert time string to slot number (8:00 -> 0, 9:00 -> 1, etc.)
-  private convertTimeToSlot(timeString: string): number {
-    const hour = parseInt(timeString.split(':')[0]);
-    return hour - 8; // Assuming 8am is slot 0
-  }
-
-  // Helper to convert slot to time string
-  private convertSlotToTime(slot: number): string {
-    const hour = slot + 8; // Assuming 8am is slot 0
-    return `${hour}:00`;
-  }
-
-  // Helper to get next available day (simple implementation)
-  private getNextAvailableDay(currentDay: string): number {
-    const dayMap = {
-      'Monday': 0,
-      'Tuesday': 1,
-      'Wednesday': 2,
-      'Thursday': 3,
-      'Friday': 4,
-      'Saturday': 5,
-      'Sunday': 6
-    };
-
-    // Get current day index and return next day (wrap around to Monday if Friday)
-    const currentDayIndex = dayMap[currentDay as keyof typeof dayMap];
-    return (currentDayIndex + 1) % 5; // Only use Monday-Friday (0-4)
-  }
-
-  // Convert session to TimetableSession format for conflict component
-  private convertToTimetableSession(session: any): TimetableSession {
-    // Map day string to number (0-6)
-    const dayMap: { [key: string]: number } = {
-      'Monday': 0,
-      'Tuesday': 1,
-      'Wednesday': 2,
-      'Thursday': 3,
-      'Friday': 4,
-      'Saturday': 5,
-      'Sunday': 6
-    };
-
-    // Map time slot to start and end slot numbers
-    const timeSlotParts = session.timeSlot.split(' - ');
-    const startHour = parseInt(timeSlotParts[0].split(':')[0]);
-    const endHour = parseInt(timeSlotParts[1].split(':')[0]);
-
-    return {
-      id: session.id,
-      title: session.moduleName,
-      module: this.getModuleNameById(session.moduleId),
-      moduleCode: this.getModuleCode(session.moduleId),
-      lecturer: session.lecturer,
-      venue: session.venue,
-      group: session.group,
-      day: dayMap[session.day],
-      startSlot: startHour - 8, // Assuming 8am is the first slot (slot 0)
-      endSlot: endHour - 8,     // Assuming 9am is the second slot (slot 1), etc.
-      category: this.getModuleCategory(session.moduleId),
-      color: session.hasConflict ? '#eb445a' : this.getModuleColor(session.moduleId),
-      departmentId: this.departmentInfo.id,
-      hasConflict: session.hasConflict
-    } as TimetableSession;
-  }
-
-  // Helper to get module name by ID
-  private getModuleNameById(moduleId: number): string {
-    const module = this.modules.find(m => m.id === moduleId);
-    return module ? module.name : 'Unknown Module';
-  }
-
-  // Generate a unique resolution ID
-  private getNextResolutionId(): number {
-    let maxId = 0;
-    this.departmentConflicts.forEach(conflict => {
-      conflict.possibleResolutions.forEach(resolution => {
-        if (resolution.id > maxId) {
-          maxId = resolution.id;
-        }
-      });
-    });
-    return maxId + 1;
-  }
-
-  async logout() {
-    const alert = await this.alertController.create({
-      header: 'Confirm Logout',
-      message: 'Are you sure you want to logout?',
-      buttons: [
-        {
-          text: 'Cancel',
-          role: 'cancel',
-          cssClass: 'secondary'
-        },
-        {
-          text: 'Logout',
-          handler: () => {
-            this.performLogout();
-          }
-        }
-      ]
-    });
-
-    await alert.present();
-  }
-
-  performLogout() {
-    // Clear any stored user data, tokens, etc.
-    // localStorage.removeItem('authToken');
-    // sessionStorage.clear();
-
-    // Navigate to home page
-    this.router.navigate(['/home']);
-
-    console.log('User logged out successfully');
-  }
 }
-
-
-

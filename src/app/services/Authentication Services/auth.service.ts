@@ -618,4 +618,49 @@ export class AuthService {
       })
     );
   }
+  
+  // Add this method after the existing methods
+  getCurrentUser(): { uid: string | null, email: string | null, role: string | null, department: string | null } | null {
+    const currentState = this.authState.getValue();
+    
+    if (!currentState.isLoggedIn || !currentState.uid) {
+      return null;
+    }
+    
+    // For now, we'll derive department from role
+    // In a real implementation, you might want to store department info separately
+    let department = null;
+    
+    // This is a simplified approach - in practice you might want to store department
+    // information in the user profile or fetch it from the staff collection
+    if (currentState.role === 'HOD') {
+      // For HODs, you would typically fetch their department from the staff collection
+      // For now, we'll return a placeholder that can be updated when needed
+      department = 'Computer Science Department'; // This should be fetched from user profile
+    }
+    
+    return {
+      uid: currentState.uid,
+      email: currentState.email,
+      role: currentState.role,
+      department: department
+    };
+  }
+  
+  // Add a method to get current auth state synchronously
+  getCurrentAuthState(): AuthState {
+    return this.authState.getValue();
+  }
+  
+  // Add a method to check if user is authenticated
+  isAuthenticated(): boolean {
+    const currentState = this.authState.getValue();
+    return currentState.isLoggedIn && !!currentState.uid;
+  }
+  
+  // Add a method to get user role
+  getCurrentUserRole(): string | null {
+    const currentState = this.authState.getValue();
+    return currentState.role;
+  }
 }

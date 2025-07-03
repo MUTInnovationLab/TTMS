@@ -192,5 +192,284 @@ export class StaffService {
       })
     );
   }
+  
+  // Add a lecturer to a department's lecturers array
+  addLecturerToDepartment(departmentName: string, lecturerData: User): Observable<{ success: boolean, message: string }> {
+    console.log('Adding lecturer to department:', departmentName, lecturerData);
+    
+    return from(new Promise<void>((resolve, reject) => {
+      try {
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        // Get the department document
+        firestore.collection(this.STAFF_COLLECTION).doc(departmentName).get()
+          .then(doc => {
+            if (doc.exists) {
+              // Document exists, add lecturer to lecturers array
+              const currentData = doc.data() as any;
+              const lecturers = currentData.lecturers || [];
+              
+              // Format lecturer data
+              const newLecturer = {
+                id: lecturerData.id,
+                title: lecturerData.title,
+                name: lecturerData.name,
+                sex: lecturerData.sex || '',
+                roomName: lecturerData.roomName || '',
+                schedulable: lecturerData.schedulable || false,
+                role: 'Lecturer',
+                contact: lecturerData.contact || {},
+                address: lecturerData.address || {},
+                accessibility: lecturerData.accessibility || {
+                  deafLoop: false,
+                  wheelchairAccess: false
+                },
+                weeklyTarget: lecturerData.weeklyTarget || 0,
+                totalTarget: lecturerData.totalTarget || 0,
+                profile: lecturerData.profile || '',
+                tags: lecturerData.tags || [],
+                createdAt: new Date(),
+                updatedAt: new Date()
+              };
+              
+              // Check if lecturer already exists (by ID)
+              const existingIndex = lecturers.findIndex((l: any) => l.id === lecturerData.id);
+              if (existingIndex >= 0) {
+                // Update existing lecturer
+                lecturers[existingIndex] = newLecturer;
+              } else {
+                // Add new lecturer
+                lecturers.push(newLecturer);
+              }
+              
+              // Update the document
+              return firestore.collection(this.STAFF_COLLECTION).doc(departmentName).update({
+                lecturers: lecturers,
+                updatedAt: new Date()
+              });
+            } else {
+              // Document doesn't exist, create it with the lecturer
+              const departmentData = {
+                id: departmentName,
+                title: '',
+                name: '',
+                sex: '',
+                department: departmentName,
+                roomName: '',
+                schedulable: false,
+                role: 'HOD',
+                contact: {},
+                address: {},
+                accessibility: {
+                  deafLoop: false,
+                  wheelchairAccess: false
+                },
+                weeklyTarget: 0,
+                totalTarget: 0,
+                allowanceWeek: 0,
+                allowanceTotal: 0,
+                profile: '',
+                tags: [],
+                lecturers: [{
+                  id: lecturerData.id,
+                  title: lecturerData.title,
+                  name: lecturerData.name,
+                  sex: lecturerData.sex || '',
+                  roomName: lecturerData.roomName || '',
+                  schedulable: lecturerData.schedulable || false,
+                  role: 'Lecturer',
+                  contact: lecturerData.contact || {},
+                  address: lecturerData.address || {},
+                  accessibility: lecturerData.accessibility || {
+                    deafLoop: false,
+                    wheelchairAccess: false
+                  },
+                  weeklyTarget: lecturerData.weeklyTarget || 0,
+                  totalTarget: lecturerData.totalTarget || 0,
+                  profile: lecturerData.profile || '',
+                  tags: lecturerData.tags || [],
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                }],
+                createdAt: new Date(),
+                updatedAt: new Date()
+              };
+              
+              return firestore.collection(this.STAFF_COLLECTION).doc(departmentName).set(departmentData);
+            }
+          })
+          .then(() => {
+            console.log('Lecturer added successfully!');
+            resolve();
+          })
+          .catch(error => {
+            console.error('Error adding lecturer:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
+    })).pipe(
+      map(() => ({
+        success: true,
+        message: 'Lecturer added successfully'
+      })),
+      catchError(error => {
+        console.error('Error in addLecturerToDepartment:', error);
+        return of({
+          success: false,
+          message: `Failed to add lecturer: ${error.message}`
+        });
+      })
+    );
+  }
+  
+  // Add multiple lecturers to a department (bulk upload)
+  addLecturersToDepartment(departmentName: string, lecturersData: User[]): Observable<{ success: boolean, message: string, addedCount: number, errors: string[] }> {
+    console.log('Adding multiple lecturers to department:', departmentName, lecturersData.length);
+    
+    return from(new Promise<{ addedCount: number, errors: string[] }>((resolve, reject) => {
+      try {
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        // Get the department document
+        firestore.collection(this.STAFF_COLLECTION).doc(departmentName).get()
+          .then(doc => {
+            const currentData = doc.exists ? doc.data() as any : {};
+            const existingLecturers = currentData.lecturers || [];
+            
+            let addedCount = 0;
+            const errors: string[] = [];
+            
+            // Process each lecturer
+            lecturersData.forEach((lecturerData, index) => {
+              try {
+                // Validate required fields
+                if (!lecturerData.id || !lecturerData.name || !lecturerData.contact?.email) {
+                  errors.push(`Row ${index + 1}: Missing required fields (ID, Name, or Email)`);
+                  return;
+                }
+                
+                const newLecturer = {
+                  id: lecturerData.id,
+                  title: lecturerData.title || 'MR',
+                  name: lecturerData.name,
+                  sex: lecturerData.sex || '',
+                  roomName: lecturerData.roomName || '',
+                  schedulable: lecturerData.schedulable || false,
+                  role: 'Lecturer',
+                  contact: lecturerData.contact,
+                  address: lecturerData.address || {},
+                  accessibility: lecturerData.accessibility || {
+                    deafLoop: false,
+                    wheelchairAccess: false
+                  },
+                  weeklyTarget: lecturerData.weeklyTarget || 0,
+                  totalTarget: lecturerData.totalTarget || 0,
+                  profile: lecturerData.profile || '',
+                  tags: lecturerData.tags || [],
+                  createdAt: new Date(),
+                  updatedAt: new Date()
+                };
+                
+                // Check if lecturer already exists
+                const existingIndex = existingLecturers.findIndex((l: any) => l.id === lecturerData.id);
+                if (existingIndex >= 0) {
+                  // Update existing lecturer
+                  existingLecturers[existingIndex] = newLecturer;
+                } else {
+                  // Add new lecturer
+                  existingLecturers.push(newLecturer);
+                }
+                
+                addedCount++;
+              } catch (error) {
+                errors.push(`Row ${index + 1}: ${error}`);
+              }
+            });
+            
+            // Update the document with all lecturers
+            const updateData = {
+              ...currentData,
+              lecturers: existingLecturers,
+              updatedAt: new Date()
+            };
+            
+            // If document doesn't exist, include basic department info
+            if (!doc.exists) {
+              updateData.id = departmentName;
+              updateData.department = departmentName;
+              updateData.role = 'HOD';
+              updateData.createdAt = new Date();
+            }
+            
+            return firestore.collection(this.STAFF_COLLECTION).doc(departmentName)
+              .set(updateData, { merge: true })
+              .then(() => {
+                resolve({ addedCount, errors });
+              });
+          })
+          .catch(error => {
+            console.error('Error in bulk add:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
+    })).pipe(
+      map((result) => ({
+        success: true,
+        message: `Successfully processed ${result.addedCount} lecturers${result.errors.length > 0 ? ` with ${result.errors.length} errors` : ''}`,
+        addedCount: result.addedCount,
+        errors: result.errors
+      })),
+      catchError(error => {
+        console.error('Error in addLecturersToDepartment:', error);
+        return of({
+          success: false,
+          message: `Failed to add lecturers: ${error.message}`,
+          addedCount: 0,
+          errors: [error.message]
+        });
+      })
+    );
+  }
+  
+  // Get all lecturers for a specific department
+  getLecturersByDepartment(departmentName: string): Observable<User[]> {
+    return from(new Promise<User[]>((resolve, reject) => {
+      try {
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        firestore.collection(this.STAFF_COLLECTION).doc(departmentName).get()
+          .then(doc => {
+            if (doc.exists) {
+              const data = doc.data() as any;
+              const lecturers = data.lecturers || [];
+              resolve(lecturers);
+            } else {
+              resolve([]);
+            }
+          })
+          .catch(error => {
+            console.error('Error fetching lecturers:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
+    })).pipe(
+      catchError(error => {
+        console.error('Error in getLecturersByDepartment:', error);
+        return of([]);
+      })
+    );
+  }
 }
 
