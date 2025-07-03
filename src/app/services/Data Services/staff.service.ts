@@ -3,6 +3,7 @@ import { Observable, from, of } from 'rxjs';
 import { User } from '../../components/add-user/add-user.component';
 import { AngularFirestore } from '@angular/fire/compat/firestore';
 import { catchError, map } from 'rxjs/operators';
+import { Module } from '../Entity Management Services/module.service';
 
 // Import Firebase directly for operations that cause DI issues
 import firebase from 'firebase/compat/app';
@@ -470,6 +471,31 @@ export class StaffService {
         return of([]);
       })
     );
+  }
+
+  addModuleToDepartment(department: string, moduleData: Module): Observable<{ success: boolean; message: string }> {
+    // Implement your logic here, e.g., call backend API or update local data
+    // This is a stub for demonstration
+    return of({
+      success: true,
+      message: `Module ${moduleData.code} added to department ${department}`
+    });
+  }
+
+  getModulesByDepartment(department: string): Observable<Module[]> {
+    // TODO: Replace with actual API call or data retrieval logic
+    return of([]);
+  }
+
+  addModulesToDepartment(department: string, modules: Module[]): Observable<{ success: boolean; message: string; addedCount: number; errors: string[] }> {
+    // Implement your logic here, e.g., call backend API or update local data
+    // This is a stub for demonstration
+    return of({
+      success: true,
+      message: `Added ${modules.length} modules to department ${department}`,
+      addedCount: modules.length,
+      errors: []
+    });
   }
 }
 

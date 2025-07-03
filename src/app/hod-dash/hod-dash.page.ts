@@ -17,6 +17,9 @@ import { VenueService, VenueDisplayInfo } from '../services/Entity Management Se
 import { AddUserComponent } from '../components/add-user/add-user.component';
 import { BulkUploadLecturersComponent } from '../components/bulk-upload-lecturers/bulk-upload-lecturers.component';
 import { LecturerService } from '../services/Entity Management Services/lecturer.service';
+import { BulkUploadModulesComponent } from '../components/bulk-upload-modules/bulk-upload-modules.component';
+import { ModuleService, Module } from '../services/Entity Management Services/module.service';
+import { AddModuleComponent } from '../components/add-module/add-module.component';
 
 interface SessionForGrid {
   id: number;
@@ -422,7 +425,8 @@ export class HodDashPage implements OnInit, OnDestroy {
     private sessionService: SessionService,
     private venueService: VenueService,
     private lecturerService: LecturerService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private moduleService: ModuleService
   ) {
     console.log('HodDashPage constructor');
   }
@@ -1111,10 +1115,70 @@ export class HodDashPage implements OnInit, OnDestroy {
     );
   }
 
-  showAddModuleModal() {
-    console.log('Show add module modal');
-    // Show add module modal
+  async showAddModuleModal() {
+    const modal = await this.modalController.create({
+      component: AddModuleComponent,
+      componentProps: {
+        module: null,
+        currentUserRole: 'HOD',
+        lecturers: this.lecturers.map(l => ({ id: l.id, name: l.name }))
+      },
+      cssClass: 'module-modal'
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+
+    if (data) {
+      console.log('Module data returned:', data);
+      this.handleNewModuleCreation(data);
+    }
   }
+
+  private handleNewModuleCreation(moduleData: Module) {
+    console.log('Creating new module:', moduleData);
+    moduleData.department = this.departmentInfo.name;
+
+    this.moduleService.addModule(moduleData).subscribe({
+      next: (result) => {
+        if (result.success) {
+          this.presentToast('Module added successfully');
+          this.loadDepartmentModules();
+        } else {
+          this.presentToast(`Error adding module: ${result.message}`);
+        }
+      },
+      error: (error) => {
+        console.error('Error adding module:', error);
+        this.presentToast('Error adding module: ' + (error.message || 'Unknown error'));
+      }
+    });
+  }
+
+    loadDepartmentModules() {
+      this.moduleService.getDepartmentModules().subscribe({
+        next: (modules) => {
+          console.log('Department modules loaded:', modules);
+          this.modules = modules.map(module => ({
+            id: module.id,
+            code: module.code,
+            name: module.name,
+            credits: module.credits,
+            sessionsPerWeek: module.sessionsPerWeek,
+            groupCount: module.groupCount,
+            lecturerCount: module.lecturerCount,
+            lecturerIds: module.lecturerIds
+          }));
+          this.departmentStats.modules = this.modules.length;
+        },
+        error: (error) => {
+          console.error('Error loading department modules:', error);
+          this.presentToast('Error loading modules: ' + (error.message || 'Unknown error'));
+        }
+      });
+    }
+
 
   editModule(module: any) {
     console.log('Editing module:', module);
@@ -1514,7 +1578,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     });
   }
 
-  // Add bulk upload method
+  // Add bulk upload method for lecturers
   async showBulkUploadModal() {
     const modal = await this.modalController.create({
       component: BulkUploadLecturersComponent,
@@ -1529,6 +1593,29 @@ export class HodDashPage implements OnInit, OnDestroy {
       console.log('Bulk upload completed:', data);
       
       let message = `Successfully added ${data.addedCount} lecturers.`;
+      if (data.errors && data.errors.length > 0) {
+        message += ` ${data.errors.length} errors occurred.`;
+      }
+      
+      this.presentToast(message);
+      this.loadDepartmentLecturers(); // Reload lecturers list
+    }
+  }
+
+  async showBulkUploadModuleModal() {
+    const modal = await this.modalController.create({
+      component: BulkUploadModulesComponent,
+      cssClass: 'bulk-upload-modal'
+    });
+    
+    await modal.present();
+    
+    const { data } = await modal.onDidDismiss();
+    
+    if (data && data.success) {
+      console.log('Bulk upload completed:', data);
+      
+      let message = `Successfully added ${data.addedCount} Modules.`;
       if (data.errors && data.errors.length > 0) {
         message += ` ${data.errors.length} errors occurred.`;
       }

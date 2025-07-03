@@ -1,0 +1,160 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>Bulk Upload Modules</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismissModal()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <!-- File Upload Section -->
+  <div *ngIf="!showPreview" class="upload-section">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Upload Modules Spreadsheet</ion-card-title>
+        <ion-card-subtitle>Upload an Excel or CSV file with module information</ion-card-subtitle>
+      </ion-card-header>
+
+      <ion-card-content>
+        <!-- Template Download -->
+        <div class="template-section">
+          <ion-button fill="outline" (click)="downloadTemplate()">
+            <ion-icon name="download" slot="start"></ion-icon>
+            Download Template
+          </ion-button>
+          <p class="template-info">Download a template to see the required format</p>
+        </div>
+      </ion-card-content>
+
+      <!-- File Input -->
+      <ion-card-content>
+        <div class="file-input-section">
+          <input type="file" 
+                 #fileInput
+                 accept=".xlsx,.xls,.csv"
+                 (change)="onFileSelected($event)"
+                 style="display: none;">
+          
+          <ion-button expand="block" 
+                      fill="outline" 
+                      (click)="fileInput.click()">
+            <ion-icon name="cloud-upload" slot="start"></ion-icon>
+            Select File
+          </ion-button>
+
+          <div *ngIf="selectedFile" class="selected-file">
+            <ion-item>
+              <ion-icon name="document" slot="start"></ion-icon>
+              <ion-label>
+                <h3>{{ selectedFile.name }}</h3>
+                <p>{{ (selectedFile.size / 1024 / 1024).toFixed(2) }} MB</p>
+              </ion-label>
+            </ion-item>
+          </div>
+        </div>
+
+        <!-- Process Button -->
+        <div class="process-section">
+          <ion-button expand="block" 
+                      [disabled]="!selectedFile || isProcessing"
+                      (click)="processFile()">
+            <ion-spinner *ngIf="isProcessing" name="crescent" slot="start"></ion-spinner>
+            <ion-icon *ngIf="!isProcessing" name="checkmark-circle" slot="start"></ion-icon>
+            {{ isProcessing ? 'Processing...' : 'Process File' }}
+          </ion-button>
+        </div>
+
+        <!-- Requirements -->
+        <div class="requirements">
+          <h4>File Requirements:</h4>
+          <ul>
+            <li>Excel (.xlsx, .xls) or CSV format</li>
+            <li>Maximum file size: 5MB</li>
+            <li>Required columns: Code, Name</li>
+            <li>Optional columns: Credits, Sessions per Week, Lecturer IDs</li>
+          </ul>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+
+  <!-- Preview Section -->
+  <div *ngIf="showPreview" class="preview-section">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Preview Data ({{ previewData.length }} modules)</ion-card-title>
+        <ion-card-subtitle>Review the data before uploading</ion-card-subtitle>
+      </ion-card-header>
+
+      <ion-card-content>
+        <!-- Upload Progress -->
+        <div *ngIf="isUploading" class="upload-progress">
+          <h4>Uploading Modules...</h4>
+          <ion-progress-bar [value]="uploadProgress / 100"></ion-progress-bar>
+          <p>{{ uploadProgress }}% complete</p>
+        </div>
+
+        <!-- Data Table -->
+        <div class="data-table" *ngIf="!isUploading">
+          <ion-grid>
+            <ion-row class="table-header">
+              <ion-col size="2">Code</ion-col>
+              <ion-col size="3">Name</ion-col>
+              <ion-col size="2">Credits</ion-col>
+              <ion-col size="2">Sessions/Week</ion-col>
+              <ion-col size="2">Lecturers</ion-col>
+              <ion-col size="2">Program</ion-col>
+              <ion-col size="2">Year</ion-col>
+              <ion-col size="2">Elective Group</ion-col>
+              <ion-col size="1">Actions</ion-col>
+            </ion-row>
+            <ion-row *ngFor="let module of previewData; let i = index" class="table-row">
+              <ion-col size="2">{{ module.code }}</ion-col>
+              <ion-col size="3">{{ module.name }}</ion-col>
+              <ion-col size="2">{{ module.credits }}</ion-col>
+              <ion-col size="2">{{ module.sessionsPerWeek }}</ion-col>
+              <ion-col size="2">{{ module.lecturerIds?.join(', ') || '-' }}</ion-col>
+              <ion-col size="2">{{ module.program || '-' }}</ion-col>
+              <ion-col size="2">{{ module.year || '-' }}</ion-col>
+              <ion-col size="2">{{ module.electiveGroup || '-' }}</ion-col>
+              <ion-col size="1">
+                <ion-button fill="clear" size="small" (click)="removeModule(i)">
+                  <ion-icon name="trash" color="danger"></ion-icon>
+                </ion-button>
+              </ion-col>
+            </ion-row>
+          </ion-grid>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="action-buttons" *ngIf="!isUploading">
+          <ion-button fill="outline" (click)="showPreview = false">
+            <ion-icon name="arrow-back" slot="start"></ion-icon>
+            Back to Upload
+          </ion-button>
+
+          <ion-button color="primary" 
+                      [disabled]="previewData.length === 0"
+                      (click)="uploadModules()">
+            <ion-icon name="cloud-upload" slot="start"></ion-icon>
+            Upload {{ previewData.length }} Modules
+          </ion-button>
+        </div>
+
+        <!-- Errors Display -->
+        <div *ngIf="errors.length > 0" class="errors-section">
+          <h4>Errors Found:</h4>
+          <ion-list>
+            <ion-item *ngFor="let error of errors">
+              <ion-icon name="warning" slot="start" color="danger"></ion-icon>
+              <ion-label>{{ error }}</ion-label>
+            </ion-item>
+          </ion-list>
+        </div>
+      </ion-card-content>
+    </ion-card>
+  </div>
+</ion-content>

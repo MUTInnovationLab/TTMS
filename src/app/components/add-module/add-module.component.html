@@ -1,1 +1,84 @@
-<p>add-module works!</p>
+<ion-header>
+  <ion-toolbar>
+    <ion-title>{{ isEditMode ? 'Edit' : 'Add' }} Module</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="dismissModal()">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form [formGroup]="moduleForm" (ngSubmit)="onSubmit()">
+    <!-- Module Information Section -->
+    <ion-item-group>
+      <ion-item-divider>
+        <ion-label>Module Information</ion-label>
+      </ion-item-divider>
+
+      <ion-item>
+        <ion-label position="floating">Module Code*</ion-label>
+        <ion-input formControlName="code" type="text"></ion-input>
+        <div *ngIf="submitted && f['code'].errors" class="error-message">
+          <span *ngIf="f['code'].errors['required']">Module Code is required</span>
+          <span *ngIf="f['code'].errors['pattern']">Code must be alphanumeric (e.g., CS101)</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Module Name*</ion-label>
+        <ion-input formControlName="name" type="text"></ion-input>
+        <div *ngIf="submitted && f['name'].errors" class="error-message">
+          <span *ngIf="f['name'].errors['required']">Module Name is required</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Credits*</ion-label>
+        <ion-input formControlName="credits" type="number"></ion-input>
+        <div *ngIf="submitted && f['credits'].errors" class="error-message">
+          <span *ngIf="f['credits'].errors['required']">Credits are required</span>
+          <span *ngIf="f['credits'].errors['min']">Credits must be at least 1</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Sessions per Week*</ion-label>
+        <ion-input formControlName="sessionsPerWeek" type="number"></ion-input>
+        <div *ngIf="submitted && f['sessionsPerWeek'].errors" class="error-message">
+          <span *ngIf="f['sessionsPerWeek'].errors['required']">Sessions per Week is required</span>
+          <span *ngIf="f['sessionsPerWeek'].errors['min']">Must be at least 1 session</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Department*</ion-label>
+        <ion-input formControlName="department" type="text" [readonly]="true"></ion-input>
+        <div *ngIf="submitted && f['department'].errors" class="error-message">
+          <span *ngIf="f['department'].errors['required']">Department is required</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
+        <ion-label position="floating">Assigned Lecturers</ion-label>
+        <ion-select formControlName="lecturerIds" multiple="true">
+          <ion-select-option *ngFor="let lecturer of lecturers" [value]="lecturer.id">{{ lecturer.name }}</ion-select-option>
+        </ion-select>
+      </ion-item>
+    </ion-item-group>
+
+    <!-- Form Error Messages -->
+    <div *ngIf="errorMessage" class="ion-text-center ion-padding">
+      <ion-text color="danger">{{ errorMessage }}</ion-text>
+    </div>
+
+    <!-- Form Actions -->
+    <div class="form-actions">
+      <ion-button expand="block" type="submit" [disabled]="isSubmitting">
+        <ion-spinner *ngIf="isSubmitting" name="crescent"></ion-spinner>
+        <span *ngIf="!isSubmitting">{{ isEditMode ? 'Update' : 'Add' }} Module</span>
+      </ion-button>
+    </div>
+  </form>
+</ion-content>

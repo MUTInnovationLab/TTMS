@@ -395,10 +395,16 @@
 
         <div class="filter-controls">
           <ion-searchbar placeholder="Search modules" [(ngModel)]="moduleSearch"></ion-searchbar>
-          <ion-button (click)="showAddModuleModal()">
-            <ion-icon name="add-circle" slot="start"></ion-icon>
-            Add Module
-          </ion-button>
+          <div class="module-action-buttons">
+            <ion-button (click)="showAddModuleModal()">
+              <ion-icon name="add-circle" slot="start"></ion-icon>
+              Add Module
+            </ion-button>
+            <ion-button color="secondary" (click)="showBulkUploadModuleModal()">
+              <ion-icon name="cloud-upload" slot="start"></ion-icon>
+              Bulk Upload
+            </ion-button>
+          </div>
         </div>
 
         <ion-list class="modules-list">
