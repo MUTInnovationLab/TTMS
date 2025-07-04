@@ -413,9 +413,13 @@
             <ion-label>
               <h2>{{module.name}} ({{module.code}})</h2>
               <p>Credits: {{module.credits}} | Sessions per week: {{module.sessionsPerWeek}}</p>
-              <p>Groups: {{module.groupCount}} | Lecturers: {{module.lecturerCount}}</p>
+              <p>Groups: {{module.groupCount}} | Lecturers: {{getLecturerNames(module.lecturerIds).join(', ')}}</p>
             </ion-label>
           </ion-item>
+          <div *ngIf="filteredModules.length === 0" class="no-modules">
+            <ion-icon name="document-text-outline"></ion-icon>
+            <p>No modules found</p>
+          </div>
         </ion-list>
       </div>
 

@@ -449,6 +449,9 @@ export class HodDashPage implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     );
+
+    // Load modules on init
+    this.loadDepartmentModules()
   }
 
   // New method to load venues first, then initialize other components
@@ -1045,6 +1048,13 @@ export class HodDashPage implements OnInit, OnDestroy {
       // Re-format sessions for the grid
       this.formatTimetableSessions();
     }
+  }
+
+  // New method to get lecturer names from IDs
+  getLecturerNames(lecturerIds: number[]): string[] {
+    return this.lecturers
+      .filter(lecturer => lecturerIds.includes(lecturer.id))
+      .map(lecturer => lecturer.name);
   }
 
   editLecturer(lecturer: any) {
