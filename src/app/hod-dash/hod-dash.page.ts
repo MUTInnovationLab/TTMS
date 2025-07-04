@@ -1602,6 +1602,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     }
   }
 
+  // Add bulk upload method for modules
   async showBulkUploadModuleModal() {
     const modal = await this.modalController.create({
       component: BulkUploadModulesComponent,
@@ -1621,7 +1622,7 @@ export class HodDashPage implements OnInit, OnDestroy {
       }
       
       this.presentToast(message);
-      this.loadDepartmentLecturers(); // Reload lecturers list
+      this.loadDepartmentModules(); // Reload modules list
     }
   }
 

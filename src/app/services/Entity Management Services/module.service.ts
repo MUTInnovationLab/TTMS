@@ -131,7 +131,7 @@ export class ModuleService {
         const lecturerIds = lecturerIdsString ? lecturerIdsString.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id)) : [];
 
         const module: Module = {
-          id: 0,
+          id: Date.now() + i, // Temporary unique ID based on timestamp and row index
           code: String(code).trim(),
           name: String(name).trim(),
           credits: this.parseNumber(this.getCellValue(row, columnIndices['credits'])) || 10,

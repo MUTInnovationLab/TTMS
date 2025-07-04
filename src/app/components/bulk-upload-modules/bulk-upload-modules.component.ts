@@ -2,6 +2,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { IonicModule, ModalController, AlertController } from '@ionic/angular';
 import { ModuleService, Module } from '../../services/Entity Management Services/module.service';
+import { AuthService } from '../../services/Authentication Services/auth.service';
 
 @Component({
   selector: 'app-bulk-upload-modules',
@@ -22,7 +23,8 @@ export class BulkUploadModulesComponent implements OnInit {
   constructor(
     private modalController: ModalController,
     private alertController: AlertController,
-    private moduleService: ModuleService
+    private moduleService: ModuleService,
+    private authService: AuthService
   ) {}
 
   ngOnInit() {}
@@ -64,7 +66,13 @@ export class BulkUploadModulesComponent implements OnInit {
         this.isProcessing = false;
 
         if (result.success && result.data) {
-          this.previewData = result.data;
+          const currentUser = this.authService.getCurrentUser();
+          const department = currentUser?.department || '';
+          this.previewData = result.data.map(module => ({
+            ...module,
+            id: Date.now() + Math.floor(Math.random() * 1000), // Temporary unique ID
+            department: department
+          }));
           this.showPreview = true;
           this.presentAlert('Preview Ready', `${result.data.length} modules found. Please review the data before uploading.`);
         } else {
@@ -128,9 +136,9 @@ export class BulkUploadModulesComponent implements OnInit {
 
   downloadTemplate() {
     const templateData = [
-      ['Code', 'Name', 'Credits', 'Sessions per Week', 'Lecturer IDs'],
-      ['CS101', 'Introduction to Programming', '10', '3', '1,3'],
-      ['CS205', 'Database Systems', '15', '4', '2']
+      ['Code', 'Name', 'Credits', 'Sessions per Week', 'Lecturer IDs', 'Program', 'Year', 'Elective Group'],
+      ['CS101', 'Introduction to Programming', '10', '3', '1,3', 'Computer Science', '1', 'Group A'],
+      ['CS205', 'Database Systems', '15', '4', '2', 'Computer Science', '2', '']
     ];
 
     const csvContent = templateData.map(row => row.join(',')).join('\n');

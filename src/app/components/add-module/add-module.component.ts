@@ -2,22 +2,8 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
-import { ModuleService } from '../../services/Entity Management Services/module.service';
+import { ModuleService, Module } from '../../services/Entity Management Services/module.service';
 import { AuthService } from '../../services/Authentication Services/auth.service';
-
-export interface Module {
-  id: number;
-  code: string;
-  name: string;
-  credits: number;
-  sessionsPerWeek: number;
-  groupCount: number;
-  lecturerCount: number;
-  lecturerIds: number[];
-  department: string;
-  createdAt?: Date;
-  updatedAt?: Date;
-}
 
 @Component({
   selector: 'app-add-module',
@@ -103,12 +89,12 @@ export class AddModuleComponent implements OnInit {
       }
 
       const moduleData: Module = {
-        id: this.isEditMode && this.module ? this.module.id : 0,
+        id: this.isEditMode && this.module ? this.module.id : Date.now(), // Use timestamp as ID for now
         code: formData.code,
         name: formData.name,
         credits: parseInt(formData.credits),
         sessionsPerWeek: parseInt(formData.sessionsPerWeek),
-        groupCount: 0, // Will be updated later based on assignments
+        groupCount: 0,
         lecturerCount: formData.lecturerIds.length,
         lecturerIds: formData.lecturerIds,
         department: formData.department,

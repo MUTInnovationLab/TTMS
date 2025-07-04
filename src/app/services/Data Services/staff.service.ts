@@ -16,7 +16,8 @@ export class StaffService {
   
   // Collection name in Firestore
   private readonly STAFF_COLLECTION = 'staff';
-  
+  private readonly MODULES_COLLECTION = 'module';
+
   constructor(
     private firestore: AngularFirestore,
     private ngZone: NgZone
@@ -474,28 +475,142 @@ export class StaffService {
   }
 
   addModuleToDepartment(department: string, moduleData: Module): Observable<{ success: boolean; message: string }> {
-    // Implement your logic here, e.g., call backend API or update local data
-    // This is a stub for demonstration
-    return of({
-      success: true,
-      message: `Module ${moduleData.code} added to department ${department}`
-    });
+    console.log('Adding module to department:', department, moduleData);
+    
+    return from(new Promise<void>((resolve, reject) => {
+      try {
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        const documentId = moduleData.id.toString();
+        firestore.collection(this.MODULES_COLLECTION).doc(documentId).set({
+          ...moduleData,
+          department: department,
+          updatedAt: new Date()
+        }, { merge: true })
+          .then(() => {
+            console.log('Module document written successfully!');
+            resolve();
+          })
+          .catch(error => {
+            console.error('Error adding module document:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
+    })).pipe(
+      map(() => ({
+        success: true,
+        message: `Module ${moduleData.code} added to department ${department}`
+      })),
+      catchError(error => {
+        console.error('Error in addModuleToDepartment:', error);
+        return of({
+          success: false,
+          message: `Failed to add module: ${error.message}`
+        });
+      })
+    );
   }
 
   getModulesByDepartment(department: string): Observable<Module[]> {
-    // TODO: Replace with actual API call or data retrieval logic
-    return of([]);
+    return from(new Promise<Module[]>((resolve, reject) => {
+      try {
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        firestore.collection(this.MODULES_COLLECTION)
+          .where('department', '==', department)
+          .get()
+          .then(snapshot => {
+            const modules = snapshot.docs.map(doc => ({
+              ...doc.data() as Module,
+              id: parseInt(doc.id) // Ensure 'id' is set last and not overwritten
+            }));
+            resolve(modules);
+          })
+          .catch(error => {
+            console.error('Error fetching modules:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
+    })).pipe(
+      catchError(error => {
+        console.error('Error in getModulesByDepartment:', error);
+        return of([]);
+      })
+    );
   }
 
   addModulesToDepartment(department: string, modules: Module[]): Observable<{ success: boolean; message: string; addedCount: number; errors: string[] }> {
-    // Implement your logic here, e.g., call backend API or update local data
-    // This is a stub for demonstration
-    return of({
-      success: true,
-      message: `Added ${modules.length} modules to department ${department}`,
-      addedCount: modules.length,
-      errors: []
-    });
+    console.log('Adding multiple modules to department:', department, modules.length);
+    
+    return from(new Promise<{ addedCount: number, errors: string[] }>((resolve, reject) => {
+      try {
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        let addedCount = 0;
+        const errors: string[] = [];
+        
+        const batch = firestore.batch();
+        
+        modules.forEach((moduleData, index) => {
+          try {
+            if (!moduleData.id || !moduleData.code || !moduleData.name) {
+              errors.push(`Row ${index + 1}: Missing required fields (ID, Code, or Name)`);
+              return;
+            }
+            
+            const documentId = moduleData.id.toString();
+            const moduleRef = firestore.collection(this.MODULES_COLLECTION).doc(documentId);
+            
+            batch.set(moduleRef, {
+              ...moduleData,
+              department: department,
+              updatedAt: new Date()
+            }, { merge: true });
+            
+            addedCount++;
+          } catch (error) {
+            errors.push(`Row ${index + 1}: ${error}`);
+          }
+        });
+        
+        batch.commit()
+          .then(() => {
+            resolve({ addedCount, errors });
+          })
+          .catch(error => {
+            console.error('Error in bulk module add:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
+    })).pipe(
+      map((result) => ({
+        success: true,
+        message: `Successfully processed ${result.addedCount} modules${result.errors.length > 0 ? ` with ${result.errors.length} errors` : ''}`,
+        addedCount: result.addedCount,
+        errors: result.errors
+      })),
+      catchError(error => {
+        console.error('Error in addModulesToDepartment:', error);
+        return of({
+          success: false,
+          message: `Failed to add modules: ${error.message}`,
+          addedCount: 0,
+          errors: [error.message]
+        });
+      })
+    );
   }
 }
 
