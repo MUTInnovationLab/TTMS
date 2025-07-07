@@ -4,6 +4,7 @@ import { StaffService } from '../Data Services/staff.service';
 import { AuthService } from '../Authentication Services/auth.service';
 import { User } from '../../components/add-user/add-user.component';
 import * as XLSX from 'xlsx';
+import { switchMap } from 'rxjs/operators';
 
 @Injectable({
   providedIn: 'root'
@@ -18,15 +19,27 @@ export class LecturerService {
   // Add a single lecturer to the HOD's department
   addLecturer(lecturerData: User): Observable<{ success: boolean, message: string }> {
     // Get current user's department (assuming HOD is logged in)
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !currentUser.department) {
+    const currentUserObservable = this.authService.getCurrentUser();
+    
+    if (!currentUserObservable) {
       return of({
         success: false,
-        message: 'Unable to determine department. Please ensure you are logged in as an HOD.'
+        message: 'No authenticated user found. Please ensure you are logged in as an HOD.'
       });
     }
     
-    return this.staffService.addLecturerToDepartment(currentUser.department, lecturerData);
+    return currentUserObservable.pipe(
+      switchMap(currentUser => {
+        if (!currentUser || !currentUser.department) {
+          return of({
+            success: false,
+            message: 'Unable to determine department. Please ensure you are logged in as an HOD and your department is properly configured.'
+          });
+        }
+        
+        return this.staffService.addLecturerToDepartment(currentUser.department, lecturerData);
+      })
+    );
   }
   
   // Process spreadsheet file and extract lecturer data
@@ -178,32 +191,55 @@ export class LecturerService {
   
   // Bulk add lecturers to department
   addLecturersBulk(lecturers: User[]): Observable<{ success: boolean, message: string, addedCount: number, errors: string[] }> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !currentUser.department) {
+    const currentUserObservable = this.authService.getCurrentUser();
+    
+    if (!currentUserObservable) {
       return of({
         success: false,
-        message: 'Unable to determine department. Please ensure you are logged in as an HOD.',
+        message: 'No authenticated user found. Please ensure you are logged in as an HOD.',
         addedCount: 0,
         errors: ['Authentication error']
       });
     }
     
-    // Set department for all lecturers and ensure it's never null
-    const lecturersWithDept = lecturers.map(lecturer => ({
-      ...lecturer,
-      department: currentUser.department as string // Cast to string since we've checked it's not null above
-    }));
-    
-    return this.staffService.addLecturersToDepartment(currentUser.department, lecturersWithDept);
+    return currentUserObservable.pipe(
+      switchMap(currentUser => {
+        if (!currentUser || !currentUser.department) {
+          return of({
+            success: false,
+            message: 'Unable to determine department. Please ensure you are logged in as an HOD and your department is properly configured.',
+            addedCount: 0,
+            errors: ['Authentication error']
+          });
+        }
+        
+        // Set department for all lecturers
+        const lecturersWithDept = lecturers.map(lecturer => ({
+          ...lecturer,
+          department: currentUser.department as string
+        }));
+        
+        return this.staffService.addLecturersToDepartment(currentUser.department, lecturersWithDept);
+      })
+    );
   }
   
   // Get all lecturers for the current HOD's department
   getDepartmentLecturers(): Observable<User[]> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !currentUser.department) {
+    const currentUserObservable = this.authService.getCurrentUser();
+    
+    if (!currentUserObservable) {
       return of([]);
     }
     
-    return this.staffService.getLecturersByDepartment(currentUser.department);
+    return currentUserObservable.pipe(
+      switchMap(currentUser => {
+        if (!currentUser || !currentUser.department) {
+          return of([]);
+        }
+        
+        return this.staffService.getLecturersByDepartment(currentUser.department);
+      })
+    );
   }
 }

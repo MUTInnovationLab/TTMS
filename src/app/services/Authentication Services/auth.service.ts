@@ -620,33 +620,99 @@ export class AuthService {
   }
   
   // Add this method after the existing methods
-  getCurrentUser(): { uid: string | null, email: string | null, role: string | null, department: string | null } | null {
+  getCurrentUser(): Observable<{ uid: string | null, email: string | null, role: string | null, department: string | null }> | null {
+    const currentState = this.authState.getValue();
+    
+    if (!currentState.isLoggedIn || !currentState.uid) {
+      return null;
+    }
+
+    // Return an Observable that fetches the user's department from staff collection
+    return from(new Promise<{ uid: string | null, email: string | null, role: string | null, department: string | null }>((resolve, reject) => {
+      try {
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        // Query all department documents in the staff collection to find the user
+        firestore.collection('staff').get()
+          .then(querySnapshot => {
+            let userDepartment: string | null = null;
+            
+            // Look through each department document to find the current user
+            querySnapshot.forEach(doc => {
+              const departmentData = doc.data();
+              const departmentName = doc.id; // Document ID is the department name
+              
+              // Check if this department document represents the current user (HOD)
+              if (departmentData['role'] === 'HOD' && 
+                  currentState.email && 
+                  departmentData['contact']?.email === currentState.email) {
+                userDepartment = departmentName;
+              }
+              
+              // Also check in lecturers array if it exists
+              if (departmentData['lecturers'] && Array.isArray(departmentData['lecturers'])) {
+                const lecturer = departmentData['lecturers'].find((l: any) => 
+                  l.contact?.email === currentState.email
+                );
+                if (lecturer) {
+                  userDepartment = departmentName;
+                }
+              }
+            });
+            
+            resolve({
+              uid: currentState.uid,
+              email: currentState.email,
+              role: currentState.role,
+              department: userDepartment
+            });
+          })
+          .catch(error => {
+            console.error('Error fetching user department from staff collection:', error);
+            // Fallback to return user data without department
+            resolve({
+              uid: currentState.uid,
+              email: currentState.email,
+              role: currentState.role,
+              department: null
+            });
+          });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
+    })).pipe(
+      catchError(error => {
+        console.error('Error in getCurrentUser:', error);
+        return of({
+          uid: currentState.uid,
+          email: currentState.email,
+          role: currentState.role,
+          department: null
+        });
+      })
+    );
+  }
+
+  // Add a synchronous method for cases where we need immediate access
+  getCurrentUserSync(): { uid: string | null, email: string | null, role: string | null, department: string | null } | null {
     const currentState = this.authState.getValue();
     
     if (!currentState.isLoggedIn || !currentState.uid) {
       return null;
     }
     
-    // For now, we'll derive department from role
-    // In a real implementation, you might want to store department info separately
-    let department = null;
-    
-    // This is a simplified approach - in practice you might want to store department
-    // information in the user profile or fetch it from the staff collection
-    if (currentState.role === 'HOD') {
-      // For HODs, you would typically fetch their department from the staff collection
-      // For now, we'll return a placeholder that can be updated when needed
-      department = 'Computer Science Department'; // This should be fetched from user profile
-    }
-    
+    // This will return null for department since we can't make async calls here
+    // Components should use the Observable version above for proper department info
     return {
       uid: currentState.uid,
       email: currentState.email,
       role: currentState.role,
-      department: department
+      department: null // Will be null in sync version
     };
   }
-  
+
   // Add a method to get current auth state synchronously
   getCurrentAuthState(): AuthState {
     return this.authState.getValue();
@@ -664,3 +730,4 @@ export class AuthService {
     return currentState.role;
   }
 }
+

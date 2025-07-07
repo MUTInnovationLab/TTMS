@@ -96,6 +96,9 @@
         <div class="department-info">
           <h2>{{departmentInfo.name}}</h2>
           <p>Head of Department: {{departmentInfo.hodName}}</p>
+          <p *ngIf="departmentInfo.email">Email: {{departmentInfo.email}}</p>
+          <p *ngIf="departmentInfo.phone">Phone: {{departmentInfo.phone}}</p>
+          <p *ngIf="departmentInfo.location">Location: {{departmentInfo.location}}</p>
         </div>
 
         <div class="stats-grid">
@@ -121,6 +124,12 @@
             <ion-icon name="calendar"></ion-icon>
             <h2>{{departmentStats.sessions}}</h2>
             <p>Scheduled Sessions</p>
+          </div>
+
+          <div class="stat-card">
+            <ion-icon name="school"></ion-icon>
+            <h2>{{departmentStats.students}}</h2>
+            <p>Students</p>
           </div>
         </div>
 
@@ -184,8 +193,9 @@
           <div class="filters-group">
             <ion-select placeholder="Lecturer" [(ngModel)]="timetableFilters.lecturer">
               <ion-select-option [value]="null">All Lecturers</ion-select-option>
-              <ion-select-option *ngFor="let lecturer of lecturers"
-                [value]="lecturer.id">{{lecturer.name}}</ion-select-option>
+              <ion-select-option *ngFor="let lecturer of lecturers" [value]="lecturer.id">
+                {{lecturer.name}}
+              </ion-select-option>
             </ion-select>
 
             <ion-select placeholder="Group" [(ngModel)]="timetableFilters.group">
@@ -263,7 +273,23 @@
 
         <!-- Lecturers List View -->
         <div *ngIf="lecturerView === 'list'" class="lecturers-list-container">
-          <ion-list class="lecturers-list">
+          <!-- Show loading state -->
+          <div *ngIf="lecturers.length === 0" class="no-lecturers">
+            <ion-card>
+              <ion-card-content class="text-center">
+                <ion-icon name="people-outline" color="medium" size="large"></ion-icon>
+                <h3>No Lecturers Found</h3>
+                <p>No lecturers have been added to your department yet.</p>
+                <ion-button color="primary" (click)="showAddLecturerModal()">
+                  <ion-icon name="person-add" slot="start"></ion-icon>
+                  Add First Lecturer
+                </ion-button>
+              </ion-card-content>
+            </ion-card>
+          </div>
+
+          <!-- Lecturers list -->
+          <ion-list *ngIf="lecturers.length > 0" class="lecturers-list">
             <ion-item *ngFor="let lecturer of filteredLecturers" button detail (click)="editLecturer(lecturer)">
               <ion-avatar slot="start">
                 <img [src]="lecturer.avatar || 'assets/default-avatar.png'" alt="Lecturer Avatar">
@@ -272,6 +298,7 @@
                 <h2>{{lecturer.name}}</h2>
                 <p>Email: {{lecturer.email}}</p>
                 <p>Modules: {{lecturer.moduleCount}} | Weekly Hours: {{lecturer.weeklyHours}}</p>
+                <p>Specialization: {{lecturer.specialization}}</p>
               </ion-label>
             </ion-item>
           </ion-list>
@@ -279,28 +306,50 @@
 
         <!-- Workload View -->
         <div *ngIf="lecturerView === 'workload'" class="workload-container">
-          <div class="workload-chart">
-            <h3>Lecturer Workload Distribution</h3>
-            <div class="chart-placeholder">Workload chart will be displayed here</div>
+          <div *ngIf="lecturers.length === 0" class="no-lecturers">
+            <ion-card>
+              <ion-card-content class="text-center">
+                <ion-icon name="bar-chart-outline" color="medium" size="large"></ion-icon>
+                <h3>No Workload Data Available</h3>
+                <p>Add lecturers to your department to view workload analysis.</p>
+              </ion-card-content>
+            </ion-card>
           </div>
 
-          <ion-list class="workload-list">
-            <ion-item *ngFor="let lecturer of lecturers">
-              <ion-label>
-                <h2>{{lecturer.name}}</h2>
-                <ion-progress-bar [value]="lecturer.workloadPercentage"></ion-progress-bar>
-                <div class="workload-details">
-                  <span>{{lecturer.weeklyHours}} hours/week</span>
-                  <span>{{lecturer.workloadPercentage | percent}} of maximum</span>
-                </div>
-              </ion-label>
-            </ion-item>
-          </ion-list>
+          <div *ngIf="lecturers.length > 0">
+            <div class="workload-chart">
+              <h3>Lecturer Workload Distribution</h3>
+              <div class="chart-placeholder">Workload chart will be displayed here</div>
+            </div>
+
+            <ion-list class="workload-list">
+              <ion-item *ngFor="let lecturer of lecturers">
+                <ion-label>
+                  <h2>{{lecturer.name}}</h2>
+                  <ion-progress-bar [value]="lecturer.workloadPercentage"></ion-progress-bar>
+                  <div class="workload-details">
+                    <span>{{lecturer.weeklyHours}} hours/week</span>
+                    <span>{{lecturer.workloadPercentage | percent}} of maximum</span>
+                  </div>
+                </ion-label>
+              </ion-item>
+            </ion-list>
+          </div>
         </div>
 
         <!-- Module Assignments View -->
         <div *ngIf="lecturerView === 'modules'" class="module-assignments-container">
-          <ion-list>
+          <div *ngIf="lecturers.length === 0" class="no-lecturers">
+            <ion-card>
+              <ion-card-content class="text-center">
+                <ion-icon name="book-outline" color="medium" size="large"></ion-icon>
+                <h3>No Module Assignments Available</h3>
+                <p>Add lecturers to your department to manage module assignments.</p>
+              </ion-card-content>
+            </ion-card>
+          </div>
+
+          <ion-list *ngIf="lecturers.length > 0">
             <ion-item-group *ngFor="let module of modules">
               <ion-item-divider>
                 <ion-label>{{module.name}} ({{module.code}})</ion-label>

@@ -7,9 +7,8 @@ import { SidebarService } from '../services/Utility Services/sidebar.service';
 import { Subscription } from 'rxjs';
 import { AlertController, ToastController } from '@ionic/angular';
 import { Router } from '@angular/router';
-// Remove GroupService import temporarily
-// import { GroupService } from '../services/group.service';
 import { Group } from '../models/group.model';
+import { SessionForGrid, SessionForm } from '../models/session.model';
 import { User } from '../components/add-user/add-user.component';
 import { TimetableService, TimetableSession as TimetableServiceSession } from '../services/Timetable Core Services/timetable.service';
 import { SessionService, SessionRequest } from '../services/Timetable Core Services/session.service';
@@ -17,37 +16,8 @@ import { VenueService, VenueDisplayInfo } from '../services/Entity Management Se
 import { AddUserComponent } from '../components/add-user/add-user.component';
 import { BulkUploadLecturersComponent } from '../components/bulk-upload-lecturers/bulk-upload-lecturers.component';
 import { LecturerService } from '../services/Entity Management Services/lecturer.service';
-
-interface SessionForGrid {
-  id: number;
-  moduleId: number;
-  moduleName: string;
-  day: string;
-  timeSlot: string;
-  venueId: string; // Changed from number to string
-  venue: string;
-  lecturerId: number;
-  lecturer: string;
-  groupId: number;
-  group: string;
-  hasConflict: boolean;
-}
-
-interface SessionForm {
-  moduleId: number;
-  moduleName: string;
-  venueId: string; // Changed from number to string
-  venue: string;
-  lecturerId: number;
-  lecturer: string;
-  groupId: number;
-  group: string;
-  day: string;
-  timeSlot: string;
-  category: string;
-  notes: string;
-  departmentId: number;
-}
+import { AuthService } from '../services/Authentication Services/auth.service';
+import { UserService, DepartmentInfo, DepartmentStats } from '../services/Authentication Services/user.service';
 
 @Component({
   selector: 'app-hod-dash',
@@ -67,22 +37,23 @@ export class HodDashPage implements OnInit, OnDestroy {
   // Dashboard navigation
   activeSection: string = 'dashboard';
 
-  // Department Info
-  departmentInfo = {
-    id: 1,
-    name: 'Computer Science Department',
-    hodName: 'Dr. John Smith',
-    email: 'cs@university.edu',
-    phone: '+1 234 567 890',
-    location: 'Building A, Floor 3'
+  // Department Info - will be loaded from database
+  departmentInfo: DepartmentInfo = {
+    id: '',
+    name: 'Loading...',
+    hodName: 'Loading...',
+    email: '',
+    phone: '',
+    location: ''
   };
 
-  // Department Statistics
-  departmentStats = {
-    lecturers: 12,
-    groups: 8,
-    modules: 24,
-    sessions: 48
+  // Department Statistics - will be calculated from database
+  departmentStats: DepartmentStats = {
+    lecturers: 0,
+    groups: 0,
+    modules: 0,
+    sessions: 0,
+    students: 0
   };
 
   // Submission Status
@@ -209,52 +180,12 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   canSubmitTimetable = true;
 
-  // Lecturers Data
+  // Lecturers Data - Remove static data, make it dynamic
   lecturerSearch = '';
   lecturerView = 'list';
 
-  lecturers = [
-    {
-      id: 1,
-      name: 'Dr. John Smith',
-      email: 'john.smith@university.edu',
-      avatar: 'assets/avatar1.png',
-      moduleCount: 4,
-      weeklyHours: 18,
-      workloadPercentage: 0.75,
-      specialization: 'Artificial Intelligence'
-    },
-    {
-      id: 2,
-      name: 'Dr. Robert Brown',
-      email: 'robert.brown@university.edu',
-      avatar: 'assets/avatar2.png',
-      moduleCount: 3,
-      weeklyHours: 12,
-      workloadPercentage: 0.5,
-      specialization: 'Database Systems'
-    },
-    {
-      id: 3,
-      name: 'Dr. Sarah Johnson',
-      email: 'sarah.johnson@university.edu',
-      avatar: 'assets/avatar3.png',
-      moduleCount: 5,
-      weeklyHours: 20,
-      workloadPercentage: 0.83,
-      specialization: 'Algorithms and Data Structures'
-    },
-    {
-      id: 4,
-      name: 'Dr. Emily Taylor',
-      email: 'emily.taylor@university.edu',
-      avatar: 'assets/avatar4.png',
-      moduleCount: 3,
-      weeklyHours: 14,
-      workloadPercentage: 0.58,
-      specialization: 'Web Technologies'
-    }
-  ];
+  // Remove static lecturer data - will be loaded from database
+  lecturers: any[] = [];
 
   get filteredLecturers() {
     if (!this.lecturerSearch) return this.lecturers;
@@ -422,13 +353,18 @@ export class HodDashPage implements OnInit, OnDestroy {
     private sessionService: SessionService,
     private venueService: VenueService,
     private lecturerService: LecturerService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private authService: AuthService,
+    private userService: UserService // Add UserService injection
   ) {
     console.log('HodDashPage constructor');
   }
 
   ngOnInit() {
     console.log('HodDashPage ngOnInit');
+
+    // Load current user's department information first
+    this.loadCurrentUserDepartment();
 
     // Load venues from database FIRST and WAIT for completion
     this.loadVenuesAndInitialize();
@@ -445,6 +381,100 @@ export class HodDashPage implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     );
+  }
+
+  // Updated method to load current user's department with real data
+  loadCurrentUserDepartment() {
+    const currentUserObservable = this.authService.getCurrentUser();
+
+    if (currentUserObservable) {
+      currentUserObservable.subscribe({
+        next: (currentUser) => {
+          if (currentUser && currentUser.department) {
+            console.log('Current user department loaded:', currentUser.department);
+
+            // Load department information from database
+            this.loadDepartmentInfo(currentUser.department);
+            
+            // Load department statistics
+            this.loadDepartmentStats(currentUser.department);
+
+            // Load department-specific data after department is determined
+            this.loadDepartmentLecturers();
+          } else {
+            console.warn('No department found for current user');
+            this.presentToast('Warning: Unable to determine your department. Some features may not work correctly.');
+            
+            // Set fallback department info
+            this.setFallbackDepartmentInfo();
+          }
+        },
+        error: (error) => {
+          console.error('Error loading current user department:', error);
+          this.presentToast('Error loading department information');
+          this.setFallbackDepartmentInfo();
+        }
+      });
+    } else {
+      console.warn('No current user observable available');
+      this.setFallbackDepartmentInfo();
+    }
+  }
+
+  // Load department information from database
+  private loadDepartmentInfo(departmentName: string) {
+    console.log('Loading department info for:', departmentName);
+    
+    this.userService.getDepartmentInfo(departmentName).subscribe({
+      next: (departmentInfo) => {
+        if (departmentInfo) {
+          console.log('Department info loaded:', departmentInfo);
+          this.departmentInfo = departmentInfo;
+          this.cdr.detectChanges();
+        } else {
+          console.warn('Department info not found, using fallback');
+          this.setFallbackDepartmentInfo(departmentName);
+        }
+      },
+      error: (error) => {
+        console.error('Error loading department info:', error);
+        this.presentToast('Error loading department information');
+        this.setFallbackDepartmentInfo(departmentName);
+      }
+    });
+  }
+
+  // Load department statistics from database
+  private loadDepartmentStats(departmentName: string) {
+    console.log('Loading department stats for:', departmentName);
+    
+    this.userService.getDepartmentStats(departmentName).subscribe({
+      next: (stats) => {
+        console.log('Department stats loaded:', stats);
+        this.departmentStats = stats;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading department stats:', error);
+        this.presentToast('Error loading department statistics');
+      }
+    });
+  }
+
+  // Set fallback department info when database load fails
+  private setFallbackDepartmentInfo(departmentName?: string) {
+    const currentAuthState = this.authService.getCurrentAuthState();
+    
+    this.departmentInfo = {
+      id: departmentName || 'unknown',
+      name: departmentName || 'Unknown Department',
+      hodName: currentAuthState.email || 'Unknown HOD',
+      email: currentAuthState.email || '',
+      phone: 'Not available',
+      location: 'Location not specified'
+    };
+    
+    this.cdr.detectChanges();
   }
 
   // New method to load venues first, then initialize other components
@@ -719,8 +749,17 @@ export class HodDashPage implements OnInit, OnDestroy {
     await moduleSelect.present();
   }
 
-  // Select lecturer for the session
+  // Select lecturer for the session - use dynamic lecturer data
   async selectLecturerForSession() {
+    if (this.lecturers.length === 0) {
+      this.alertController.create({
+        header: 'No Lecturers Available',
+        message: 'Please add lecturers to your department first.',
+        buttons: ['OK']
+      }).then(alert => alert.present());
+      return;
+    }
+
     const lecturerSelect = await this.alertController.create({
       header: 'Select Lecturer',
       inputs: this.lecturers.map(lecturer => ({
@@ -948,9 +987,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         'Tuesday': 1,
         'Wednesday': 2,
         'Thursday': 3,
-        'Friday': 4,
-        'Saturday': 5,
-        'Sunday': 6
+        'Friday': 4
       };
 
       // Map time slot to start and end slot numbers
@@ -974,7 +1011,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         endSlot: endHour - 8,     // Assuming 9am is the second slot (slot 1), etc.
         category: this.getModuleCategory(session.moduleId),
         color: moduleColor,
-        departmentId: this.departmentInfo.id,
+        departmentId: parseInt(this.departmentInfo.id) || 1,
         hasConflict: session.hasConflict
       } as TimetableSession;
     });
@@ -1363,7 +1400,7 @@ export class HodDashPage implements OnInit, OnDestroy {
       endSlot: endHour - 8,
       category: this.getModuleCategory(session.moduleId),
       color: this.getModuleColor(session.moduleId),
-      departmentId: this.departmentInfo.id,
+      departmentId: parseInt(this.departmentInfo.id) || 1,
       hasConflict: session.hasConflict
     };
   }
@@ -1480,11 +1517,11 @@ export class HodDashPage implements OnInit, OnDestroy {
       },
       cssClass: 'user-modal'
     });
-    
+
     await modal.present();
-    
+
     const { data } = await modal.onDidDismiss();
-    
+
     if (data) {
       console.log('Lecturer data returned:', data);
       this.handleNewLecturerCreation(data);
@@ -1494,10 +1531,10 @@ export class HodDashPage implements OnInit, OnDestroy {
   // Handle new lecturer creation for HODs
   private handleNewLecturerCreation(lecturerData: User) {
     console.log('Creating new lecturer:', lecturerData);
-    
+
     // Set the department to the current HOD's department
     lecturerData.department = this.departmentInfo.name;
-    
+
     this.lecturerService.addLecturer(lecturerData).subscribe({
       next: (result) => {
         if (result.success) {
@@ -1520,19 +1557,19 @@ export class HodDashPage implements OnInit, OnDestroy {
       component: BulkUploadLecturersComponent,
       cssClass: 'bulk-upload-modal'
     });
-    
+
     await modal.present();
-    
+
     const { data } = await modal.onDidDismiss();
-    
+
     if (data && data.success) {
       console.log('Bulk upload completed:', data);
-      
+
       let message = `Successfully added ${data.addedCount} lecturers.`;
       if (data.errors && data.errors.length > 0) {
         message += ` ${data.errors.length} errors occurred.`;
       }
-      
+
       this.presentToast(message);
       this.loadDepartmentLecturers(); // Reload lecturers list
     }
@@ -1540,10 +1577,11 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   // Load lecturers from database for the current department
   loadDepartmentLecturers() {
+    console.log('Loading department lecturers...');
     this.lecturerService.getDepartmentLecturers().subscribe({
       next: (lecturers) => {
         console.log('Department lecturers loaded:', lecturers);
-        
+
         // Update the lecturers array with data from database
         this.lecturers = lecturers.map(lecturer => ({
           id: parseInt(lecturer.id) || 0,
@@ -1555,15 +1593,54 @@ export class HodDashPage implements OnInit, OnDestroy {
           workloadPercentage: (lecturer.weeklyTarget || 0) / 24, // Assuming 24 hours max
           specialization: lecturer.tags?.join(', ') || 'General'
         }));
+
+        // Update department stats with actual lecturer count
+        this.departmentStats = {
+          ...this.departmentStats,
+          lecturers: this.lecturers.length
+        };
+
+        // Update recent sessions to use actual lecturer names if available
+        this.updateRecentSessionsWithRealData();
         
-        // Update department stats
-        this.departmentStats.lecturers = this.lecturers.length;
+        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Error loading department lecturers:', error);
         this.presentToast('Error loading lecturers: ' + (error.message || 'Unknown error'));
+
+        // Initialize empty array on error
+        this.lecturers = [];
+        this.departmentStats = {
+          ...this.departmentStats,
+          lecturers: 0
+        };
       }
     });
+  }
+
+  // Update recent sessions and timetable sessions to use real lecturer data
+  updateRecentSessionsWithRealData() {
+    // Update recent sessions to use actual lecturer names if they exist
+    this.recentSessions = this.recentSessions.map(session => {
+      const lecturer = this.lecturers.find(l => l.name === session.lecturer);
+      return {
+        ...session,
+        lecturer: lecturer ? lecturer.name : 'Unknown Lecturer'
+      };
+    });
+
+    // Update timetable sessions to use actual lecturer data
+    this.timetableSessions = this.timetableSessions.map(session => {
+      const lecturer = this.lecturers.find(l => l.id === session.lecturerId);
+      return {
+        ...session,
+        lecturer: lecturer ? lecturer.name : 'Unknown Lecturer'
+      };
+    });
+
+    // Re-format timetable sessions for display
+    this.formatTimetableSessions();
   }
 
   // View submission details
@@ -1618,7 +1695,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         endSlot: endHour - 8,
         category: this.getModuleCategory(session.moduleId),
         color: session.hasConflict ? '#eb445a' : this.getModuleColor(session.moduleId), // Red color for conflicts
-        departmentId: this.departmentInfo.id,
+        departmentId: parseInt(this.departmentInfo.id) || 1,
         hasConflict: session.hasConflict
       } as TimetableSession;
     });
