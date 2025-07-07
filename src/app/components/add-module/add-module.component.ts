@@ -22,6 +22,7 @@ export class AddModuleComponent implements OnInit {
   isSubmitting = false;
   errorMessage = '';
   isEditMode = false;
+  department: string | null = null;
 
   constructor(
     private formBuilder: FormBuilder,
@@ -32,23 +33,37 @@ export class AddModuleComponent implements OnInit {
 
   ngOnInit() {
     this.isEditMode = !!this.module;
-    this.initializeForm();
+    this.loadDepartment();
+  }
 
-    if (this.isEditMode && this.module) {
-      this.populateForm(this.module);
+  loadDepartment() {
+    const currentUser$ = this.authService.getCurrentUser();
+    if (currentUser$) {
+      currentUser$.subscribe(user => {
+        this.department = user.department || '';
+        this.initializeForm();
+        if (this.isEditMode && this.module) {
+          this.populateForm(this.module);
+        }
+      }, error => {
+        this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
+        this.department = '';
+        this.initializeForm();
+      });
+    } else {
+      this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
+      this.department = '';
+      this.initializeForm();
     }
   }
 
   initializeForm() {
-    const currentUser = this.authService.getCurrentUser();
-    const department = currentUser?.department || '';
-
     this.moduleForm = this.formBuilder.group({
       code: ['', [Validators.required, Validators.pattern(/^[A-Za-z0-9]+$/)]],
       name: ['', Validators.required],
       credits: ['', [Validators.required, Validators.min(1)]],
       sessionsPerWeek: ['', [Validators.required, Validators.min(1)]],
-      department: [{ value: department, disabled: true }, Validators.required],
+      department: [{ value: this.department, disabled: true }, Validators.required],
       lecturerIds: [[]]
     });
   }
@@ -80,9 +95,7 @@ export class AddModuleComponent implements OnInit {
 
     try {
       const formData = this.moduleForm.getRawValue(); // Use getRawValue to include disabled fields
-      const currentUser = this.authService.getCurrentUser();
-
-      if (!currentUser || !currentUser.department) {
+      if (!this.department) {
         this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
         this.isSubmitting = false;
         return;
@@ -97,7 +110,7 @@ export class AddModuleComponent implements OnInit {
         groupCount: 0,
         lecturerCount: formData.lecturerIds.length,
         lecturerIds: formData.lecturerIds,
-        department: formData.department,
+        department: this.department,
         createdAt: this.isEditMode && this.module?.createdAt ? this.module.createdAt : new Date(),
         updatedAt: new Date()
       };

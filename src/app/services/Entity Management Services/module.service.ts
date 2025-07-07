@@ -31,15 +31,36 @@ export class ModuleService {
   ) {}
 
   addModule(moduleData: Module): Observable<{ success: boolean; message: string }> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !currentUser.department) {
+    const currentUser$ = this.authService.getCurrentUser();
+    if (!currentUser$) {
       return of({
         success: false,
         message: 'Unable to determine department. Please ensure you are logged in as an HOD.'
       });
     }
 
-    return this.staffService.addModuleToDepartment(currentUser.department, moduleData);
+    return new Observable(observer => {
+      currentUser$.subscribe(user => {
+        if (!user || !user.department) {
+          observer.next({
+            success: false,
+            message: 'Unable to determine department. Please ensure you are logged in as an HOD.'
+          });
+          observer.complete();
+          return;
+        }
+        this.staffService.addModuleToDepartment(user.department, moduleData).subscribe(result => {
+          observer.next(result);
+          observer.complete();
+        });
+      }, error => {
+        observer.next({
+          success: false,
+          message: 'Error fetching user data.'
+        });
+        observer.complete();
+      });
+    });
   }
 
   processSpreadsheet(file: File): Observable<{ success: boolean; data?: Module[]; message: string }> {
@@ -139,7 +160,7 @@ export class ModuleService {
           groupCount: 0,
           lecturerCount: lecturerIds.length,
           lecturerIds: lecturerIds,
-          department: '',
+          department: '', // Will be set later when department is available
           program: this.getCellValue(row, columnIndices['program']),
           year: this.getCellValue(row, columnIndices['year']),
           electiveGroup: this.getCellValue(row, columnIndices['electiveGroup']),
@@ -169,8 +190,8 @@ export class ModuleService {
   }
 
   addModulesBulk(modules: Module[]): Observable<{ success: boolean; message: string; addedCount: number; errors: string[] }> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !currentUser.department) {
+    const currentUser$ = this.authService.getCurrentUser();
+    if (!currentUser$) {
       return of({
         success: false,
         message: 'Unable to determine department. Please ensure you are logged in as an HOD.',
@@ -179,20 +200,59 @@ export class ModuleService {
       });
     }
 
-    const modulesWithDept = modules.map(module => ({
-      ...module,
-      department: currentUser.department as string
-    }));
-
-    return this.staffService.addModulesToDepartment(currentUser.department, modulesWithDept);
+    return new Observable(observer => {
+      currentUser$.subscribe(user => {
+        if (!user || !user.department) {
+          observer.next({
+            success: false,
+            message: 'Unable to determine department. Please ensure you are logged in as an HOD.',
+            addedCount: 0,
+            errors: ['Authentication error']
+          });
+          observer.complete();
+          return;
+        }
+        const modulesWithDept = modules.map(module => ({
+          ...module,
+          department: user.department as string
+        }));
+        this.staffService.addModulesToDepartment(user.department, modulesWithDept).subscribe(result => {
+          observer.next(result);
+          observer.complete();
+        });
+      }, error => {
+        observer.next({
+          success: false,
+          message: 'Error fetching user data.',
+          addedCount: 0,
+          errors: ['Authentication error']
+        });
+        observer.complete();
+      });
+    });
   }
 
   getDepartmentModules(): Observable<Module[]> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !currentUser.department) {
+    const currentUser$ = this.authService.getCurrentUser();
+    if (!currentUser$) {
       return of([]);
     }
 
-    return this.staffService.getModulesByDepartment(currentUser.department);
+    return new Observable(observer => {
+      currentUser$.subscribe(user => {
+        if (!user || !user.department) {
+          observer.next([]);
+          observer.complete();
+          return;
+        }
+        this.staffService.getModulesByDepartment(user.department).subscribe(modules => {
+          observer.next(modules);
+          observer.complete();
+        });
+      }, error => {
+        observer.next([]);
+        observer.complete();
+      });
+    });
   }
 }

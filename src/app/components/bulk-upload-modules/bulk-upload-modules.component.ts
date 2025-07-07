@@ -19,6 +19,7 @@ export class BulkUploadModulesComponent implements OnInit {
   showPreview = false;
   uploadProgress = 0;
   errors: string[] = [];
+  department: string | null = null;
 
   constructor(
     private modalController: ModalController,
@@ -27,7 +28,24 @@ export class BulkUploadModulesComponent implements OnInit {
     private authService: AuthService
   ) {}
 
-  ngOnInit() {}
+  ngOnInit() {
+    this.loadDepartment();
+  }
+
+  loadDepartment() {
+    const currentUser$ = this.authService.getCurrentUser();
+    if (currentUser$) {
+      currentUser$.subscribe(user => {
+        this.department = user.department || '';
+      }, error => {
+        this.department = '';
+        this.presentAlert('Error', 'Unable to determine department. Please ensure you are logged in as an HOD.');
+      });
+    } else {
+      this.department = '';
+      this.presentAlert('Error', 'Unable to determine department. Please ensure you are logged in as an HOD.');
+    }
+  }
 
   onFileSelected(event: any) {
     const file = event.target.files[0];
@@ -56,7 +74,7 @@ export class BulkUploadModulesComponent implements OnInit {
   }
 
   processFile() {
-    if (!this.selectedFile) return;
+    if (!this.selectedFile || !this.department) return;
 
     this.isProcessing = true;
     this.errors = [];
@@ -66,12 +84,10 @@ export class BulkUploadModulesComponent implements OnInit {
         this.isProcessing = false;
 
         if (result.success && result.data) {
-          const currentUser = this.authService.getCurrentUser();
-          const department = currentUser?.department || '';
           this.previewData = result.data.map(module => ({
             ...module,
             id: Date.now() + Math.floor(Math.random() * 1000), // Temporary unique ID
-            department: department
+            department: this.department ?? ''
           }));
           this.showPreview = true;
           this.presentAlert('Preview Ready', `${result.data.length} modules found. Please review the data before uploading.`);
@@ -87,7 +103,7 @@ export class BulkUploadModulesComponent implements OnInit {
   }
 
   uploadModules() {
-    if (this.previewData.length === 0) return;
+    if (this.previewData.length === 0 || !this.department) return;
 
     this.isUploading = true;
     this.uploadProgress = 0;
