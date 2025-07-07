@@ -444,10 +444,16 @@
 
         <div class="filter-controls">
           <ion-searchbar placeholder="Search modules" [(ngModel)]="moduleSearch"></ion-searchbar>
-          <ion-button (click)="showAddModuleModal()">
-            <ion-icon name="add-circle" slot="start"></ion-icon>
-            Add Module
-          </ion-button>
+          <div class="module-action-buttons">
+            <ion-button (click)="showAddModuleModal()">
+              <ion-icon name="add-circle" slot="start"></ion-icon>
+              Add Module
+            </ion-button>
+            <ion-button color="secondary" (click)="showBulkUploadModuleModal()">
+              <ion-icon name="cloud-upload" slot="start"></ion-icon>
+              Bulk Upload
+            </ion-button>
+          </div>
         </div>
 
         <ion-list class="modules-list">
@@ -456,9 +462,13 @@
             <ion-label>
               <h2>{{module.name}} ({{module.code}})</h2>
               <p>Credits: {{module.credits}} | Sessions per week: {{module.sessionsPerWeek}}</p>
-              <p>Groups: {{module.groupCount}} | Lecturers: {{module.lecturerCount}}</p>
+              <p>Groups: {{module.groupCount}} | Lecturers: {{getLecturerNames(module.lecturerIds).join(', ')}}</p>
             </ion-label>
           </ion-item>
+          <div *ngIf="filteredModules.length === 0" class="no-modules">
+            <ion-icon name="document-text-outline"></ion-icon>
+            <p>No modules found</p>
+          </div>
         </ion-list>
       </div>
 
