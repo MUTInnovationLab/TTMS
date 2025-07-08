@@ -22,6 +22,7 @@ export class AddModuleComponent implements OnInit {
   isSubmitting = false;
   errorMessage = '';
   isEditMode = false;
+  department: string | null = null;
 
   constructor(
     private formBuilder: FormBuilder,
@@ -32,10 +33,27 @@ export class AddModuleComponent implements OnInit {
 
   ngOnInit() {
     this.isEditMode = !!this.module;
-    this.initializeForm();
+    this.loadDepartment();
+  }
 
-    if (this.isEditMode && this.module) {
-      this.populateForm(this.module);
+  loadDepartment() {
+    const currentUser$ = this.authService.getCurrentUser();
+    if (currentUser$) {
+      currentUser$.subscribe(user => {
+        this.department = user.department || '';
+        this.initializeForm();
+        if (this.isEditMode && this.module) {
+          this.populateForm(this.module);
+        }
+      }, error => {
+        this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
+        this.department = '';
+        this.initializeForm();
+      });
+    } else {
+      this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
+      this.department = '';
+      this.initializeForm();
     }
   }
 
@@ -116,7 +134,7 @@ export class AddModuleComponent implements OnInit {
         groupCount: 0,
         lecturerCount: formData.lecturerIds.length,
         lecturerIds: formData.lecturerIds,
-        department: formData.department,
+        department: this.department || formData.department || '',
         createdAt: this.isEditMode && this.module?.createdAt ? this.module.createdAt : new Date(),
         updatedAt: new Date()
       };

@@ -171,7 +171,7 @@ export class ModuleService {
           groupCount: 0,
           lecturerCount: lecturerIds.length,
           lecturerIds: lecturerIds,
-          department: '',
+          department: '', // Will be set later when department is available
           program: this.getCellValue(row, columnIndices['program']),
           year: this.getCellValue(row, columnIndices['year']),
           electiveGroup: this.getCellValue(row, columnIndices['electiveGroup']),
