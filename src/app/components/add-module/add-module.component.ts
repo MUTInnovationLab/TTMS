@@ -40,17 +40,36 @@ export class AddModuleComponent implements OnInit {
   }
 
   initializeForm() {
-    const currentUser = this.authService.getCurrentUser();
-    const department = currentUser?.department || '';
-
+    // Use synchronous method to get basic user info
+    const currentUser = this.authService.getCurrentUserSync();
+    
+    // Initialize form with empty department, will be populated via Observable
     this.moduleForm = this.formBuilder.group({
       code: ['', [Validators.required, Validators.pattern(/^[A-Za-z0-9]+$/)]],
       name: ['', Validators.required],
       credits: ['', [Validators.required, Validators.min(1)]],
       sessionsPerWeek: ['', [Validators.required, Validators.min(1)]],
-      department: [{ value: department, disabled: true }, Validators.required],
+      department: [{ value: '', disabled: true }, Validators.required],
       lecturerIds: [[]]
     });
+
+    // Load department info via Observable
+    const currentUserObservable = this.authService.getCurrentUser();
+    if (currentUserObservable) {
+      currentUserObservable.subscribe({
+        next: (user) => {
+          if (user && user.department) {
+            this.moduleForm.patchValue({
+              department: user.department
+            });
+          }
+        },
+        error: (error) => {
+          console.error('Error loading user department:', error);
+          this.errorMessage = 'Unable to load department information';
+        }
+      });
+    }
   }
 
   populateForm(module: Module) {
@@ -80,10 +99,10 @@ export class AddModuleComponent implements OnInit {
 
     try {
       const formData = this.moduleForm.getRawValue(); // Use getRawValue to include disabled fields
-      const currentUser = this.authService.getCurrentUser();
-
-      if (!currentUser || !currentUser.department) {
-        this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
+      
+      // Validate department is available
+      if (!formData.department) {
+        this.errorMessage = 'Department information is required. Please ensure you are logged in as an HOD.';
         this.isSubmitting = false;
         return;
       }

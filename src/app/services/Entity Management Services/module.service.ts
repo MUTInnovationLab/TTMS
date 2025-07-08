@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Observable, of } from 'rxjs';
+import { Observable, of, from } from 'rxjs';
+import { switchMap, map, catchError } from 'rxjs/operators';
 import { StaffService } from '../Data Services/staff.service';
 import { AuthService } from '../Authentication Services/auth.service';
 import * as XLSX from 'xlsx';
@@ -31,15 +32,46 @@ export class ModuleService {
   ) {}
 
   addModule(moduleData: Module): Observable<{ success: boolean; message: string }> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !currentUser.department) {
+    // Use synchronous method to get current user
+    const currentUser = this.authService.getCurrentUserSync();
+    
+    if (!currentUser || !currentUser.uid) {
+      return of({
+        success: false,
+        message: 'No authenticated user found. Please log in again.'
+      });
+    }
+
+    // Use the Observable method to get department info
+    const currentUserObservable = this.authService.getCurrentUser();
+    if (!currentUserObservable) {
       return of({
         success: false,
         message: 'Unable to determine department. Please ensure you are logged in as an HOD.'
       });
     }
 
-    return this.staffService.addModuleToDepartment(currentUser.department, moduleData);
+    return currentUserObservable.pipe(
+      switchMap(user => {
+        if (!user || !user.department) {
+          return of({
+            success: false,
+            message: 'Unable to determine department. Please ensure you are logged in as an HOD.'
+          });
+        }
+
+        // Set the department on the module data
+        const moduleWithDept = { ...moduleData, department: user.department };
+        return this.staffService.addModuleToDepartment(user.department, moduleWithDept);
+      }),
+      catchError(error => {
+        console.error('Error in addModule:', error);
+        return of({
+          success: false,
+          message: 'Error adding module: ' + (error.message || 'Unknown error')
+        });
+      })
+    );
   }
 
   processSpreadsheet(file: File): Observable<{ success: boolean; data?: Module[]; message: string }> {
@@ -169,8 +201,21 @@ export class ModuleService {
   }
 
   addModulesBulk(modules: Module[]): Observable<{ success: boolean; message: string; addedCount: number; errors: string[] }> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !currentUser.department) {
+    // Use synchronous method to check if user is authenticated
+    const currentUser = this.authService.getCurrentUserSync();
+    
+    if (!currentUser || !currentUser.uid) {
+      return of({
+        success: false,
+        message: 'No authenticated user found. Please log in again.',
+        addedCount: 0,
+        errors: ['Authentication error']
+      });
+    }
+
+    // Use the Observable method to get department info
+    const currentUserObservable = this.authService.getCurrentUser();
+    if (!currentUserObservable) {
       return of({
         success: false,
         message: 'Unable to determine department. Please ensure you are logged in as an HOD.',
@@ -179,20 +224,65 @@ export class ModuleService {
       });
     }
 
-    const modulesWithDept = modules.map(module => ({
-      ...module,
-      department: currentUser.department as string
-    }));
+    return currentUserObservable.pipe(
+      switchMap(user => {
+        if (!user || !user.department) {
+          return of({
+            success: false,
+            message: 'Unable to determine department. Please ensure you are logged in as an HOD.',
+            addedCount: 0,
+            errors: ['Department not found']
+          });
+        }
 
-    return this.staffService.addModulesToDepartment(currentUser.department, modulesWithDept);
+        const modulesWithDept = modules.map(module => ({
+          ...module,
+          department: user.department as string
+        }));
+
+        return this.staffService.addModulesToDepartment(user.department, modulesWithDept);
+      }),
+      catchError(error => {
+        console.error('Error in addModulesBulk:', error);
+        return of({
+          success: false,
+          message: 'Error adding modules: ' + (error.message || 'Unknown error'),
+          addedCount: 0,
+          errors: [error.message || 'Unknown error']
+        });
+      })
+    );
   }
 
   getDepartmentModules(): Observable<Module[]> {
-    const currentUser = this.authService.getCurrentUser();
-    if (!currentUser || !currentUser.department) {
+    // Use synchronous method to check if user is authenticated
+    const currentUser = this.authService.getCurrentUserSync();
+    
+    if (!currentUser || !currentUser.uid) {
+      console.warn('No authenticated user found for getDepartmentModules');
       return of([]);
     }
 
-    return this.staffService.getModulesByDepartment(currentUser.department);
+    // Use the Observable method to get department info
+    const currentUserObservable = this.authService.getCurrentUser();
+    if (!currentUserObservable) {
+      console.warn('No current user observable available');
+      return of([]);
+    }
+
+    return currentUserObservable.pipe(
+      switchMap(user => {
+        if (!user || !user.department) {
+          console.warn('No department found for current user');
+          return of([]);
+        }
+
+        return this.staffService.getModulesByDepartment(user.department);
+      }),
+      catchError(error => {
+        console.error('Error in getDepartmentModules:', error);
+        return of([]);
+      })
+    );
   }
 }
