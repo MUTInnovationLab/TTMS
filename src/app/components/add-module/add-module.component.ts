@@ -116,17 +116,15 @@ export class AddModuleComponent implements OnInit {
     this.errorMessage = '';
 
     try {
-      const formData = this.moduleForm.getRawValue(); // Use getRawValue to include disabled fields
-      
-      // Validate department is available
-      if (!formData.department) {
-        this.errorMessage = 'Department information is required. Please ensure you are logged in as an HOD.';
+      const formData = this.moduleForm.getRawValue();
+      if (!this.department) {
+        this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
         this.isSubmitting = false;
         return;
       }
 
       const moduleData: Module = {
-        id: this.isEditMode && this.module ? this.module.id : Date.now(), // Use timestamp as ID for now
+        id: this.isEditMode && this.module ? this.module.id : Date.now(),
         code: formData.code,
         name: formData.name,
         credits: parseInt(formData.credits),
@@ -134,7 +132,7 @@ export class AddModuleComponent implements OnInit {
         groupCount: 0,
         lecturerCount: formData.lecturerIds.length,
         lecturerIds: formData.lecturerIds,
-        department: this.department || formData.department || '',
+        department: this.department,
         createdAt: this.isEditMode && this.module?.createdAt ? this.module.createdAt : new Date(),
         updatedAt: new Date()
       };

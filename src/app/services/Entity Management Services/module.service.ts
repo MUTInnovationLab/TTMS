@@ -32,7 +32,6 @@ export class ModuleService {
   ) {}
 
   addModule(moduleData: Module): Observable<{ success: boolean; message: string }> {
-    // Use synchronous method to get current user
     const currentUser = this.authService.getCurrentUserSync();
     
     if (!currentUser || !currentUser.uid) {
@@ -42,7 +41,6 @@ export class ModuleService {
       });
     }
 
-    // Use the Observable method to get department info
     const currentUserObservable = this.authService.getCurrentUser();
     if (!currentUserObservable) {
       return of({
@@ -60,9 +58,7 @@ export class ModuleService {
           });
         }
 
-        // Set the department on the module data
-        const moduleWithDept = { ...moduleData, department: user.department };
-        return this.staffService.addModuleToDepartment(user.department, moduleWithDept);
+        return this.staffService.addModuleToDepartment(user.department, moduleData);
       }),
       catchError(error => {
         console.error('Error in addModule:', error);
@@ -201,7 +197,6 @@ export class ModuleService {
   }
 
   addModulesBulk(modules: Module[]): Observable<{ success: boolean; message: string; addedCount: number; errors: string[] }> {
-    // Use synchronous method to check if user is authenticated
     const currentUser = this.authService.getCurrentUserSync();
     
     if (!currentUser || !currentUser.uid) {
@@ -213,7 +208,6 @@ export class ModuleService {
       });
     }
 
-    // Use the Observable method to get department info
     const currentUserObservable = this.authService.getCurrentUser();
     if (!currentUserObservable) {
       return of({
@@ -235,12 +229,7 @@ export class ModuleService {
           });
         }
 
-        const modulesWithDept = modules.map(module => ({
-          ...module,
-          department: user.department as string
-        }));
-
-        return this.staffService.addModulesToDepartment(user.department, modulesWithDept);
+        return this.staffService.addModulesToDepartment(user.department, modules);
       }),
       catchError(error => {
         console.error('Error in addModulesBulk:', error);

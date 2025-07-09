@@ -74,10 +74,7 @@ export class BulkUploadModulesComponent implements OnInit {
   }
 
   processFile() {
-    if (!this.selectedFile) {
-      this.errors.push('Please select a file first');
-      return;
-    }
+    if (!this.selectedFile || !this.department) return;
 
     this.isProcessing = true;
     this.errors = [];
@@ -87,44 +84,20 @@ export class BulkUploadModulesComponent implements OnInit {
         this.isProcessing = false;
 
         if (result.success && result.data) {
-          // Use Observable to get current user department
-          const currentUserObservable = this.authService.getCurrentUser();
-          
-          if (currentUserObservable) {
-            currentUserObservable.subscribe({
-              next: (currentUser) => {
-                if (currentUser && currentUser.department) {
-                  // Set department for all modules
-                  this.previewData = result.data!.map(module => ({
-                    ...module,
-                    department: currentUser.department as string
-                  }));
-                  
-                  this.errors.push(result.message);
-                  this.showPreview = true;
-                } else {
-                  this.errors.push('Unable to determine department. Please ensure you are logged in as an HOD.');
-                }
-                this.isProcessing = false;
-              },
-              error: (error) => {
-                console.error('Error getting current user:', error);
-                this.errors.push('Error loading user information');
-                this.isProcessing = false;
-              }
-            });
-          } else {
-            this.errors.push('No user session found. Please log in again.');
-            this.isProcessing = false;
-          }
+          this.previewData = result.data.map(module => ({
+            ...module,
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            department: this.department ?? ''
+          }));
+          this.showPreview = true;
+          this.presentAlert('Preview Ready', `${result.data.length} modules found. Please review the data before uploading.`);
         } else {
-          this.errors.push(result.message);
-          this.isProcessing = false;
+          this.presentAlert('Processing Error', result.message);
         }
       },
       error: (error) => {
-        this.errors.push('Error processing file: ' + (error.message || 'Unknown error'));
         this.isProcessing = false;
+        this.presentAlert('Processing Error', `Failed to process file: ${error.message}`);
       }
     });
   }
