@@ -1217,6 +1217,7 @@ export class HodDashPage implements OnInit, OnDestroy {
             lecturerCount: module.lecturerCount,
             lecturerIds: module.lecturerIds
           }));
+          console.log('Mapped modules for display:', this.modules);
           this.departmentStats.modules = this.modules.length;
         },
         error: (error) => {

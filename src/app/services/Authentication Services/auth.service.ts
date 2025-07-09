@@ -660,7 +660,7 @@ export class AuthService {
                 }
               }
             });
-            
+            console.log('Resolved department:', userDepartment);
             resolve({
               uid: currentState.uid,
               email: currentState.email,

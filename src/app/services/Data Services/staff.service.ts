@@ -550,15 +550,29 @@ export class StaffService {
         const firebaseApp = firebase.app();
         const firestore = firebaseApp.firestore();
         
-        firestore.collection(this.MODULES_COLLECTION)
-          .where('department', '==', department)
-          .get()
-          .then(snapshot => {
-            const modules = snapshot.docs.map(doc => ({
-              ...doc.data() as Module,
-              id: parseInt(doc.id) // Ensure 'id' is set last and not overwritten
-            }));
-            resolve(modules);
+        firestore.collection(this.MODULES_COLLECTION).doc(department).get()
+          .then(doc => {
+            if (doc.exists) {
+              const data = doc.data() as any;
+              const modules = data.modules || [];
+              resolve(modules.map((m: any) => ({
+                id: m.id,
+                code: m.code,
+                name: m.name,
+                credits: m.credits,
+                sessionsPerWeek: m.sessionsPerWeek,
+                groupCount: m.groupCount,
+                lecturerCount: m.lecturerCount,
+                lecturerIds: m.lecturerIds,
+                program: m.program,
+                year: m.year,
+                electiveGroup: m.electiveGroup,
+                createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
+                updatedAt: m.updatedAt ? new Date(m.updatedAt) : new Date()
+              })));
+            } else {
+              resolve([]);
+            }
           })
           .catch(error => {
             console.error('Error fetching modules:', error);

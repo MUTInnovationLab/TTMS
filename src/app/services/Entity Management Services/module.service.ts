@@ -33,39 +33,26 @@ export class ModuleService {
 
   addModule(moduleData: Module): Observable<{ success: boolean; message: string }> {
     const currentUser = this.authService.getCurrentUserSync();
-    
     if (!currentUser || !currentUser.uid) {
-      return of({
-        success: false,
-        message: 'No authenticated user found. Please log in again.'
-      });
+      return of({ success: false, message: 'No authenticated user found. Please log in again.' });
     }
 
     const currentUserObservable = this.authService.getCurrentUser();
     if (!currentUserObservable) {
-      return of({
-        success: false,
-        message: 'Unable to determine department. Please ensure you are logged in as an HOD.'
-      });
+      return of({ success: false, message: 'Unable to determine department. Please ensure you are logged in as an HOD.' });
     }
 
     return currentUserObservable.pipe(
       switchMap(user => {
         if (!user || !user.department) {
-          return of({
-            success: false,
-            message: 'Unable to determine department. Please ensure you are logged in as an HOD.'
-          });
+          return of({ success: false, message: 'Unable to determine department. Please ensure you are logged in as an HOD.' });
         }
-
+        console.log('Adding module to department:', user.department, moduleData); // Add this log
         return this.staffService.addModuleToDepartment(user.department, moduleData);
       }),
       catchError(error => {
         console.error('Error in addModule:', error);
-        return of({
-          success: false,
-          message: 'Error adding module: ' + (error.message || 'Unknown error')
-        });
+        return of({ success: false, message: 'Error adding module: ' + (error.message || 'Unknown error') });
       })
     );
   }

@@ -34,60 +34,65 @@ export class AddModuleComponent implements OnInit {
   ngOnInit() {
     this.isEditMode = !!this.module;
     this.loadDepartment();
+    this.initializeForm();
   }
 
   loadDepartment() {
     const currentUser$ = this.authService.getCurrentUser();
     if (currentUser$) {
       currentUser$.subscribe(user => {
+        console.log('User data from authService:', user);
         this.department = user.department || '';
-        this.initializeForm();
+        // Update form with department after it's loaded
+        if (this.moduleForm) {
+          this.moduleForm.patchValue({ department: this.department });
+        }
         if (this.isEditMode && this.module) {
           this.populateForm(this.module);
         }
       }, error => {
+        console.error('Error loading department:', error);
         this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
         this.department = '';
-        this.initializeForm();
+        // Form is already initialized, no need to reinitialize
       });
     } else {
+      console.warn('No current user observable available');
       this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
       this.department = '';
-      this.initializeForm();
     }
   }
 
   initializeForm() {
     // Use synchronous method to get basic user info
     const currentUser = this.authService.getCurrentUserSync();
-    
+    const initialDepartment = currentUser?.department || '';
     // Initialize form with empty department, will be populated via Observable
     this.moduleForm = this.formBuilder.group({
       code: ['', [Validators.required, Validators.pattern(/^[A-Za-z0-9]+$/)]],
       name: ['', Validators.required],
       credits: ['', [Validators.required, Validators.min(1)]],
       sessionsPerWeek: ['', [Validators.required, Validators.min(1)]],
-      department: [{ value: '', disabled: true }, Validators.required],
+      department: [{ value: initialDepartment, disabled: true }, Validators.required],
       lecturerIds: [[]]
     });
 
     // Load department info via Observable
     const currentUserObservable = this.authService.getCurrentUser();
-    if (currentUserObservable) {
-      currentUserObservable.subscribe({
-        next: (user) => {
-          if (user && user.department) {
-            this.moduleForm.patchValue({
-              department: user.department
-            });
+      if (currentUserObservable) {
+        currentUserObservable.subscribe({
+          next: (user) => {
+            if (user && user.department) {
+              this.department = user.department;
+              this.moduleForm.patchValue({ department: user.department });
+            }
+          },
+          error: (error) => {
+            console.error('Error loading user department:', error);
+            this.errorMessage = 'Unable to load department information';
           }
-        },
-        error: (error) => {
-          console.error('Error loading user department:', error);
-          this.errorMessage = 'Unable to load department information';
-        }
-      });
-    }
+        });
+      }
   }
 
   populateForm(module: Module) {
@@ -109,6 +114,7 @@ export class AddModuleComponent implements OnInit {
     this.submitted = true;
 
     if (this.moduleForm.invalid) {
+      console.log('Form is invalid:', this.moduleForm.errors, this.moduleForm.value); // log
       return;
     }
 
@@ -119,6 +125,14 @@ export class AddModuleComponent implements OnInit {
       const formData = this.moduleForm.getRawValue();
       if (!this.department) {
         this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
+        this.isSubmitting = false;
+        console.warn('Department not set:', this.department); // log
+        return;;
+      }
+
+      const sessionsPerWeek = parseInt(formData.sessionsPerWeek) || 0;
+        if (sessionsPerWeek < 1) {
+        this.errorMessage = 'Sessions per week must be at least 1.';
         this.isSubmitting = false;
         return;
       }
@@ -136,9 +150,10 @@ export class AddModuleComponent implements OnInit {
         createdAt: this.isEditMode && this.module?.createdAt ? this.module.createdAt : new Date(),
         updatedAt: new Date()
       };
-
+      console.log('Submitting module data:', moduleData);
       this.moduleService.addModule(moduleData).subscribe({
         next: (result) => {
+          console.log('Module service response:', result);
           if (result.success) {
             this.modalController.dismiss(moduleData);
           } else {
@@ -161,5 +176,12 @@ export class AddModuleComponent implements OnInit {
 
   dismissModal() {
     this.modalController.dismiss();
+  }
+
+  ngAfterViewInit() {
+    console.log('Form after view init:', this.moduleForm);
+    if (!this.moduleForm) {
+      console.error('moduleForm is not initialized');
+    }
   }
 }
