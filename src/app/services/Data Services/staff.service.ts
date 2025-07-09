@@ -474,7 +474,7 @@ export class StaffService {
     );
   }
 
-  addModuleToDepartment(department: string, moduleData: Module): Observable<{ success: boolean; message: string }> {
+ addModuleToDepartment(department: string, moduleData: Module): Observable<{ success: boolean; message: string }> {
     console.log('Adding module to department:', department, moduleData);
     
     return from(new Promise<void>((resolve, reject) => {
@@ -482,18 +482,47 @@ export class StaffService {
         const firebaseApp = firebase.app();
         const firestore = firebaseApp.firestore();
         
-        const documentId = moduleData.id.toString();
-        firestore.collection(this.MODULES_COLLECTION).doc(documentId).set({
-          ...moduleData,
-          department: department,
-          updatedAt: new Date()
-        }, { merge: true })
+        firestore.collection(this.MODULES_COLLECTION).doc(department).get()
+          .then(doc => {
+            const currentData = doc.exists ? doc.data() as any : { modules: [] };
+            const modules = currentData.modules || [];
+            
+            // Format module data
+            const newModule = {
+              id: moduleData.id,
+              code: moduleData.code,
+              name: moduleData.name,
+              credits: moduleData.credits,
+              sessionsPerWeek: moduleData.sessionsPerWeek,
+              groupCount: moduleData.groupCount,
+              lecturerCount: moduleData.lecturerCount,
+              lecturerIds: moduleData.lecturerIds,
+              program: moduleData.program,
+              year: moduleData.year,
+              electiveGroup: moduleData.electiveGroup,
+              createdAt: moduleData.createdAt || new Date(),
+              updatedAt: new Date()
+            };
+            
+            // Check if module already exists (by ID)
+            const existingIndex = modules.findIndex((m: any) => m.id === moduleData.id);
+            if (existingIndex >= 0) {
+              modules[existingIndex] = newModule;
+            } else {
+              modules.push(newModule);
+            }
+            
+            return firestore.collection(this.MODULES_COLLECTION).doc(department).set({
+              modules: modules,
+              updatedAt: new Date()
+            }, { merge: true });
+          })
           .then(() => {
-            console.log('Module document written successfully!');
+            console.log('Module added successfully!');
             resolve();
           })
           .catch(error => {
-            console.error('Error adding module document:', error);
+            console.error('Error adding module:', error);
             reject(error);
           });
       } catch (error) {
@@ -557,32 +586,52 @@ export class StaffService {
         
         let addedCount = 0;
         const errors: string[] = [];
-        
-        const batch = firestore.batch();
-        
-        modules.forEach((moduleData, index) => {
-          try {
-            if (!moduleData.id || !moduleData.code || !moduleData.name) {
-              errors.push(`Row ${index + 1}: Missing required fields (ID, Code, or Name)`);
-              return;
-            }
+        firestore.collection(this.MODULES_COLLECTION).doc(department).get()
+          .then(doc => {
+            const currentData = doc.exists ? doc.data() as any : { modules: [] };
+            let existingModules = currentData.modules || [];
             
-            const documentId = moduleData.id.toString();
-            const moduleRef = firestore.collection(this.MODULES_COLLECTION).doc(documentId);
+            modules.forEach((moduleData, index) => {
+              try {
+                if (!moduleData.id || !moduleData.code || !moduleData.name) {
+                  errors.push(`Row ${index + 1}: Missing required fields (ID, Code, or Name)`);
+                  return;
+                }
+                
+                const newModule = {
+                  id: moduleData.id,
+                  code: moduleData.code,
+                  name: moduleData.name,
+                  credits: moduleData.credits,
+                  sessionsPerWeek: moduleData.sessionsPerWeek,
+                  groupCount: moduleData.groupCount,
+                  lecturerCount: moduleData.lecturerCount,
+                  lecturerIds: moduleData.lecturerIds,
+                  program: moduleData.program,
+                  year: moduleData.year,
+                  electiveGroup: moduleData.electiveGroup,
+                  createdAt: moduleData.createdAt || new Date(),
+                  updatedAt: new Date()
+                };
+                
+                const existingIndex = existingModules.findIndex((m: any) => m.id === moduleData.id);
+                if (existingIndex >= 0) {
+                  existingModules[existingIndex] = newModule;
+                } else {
+                  existingModules.push(newModule);
+                }
+                
+                addedCount++;
+              } catch (error) {
+                errors.push(`Row ${index + 1}: ${error}`);
+              }
+            });
             
-            batch.set(moduleRef, {
-              ...moduleData,
-              department: department,
+            return firestore.collection(this.MODULES_COLLECTION).doc(department).set({
+              modules: existingModules,
               updatedAt: new Date()
             }, { merge: true });
-            
-            addedCount++;
-          } catch (error) {
-            errors.push(`Row ${index + 1}: ${error}`);
-          }
-        });
-        
-        batch.commit()
+          })
           .then(() => {
             resolve({ addedCount, errors });
           })
