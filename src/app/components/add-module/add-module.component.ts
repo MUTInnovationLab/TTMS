@@ -74,7 +74,8 @@ export class AddModuleComponent implements OnInit {
       credits: ['', [Validators.required, Validators.min(1)]],
       sessionsPerWeek: ['', [Validators.required, Validators.min(1)]],
       department: [{ value: initialDepartment, disabled: true }, Validators.required],
-      lecturerIds: [[]]
+      lecturerIds: [[]],
+      program: ['', Validators.required]
     });
 
     // Load department info via Observable
@@ -102,7 +103,8 @@ export class AddModuleComponent implements OnInit {
       credits: module.credits,
       sessionsPerWeek: module.sessionsPerWeek,
       department: module.department,
-      lecturerIds: module.lecturerIds || []
+      lecturerIds: module.lecturerIds || [],
+      program: module.program || ''
     });
   }
 
@@ -114,7 +116,7 @@ export class AddModuleComponent implements OnInit {
     this.submitted = true;
 
     if (this.moduleForm.invalid) {
-      console.log('Form is invalid:', this.moduleForm.errors, this.moduleForm.value); // log
+      console.log('Form is invalid:', this.moduleForm.errors, this.moduleForm.value);
       return;
     }
 
@@ -126,13 +128,13 @@ export class AddModuleComponent implements OnInit {
       if (!this.department) {
         this.errorMessage = 'Unable to determine department. Please ensure you are logged in as an HOD.';
         this.isSubmitting = false;
-        console.warn('Department not set:', this.department); // log
-        return;;
+        console.warn('Department not set:', this.department);
+        return;
       }
 
-      const sessionsPerWeek = parseInt(formData.sessionsPerWeek) || 0;
-        if (sessionsPerWeek < 1) {
-        this.errorMessage = 'Sessions per week must be at least 1.';
+      const sessionsPerWeek = parseInt(formData.sessionsPerWeek);
+      if (isNaN(sessionsPerWeek) || sessionsPerWeek < 1) {
+        this.errorMessage = 'Sessions per week must be a number greater than or equal to 1.';
         this.isSubmitting = false;
         return;
       }
@@ -142,11 +144,12 @@ export class AddModuleComponent implements OnInit {
         code: formData.code,
         name: formData.name,
         credits: parseInt(formData.credits),
-        sessionsPerWeek: parseInt(formData.sessionsPerWeek),
+        sessionsPerWeek: sessionsPerWeek,
         groupCount: 0,
         lecturerCount: formData.lecturerIds.length,
         lecturerIds: formData.lecturerIds,
         department: this.department,
+        program: formData.program,
         createdAt: this.isEditMode && this.module?.createdAt ? this.module.createdAt : new Date(),
         updatedAt: new Date()
       };

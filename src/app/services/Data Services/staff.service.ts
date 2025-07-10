@@ -474,7 +474,7 @@ export class StaffService {
     );
   }
 
- addModuleToDepartment(department: string, moduleData: Module): Observable<{ success: boolean; message: string }> {
+  addModuleToDepartment(department: string, moduleData: Module): Observable<{ success: boolean; message: string }> {
     console.log('Adding module to department:', department, moduleData);
     
     return from(new Promise<void>((resolve, reject) => {
@@ -485,9 +485,9 @@ export class StaffService {
         firestore.collection(this.MODULES_COLLECTION).doc(department).get()
           .then(doc => {
             const currentData = doc.exists ? doc.data() as any : { modules: [] };
-            const modules = currentData.modules || [];
+            let modules = currentData.modules || [];
             
-            // Format module data
+            // Format module data with defaults for optional fields
             const newModule = {
               id: moduleData.id,
               code: moduleData.code,
@@ -496,15 +496,15 @@ export class StaffService {
               sessionsPerWeek: moduleData.sessionsPerWeek,
               groupCount: moduleData.groupCount,
               lecturerCount: moduleData.lecturerCount,
-              lecturerIds: moduleData.lecturerIds,
-              program: moduleData.program,
-              year: moduleData.year,
-              electiveGroup: moduleData.electiveGroup,
+              lecturerIds: moduleData.lecturerIds || [],
+              program: moduleData.program || '',
+              year: moduleData.year || '',
+              electiveGroup: moduleData.electiveGroup || '',
               createdAt: moduleData.createdAt || new Date(),
               updatedAt: new Date()
             };
             
-            // Check if module already exists (by ID)
+            // Check if module already exists
             const existingIndex = modules.findIndex((m: any) => m.id === moduleData.id);
             if (existingIndex >= 0) {
               modules[existingIndex] = newModule;

@@ -61,6 +61,17 @@
       </ion-item>
 
       <ion-item>
+        <ion-label position="floating">Program*</ion-label>
+        <ion-select formControlName="program" interface="popover">
+          <ion-select-option value="Mainstream">Mainstream</ion-select-option>
+          <ion-select-option value="Extended">Extended</ion-select-option>
+        </ion-select>
+        <div *ngIf="submitted && f['program'].errors" class="error-message">
+          <span *ngIf="f['program'].errors['required']">Program is required</span>
+        </div>
+      </ion-item>
+
+      <ion-item>
         <ion-label position="floating">Assigned Lecturers</ion-label>
         <ion-select formControlName="lecturerIds" multiple="true">
           <ion-select-option *ngFor="let lecturer of lecturers" [value]="lecturer.id">{{ lecturer.name }}</ion-select-option>
