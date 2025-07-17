@@ -11,6 +11,7 @@ import { Group } from '../models/group.model';
 import { SessionForGrid, SessionForm } from '../models/session.model';
 import { User } from '../components/add-user/add-user.component';
 import { TimetableService, TimetableSession as TimetableServiceSession } from '../services/Timetable Core Services/timetable.service';
+import { TimetableDatabaseService } from '../services/Timetable Core Services/timetable-database.service';
 import { SessionService, SessionRequest } from '../services/Timetable Core Services/session.service';
 import { VenueService, VenueDisplayInfo } from '../services/Entity Management Services/venue.service';
 import { AddUserComponent } from '../components/add-user/add-user.component';
@@ -345,6 +346,8 @@ export class HodDashPage implements OnInit, OnDestroy {
   // Add these properties
   private departmentId = 1; // Example department ID
   sessionToAdd: SessionForm | null = null;
+  private autoSaveInterval: any; // For auto-save functionality
+  lastSaveTime: Date | null = null; // Make this public for template access
 
   constructor(
     private alertController: AlertController,
@@ -353,6 +356,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     private sidebarService: SidebarService,
     private cdr: ChangeDetectorRef,
     private timetableService: TimetableService,
+    private timetableDatabaseService: TimetableDatabaseService,
     private sessionService: SessionService,
     private venueService: VenueService,
     private lecturerService: LecturerService,
@@ -387,7 +391,10 @@ export class HodDashPage implements OnInit, OnDestroy {
     );
 
     // Load modules on init
-    this.loadDepartmentModules()
+    this.loadDepartmentModules();
+
+    // Start auto-save functionality (save every 30 seconds)
+    this.startAutoSave();
   }
 
   // Updated method to load current user's department with real data
@@ -438,6 +445,9 @@ export class HodDashPage implements OnInit, OnDestroy {
           console.log('Department info loaded:', departmentInfo);
           this.departmentInfo = departmentInfo;
           this.cdr.detectChanges();
+          
+          // Load submission history after department is loaded
+          this.loadSubmissionHistoryFromDatabase();
         } else {
           console.warn('Department info not found, using fallback');
           this.setFallbackDepartmentInfo(departmentName);
@@ -574,6 +584,12 @@ export class HodDashPage implements OnInit, OnDestroy {
     if (this.sidebarSubscription) {
       this.sidebarSubscription.unsubscribe();
     }
+    
+    // Stop auto-save
+    this.stopAutoSave();
+    
+    // Save final state before leaving
+    this.saveTimetable();
   }
 
   // Header actions
@@ -903,10 +919,13 @@ export class HodDashPage implements OnInit, OnDestroy {
       (newSession) => {
         console.log('Session created:', newSession);
 
+        // Auto-save after creating session
+        this.autoSaveTimetable();
+
         // Show success message
         this.alertController.create({
           header: 'Success',
-          message: 'Session has been added to the timetable',
+          message: 'Session has been added to the timetable and saved',
           buttons: ['OK']
         }).then(alert => alert.present());
 
@@ -1804,5 +1823,100 @@ export class HodDashPage implements OnInit, OnDestroy {
   viewSubmissionSessionDetails(session: TimetableSession) {
     console.log('Viewing submission session details:', session);
     // Show details of the session, e.g., in a modal
+  }
+
+  // Auto-save functionality
+  startAutoSave() {
+    console.log('Starting auto-save functionality');
+    
+    // Save every 30 seconds
+    this.autoSaveInterval = setInterval(() => {
+      this.autoSaveTimetable();
+    }, 30000);
+  }
+
+  stopAutoSave() {
+    console.log('Stopping auto-save functionality');
+    
+    if (this.autoSaveInterval) {
+      clearInterval(this.autoSaveInterval);
+      this.autoSaveInterval = null;
+    }
+  }
+
+  autoSaveTimetable() {
+    console.log('Auto-saving timetable...');
+    
+    // Only auto-save if there have been changes and it's been at least 10 seconds since last save
+    if (this.lastSaveTime && (Date.now() - this.lastSaveTime.getTime()) < 10000) {
+      return; // Skip if saved too recently
+    }
+
+    this.timetableService.autoSaveTimetable().subscribe({
+      next: (result) => {
+        if (result.success) {
+          console.log('Auto-save successful');
+          this.lastSaveTime = new Date();
+        } else {
+          console.warn('Auto-save failed:', result.message);
+        }
+      },
+      error: (error) => {
+        console.error('Auto-save error:', error);
+      }
+    });
+  }
+
+  // Manual save functionality
+  saveTimetable() {
+    console.log('Manually saving timetable...');
+    
+    this.timetableService.saveTimetableToDatabase().subscribe({
+      next: (result) => {
+        if (result.success) {
+          this.presentToast('Timetable saved successfully');
+          this.lastSaveTime = new Date();
+        } else {
+          this.presentToast('Failed to save timetable: ' + result.message);
+        }
+      },
+      error: (error) => {
+        console.error('Error saving timetable:', error);
+        this.presentToast('Error saving timetable');
+      }
+    });
+  }
+
+  // Load submission history from database
+  loadSubmissionHistoryFromDatabase() {
+    if (!this.departmentInfo.name || this.departmentInfo.name === 'Loading...') {
+      console.log('Department not loaded yet, skipping submission history load');
+      return;
+    }
+
+    console.log('Loading submission history from database for:', this.departmentInfo.name);
+    
+    this.timetableDatabaseService.loadSubmissionHistory(this.departmentInfo.name).subscribe({
+      next: (submissions) => {
+        console.log('Submission history loaded from database:', submissions);
+        
+        // Transform database submissions to display format
+        this.submissionHistory = submissions.map(submission => ({
+          id: parseInt(submission.id) || 0,
+          academicPeriod: submission.academicPeriod,
+          submittedAt: submission.submittedAt?.toDate ? submission.submittedAt.toDate() : new Date(submission.submittedAt),
+          status: submission.status,
+          conflictCount: submission.conflictCount,
+          hasAdminFeedback: submission.hasAdminFeedback,
+          adminFeedback: submission.adminFeedback
+        }));
+        
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading submission history:', error);
+        this.presentToast('Error loading submission history');
+      }
+    });
   }
 }

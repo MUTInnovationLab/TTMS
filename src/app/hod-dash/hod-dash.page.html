@@ -190,6 +190,11 @@
         <h1>Department Timetable</h1>
 
         <div class="timetable-controls">
+          <div class="auto-save-indicator" *ngIf="lastSaveTime">
+            <ion-icon name="checkmark-circle" color="success"></ion-icon>
+            <span>Last saved: {{ lastSaveTime | date:'short' }}</span>
+          </div>
+          
           <div class="filters-group">
             <ion-select placeholder="Lecturer" [(ngModel)]="timetableFilters.lecturer">
               <ion-select-option [value]="null">All Lecturers</ion-select-option>
@@ -210,6 +215,11 @@
           </div>
 
           <div class="action-buttons">
+            <ion-button color="secondary" (click)="saveTimetable()">
+              <ion-icon name="save" slot="start"></ion-icon>
+              Save Timetable
+            </ion-button>
+
             <ion-button color="primary" (click)="addSession()">
               <ion-icon name="add-circle" slot="start"></ion-icon>
               Add Session
