@@ -59,11 +59,11 @@ export class AdminGuard implements CanActivate {
           return false;
         }
         
-        if (user.userType !== 'admin') {
+        if (user.userType !== 'Admin') {
           console.log('🔧 AdminGuard - User is not admin, redirecting based on role');
           
           // Redirect based on user type
-          if (user.userType === 'hod') {
+          if (user.userType === 'HOD') {
             this.router.navigate(['/hod-dash'], { replaceUrl: true });
           } else {
             this.router.navigate(['/home'], { replaceUrl: true });
@@ -103,14 +103,14 @@ export class HodGuard implements CanActivate {
         }
         
         // Both HOD and Admin can access HOD dashboard
-        if (user.userType !== 'hod' && user.userType !== 'admin') {
+        if (user.userType !== 'HOD' && user.userType !== 'Admin') {
           console.log('👤 HodGuard - User is neither HOD nor Admin, redirecting to home');
           this.router.navigate(['/home'], { replaceUrl: true });
           return false;
         }
         
         // If admin is trying to access HOD dash, redirect to admin dash
-        if (user.userType === 'admin' && state.url === '/hod-dash') {
+        if (user.userType === 'Admin' && state.url === '/hod-dash') {
           console.log('👤 HodGuard - Admin trying to access HOD dash, redirecting to admin dash');
           this.router.navigate(['/admin-dash'], { replaceUrl: true });
           return false;
@@ -141,9 +141,9 @@ export class NoAuthGuard implements CanActivate {
           // User is logged in, redirect to appropriate dashboard
           console.log('🚫 NoAuthGuard - User is logged in, redirecting to dashboard');
           
-          if (user.userType === 'admin') {
+          if (user.userType === 'Admin') {
             this.router.navigate(['/admin-dash'], { replaceUrl: true });
-          } else if (user.userType === 'hod') {
+          } else if (user.userType === 'HOD') {
             this.router.navigate(['/hod-dash'], { replaceUrl: true });
           }
           

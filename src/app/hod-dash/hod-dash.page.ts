@@ -22,6 +22,11 @@ import { ModuleService, Module } from '../services/Entity Management Services/mo
 import { AddModuleComponent } from '../components/add-module/add-module.component';
 import { AuthService } from '../services/Authentication Services/auth.service';
 import { UserService, DepartmentInfo, DepartmentStats } from '../services/Authentication Services/user.service';
+import { AngularFirestore } from '@angular/fire/compat/firestore';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
+// Temporarily comment out GroupService to resolve circular dependency
+// import { GroupService } from '../services/group.service';
 
 @Component({
   selector: 'app-hod-dash',
@@ -69,62 +74,11 @@ export class HodDashPage implements OnInit, OnDestroy {
     buttonText: 'Edit Timetable'
   };
 
-  // Conflicts
-  conflicts = [
-    {
-      id: 1,
-      type: 'Lecturer',
-      description: 'Dr. Sarah Johnson is scheduled for two classes at the same time on Monday at 10:00 AM.',
-      moduleIds: [3, 7],
-      timeSlot: '10:00 AM',
-      day: 'Monday'
-    },
-    {
-      id: 2,
-      type: 'Venue',
-      description: 'Room L201 is double-booked on Wednesday at 2:00 PM.',
-      moduleIds: [5, 12],
-      timeSlot: '2:00 PM',
-      day: 'Wednesday'
-    }
-  ];
+  // Conflicts - will be loaded from database and calculated dynamically
+  conflicts: any[] = [];
 
-  // Recent Sessions
-  recentSessions = [
-    {
-      id: 1,
-      moduleName: 'Database Systems',
-      moduleId: 3,
-      day: 'Monday',
-      timeSlot: '09:00 - 11:00',
-      venue: 'Lab L101',
-      lecturer: 'Dr. Robert Brown',
-      group: 'CS-Year2-A',
-      scheduledAt: new Date(Date.now() - 3600000) // 1 hour ago
-    },
-    {
-      id: 2,
-      moduleName: 'Algorithms and Data Structures',
-      moduleId: 7,
-      day: 'Tuesday',
-      timeSlot: '13:00 - 15:00',
-      venue: 'Room A201',
-      lecturer: 'Dr. Sarah Johnson',
-      group: 'CS-Year1-B',
-      scheduledAt: new Date(Date.now() - 7200000) // 2 hours ago
-    },
-    {
-      id: 3,
-      moduleName: 'Software Engineering',
-      moduleId: 12,
-      day: 'Thursday',
-      timeSlot: '11:00 - 13:00',
-      venue: 'Room A102',
-      lecturer: 'Prof. Michael Davis',
-      group: 'CS-Year3-A',
-      scheduledAt: new Date(Date.now() - 86400000) // 1 day ago
-    }
-  ];
+  // Recent Sessions - will be loaded from database
+  recentSessions: any[] = [];
 
   // Timetable Data
   weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
@@ -137,50 +91,8 @@ export class HodDashPage implements OnInit, OnDestroy {
     module: null
   };
 
-  timetableSessions: SessionForGrid[] = [
-    {
-      id: 1,
-      moduleId: 3,
-      moduleName: 'Database Systems',
-      day: 'Monday',
-      timeSlot: '09:00 - 10:00',
-      venueId: '5',
-      venue: 'Lab L101',
-      lecturerId: 2,
-      lecturer: 'Dr. Robert Brown',
-      groupId: 3,
-      group: 'CS-Year2-A',
-      hasConflict: false
-    },
-    {
-      id: 2,
-      moduleId: 7,
-      moduleName: 'Algorithms',
-      day: 'Monday',
-      timeSlot: '10:00 - 11:00',
-      venueId: '2',
-      venue: 'Room A201',
-      lecturerId: 3,
-      lecturer: 'Dr. Sarah Johnson',
-      groupId: 4,
-      group: 'CS-Year1-B',
-      hasConflict: true
-    },
-    {
-      id: 3,
-      moduleId: 5,
-      moduleName: 'Web Development',
-      day: 'Wednesday',
-      timeSlot: '14:00 - 15:00',
-      venueId: '7',
-      venue: 'Lab L201',
-      lecturerId: 4,
-      lecturer: 'Dr. Emily Taylor',
-      groupId: 3,
-      group: 'CS-Year2-A',
-      hasConflict: true
-    }
-  ];
+  // Timetable sessions - will be loaded from database
+  timetableSessions: SessionForGrid[] = [];
 
   canSubmitTimetable = true;
 
@@ -205,124 +117,15 @@ export class HodDashPage implements OnInit, OnDestroy {
   groupView = 'list';
   selectedGroupForTimetable = null;
 
-  // Initialize with mock data instead of service
-  groups: Group[] = [
-    {
-      id: 1,
-      name: 'CS-Year1-A',
-      program: 'Computer Science',
-      year: 1,
-      semester: 1,
-      studentCount: 25,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: 2,
-      name: 'CS-Year1-B',
-      program: 'Computer Science',
-      year: 1,
-      semester: 1,
-      studentCount: 28,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    },
-    {
-      id: 3,
-      name: 'CS-Year2-A',
-      program: 'Computer Science',
-      year: 2,
-      semester: 1,
-      studentCount: 22,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    }
-  ];
+  // Initialize with empty array - data will be loaded from database
+  groups: Group[] = [];
 
-  // Modules Data
+  // Modules Data - will be loaded from database
   moduleSearch = '';
+  modules: any[] = [];
 
-  modules = [
-    {
-      id: 1,
-      code: 'CS101',
-      name: 'Introduction to Programming',
-      credits: 10,
-      sessionsPerWeek: 3,
-      groupCount: 2,
-      lecturerCount: 2,
-      lecturerIds: [1, 3]
-    },
-    {
-      id: 3,
-      code: 'CS205',
-      name: 'Database Systems',
-      credits: 15,
-      sessionsPerWeek: 4,
-      groupCount: 1,
-      lecturerCount: 1,
-      lecturerIds: [2]
-    },
-    {
-      id: 5,
-      code: 'CS210',
-      name: 'Web Development',
-      credits: 15,
-      sessionsPerWeek: 3,
-      groupCount: 2,
-      lecturerCount: 1,
-      lecturerIds: [4]
-    },
-    {
-      id: 7,
-      code: 'CS202',
-      name: 'Algorithms and Data Structures',
-      credits: 15,
-      sessionsPerWeek: 4,
-      groupCount: 2,
-      lecturerCount: 1,
-      lecturerIds: [3]
-    },
-    {
-      id: 12,
-      code: 'CS305',
-      name: 'Software Engineering',
-      credits: 20,
-      sessionsPerWeek: 5,
-      groupCount: 1,
-      lecturerCount: 1,
-      lecturerIds: [1]
-    }
-  ];
-
-  // Submission History
-  submissionHistory = [
-    {
-      id: 1,
-      academicPeriod: 'Semester 1, 2022-2023',
-      submittedAt: new Date('2022-08-25T14:30:00'),
-      status: 'Approved',
-      conflictCount: 0,
-      hasAdminFeedback: false
-    },
-    {
-      id: 2,
-      academicPeriod: 'Semester 2, 2022-2023',
-      submittedAt: new Date('2023-01-15T11:45:00'),
-      status: 'Rejected',
-      conflictCount: 3,
-      hasAdminFeedback: true,
-      adminFeedback: 'Multiple conflicts detected. Please resolve and resubmit.'
-    },
-    {
-      id: 3,
-      academicPeriod: 'Semester 1, 2023-2024',
-      submittedAt: new Date('2023-04-30T09:20:00'),
-      status: 'Pending',
-      conflictCount: 1,
-      hasAdminFeedback: false
-    }
-  ];
+  // Submission History - will be loaded from database
+  submissionHistory: any[] = [];
 
   // For timetable grid integration
   formattedTimetableSessions: TimetableSession[] = [];
@@ -344,7 +147,8 @@ export class HodDashPage implements OnInit, OnDestroy {
   departmentConflicts: Conflict[] = [];
 
   // Add these properties
-  private departmentId = 1; // Example department ID
+  // Department ID - will be set from current user's department
+  private departmentId: number = 0;
   sessionToAdd: SessionForm | null = null;
   private autoSaveInterval: any; // For auto-save functionality
   lastSaveTime: Date | null = null; // Make this public for template access
@@ -363,7 +167,8 @@ export class HodDashPage implements OnInit, OnDestroy {
     private toastController: ToastController,
     private moduleService: ModuleService,
     private authService: AuthService,
-    private userService: UserService // Add UserService injection
+    private userService: UserService,
+    private firestore: AngularFirestore // Add Firestore directly to load groups
   ) {
     console.log('HodDashPage constructor');
   }
@@ -390,8 +195,11 @@ export class HodDashPage implements OnInit, OnDestroy {
       }
     );
 
-    // Load modules on init
+    // Load all department data from database
     this.loadDepartmentModules();
+    this.loadDepartmentGroups();
+    this.loadRecentSessions();
+    this.loadSubmissionStatusFromDatabase();
 
     // Start auto-save functionality (save every 30 seconds)
     this.startAutoSave();
@@ -444,6 +252,10 @@ export class HodDashPage implements OnInit, OnDestroy {
         if (departmentInfo) {
           console.log('Department info loaded:', departmentInfo);
           this.departmentInfo = departmentInfo;
+          
+          // Set departmentId from the loaded info
+          this.departmentId = parseInt(departmentInfo.id) || 0;
+          
           this.cdr.detectChanges();
           
           // Load submission history after department is loaded
@@ -1103,7 +915,76 @@ export class HodDashPage implements OnInit, OnDestroy {
 
       // Re-format sessions for the grid
       this.formatTimetableSessions();
+      
+      // Auto-save the changes
+      this.autoSaveTimetable();
+      
+      // Show success message
+      this.presentToast(`Session "${event.session.title}" moved to ${newDay} at ${newTimeSlot}`);
     }
+  }
+
+  // Handle session delete from timetable grid
+  async handleSessionDelete(session: TimetableSession) {
+    console.log('Session delete requested:', session);
+
+    // Show confirmation dialog
+    const alert = await this.alertController.create({
+      header: 'Delete Session',
+      message: `Are you sure you want to delete "${session.title}" session?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'secondary'
+        },
+        {
+          text: 'Delete',
+          cssClass: 'danger',
+          handler: () => {
+            this.deleteSession(session);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  // Delete session from timetable
+  private deleteSession(session: TimetableSession) {
+    console.log('Deleting session:', session);
+
+    // Use the session service to delete the session
+    this.sessionService.deleteSession(session.id).subscribe({
+      next: (success) => {
+        if (success) {
+          console.log('Session deleted successfully');
+          
+          // Remove from local timetable sessions
+          this.timetableSessions = this.timetableSessions.filter(s => s.id !== session.id);
+          
+          // Re-format sessions for the grid
+          this.formatTimetableSessions();
+          
+          // Auto-save the changes
+          this.autoSaveTimetable();
+          
+          // Show success message
+          this.presentToast(`Session "${session.title}" deleted successfully`);
+          
+          // Re-detect conflicts after deletion
+          this.detectTimetableConflicts();
+        } else {
+          console.error('Failed to delete session');
+          this.presentToast('Failed to delete session. Please try again.');
+        }
+      },
+      error: (error) => {
+        console.error('Error deleting session:', error);
+        this.presentToast('Error deleting session: ' + (error.message || 'Unknown error'));
+      }
+    });
   }
 
   // New method to get lecturer names from IDs
@@ -1759,6 +1640,202 @@ export class HodDashPage implements OnInit, OnDestroy {
 
     // Re-format timetable sessions for display
     this.formatTimetableSessions();
+  }
+
+  // Load groups from database for the current department
+  loadDepartmentGroups() {
+    console.log('Loading department groups...');
+    
+    // Use Firestore directly to avoid circular dependency with GroupService
+    this.firestore.collection('groups').valueChanges({ idField: 'id' }).subscribe({
+      next: (groups: any[]) => {
+        console.log('Department groups loaded:', groups);
+        
+        // Update the groups array with data from database
+        this.groups = groups.map((group: any) => ({
+          id: group.id,
+          name: group.name,
+          program: group.program,
+          year: group.year,
+          semester: group.semester,
+          studentCount: group.studentCount,
+          createdAt: group.createdAt?.toDate ? group.createdAt.toDate() : new Date(),
+          updatedAt: group.updatedAt?.toDate ? group.updatedAt.toDate() : new Date()
+        }));
+
+        // Update department stats with actual group count
+        this.departmentStats = {
+          ...this.departmentStats,
+          groups: this.groups.length
+        };
+
+        this.cdr.detectChanges();
+      },
+      error: (error: any) => {
+        console.error('Error loading department groups:', error);
+        this.presentToast('Error loading groups: ' + (error.message || 'Unknown error'));
+
+        // Initialize with fallback data on error
+        this.groups = [
+          {
+            id: 1,
+            name: 'CS-Year1-A',
+            program: 'Computer Science',
+            year: 1,
+            semester: 1,
+            studentCount: 25,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          },
+          {
+            id: 2,
+            name: 'CS-Year1-B',
+            program: 'Computer Science',
+            year: 1,
+            semester: 1,
+            studentCount: 28,
+            createdAt: new Date(),
+            updatedAt: new Date()
+          }
+        ];
+        
+        this.departmentStats = {
+          ...this.departmentStats,
+          groups: this.groups.length
+        };
+      }
+    });
+  }
+
+  // Load recent sessions from database
+  loadRecentSessions() {
+    console.log('Loading recent sessions...');
+    
+    // Get current timetable sessions and use the most recent ones
+    this.timetableService.sessions$.subscribe({
+      next: (sessions) => {
+        console.log('Recent sessions loaded from timetable:', sessions.length);
+        
+        // Take the last 3 sessions as "recent" (or all if less than 3)
+        const recentSessions = sessions.slice(-3);
+
+        // Map to the format expected by the UI
+        this.recentSessions = recentSessions.map((session, index) => ({
+          id: session.id,
+          moduleName: session.moduleName,
+          moduleId: session.moduleId,
+          day: session.day,
+          timeSlot: session.timeSlot,
+          venue: session.venue,
+          lecturer: session.lecturer,
+          group: session.group,
+          scheduledAt: new Date(Date.now() - (index * 3600000)) // Simulate different times
+        }));
+
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading recent sessions:', error);
+        this.presentToast('Error loading recent sessions: ' + (error.message || 'Unknown error'));
+      }
+    });
+  }
+
+  // Load submission status from database
+  loadSubmissionStatusFromDatabase() {
+    if (!this.departmentInfo.name || this.departmentInfo.name === 'Loading...') {
+      console.log('Department not loaded yet, waiting...');
+      return;
+    }
+
+    console.log('Loading submission status from database for:', this.departmentInfo.name);
+    
+    // Get current timetable for this department
+    this.timetableDatabaseService.getCurrentTimetable(this.departmentInfo.name).subscribe({
+      next: (timetable) => {
+        if (timetable) {
+          console.log('Current timetable status:', timetable.status);
+          
+          // Update submission status based on timetable status
+          this.updateSubmissionStatusFromTimetable(timetable);
+        } else {
+          console.log('No current timetable found');
+          
+          // Set default draft status
+          this.submissionStatus = {
+            status: 'draft',
+            label: 'Draft',
+            message: 'Start building your timetable by adding sessions.',
+            canEdit: true,
+            buttonText: 'Add Sessions'
+          };
+        }
+        
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading submission status:', error);
+        this.presentToast('Error loading submission status: ' + (error.message || 'Unknown error'));
+      }
+    });
+  }
+
+  // Helper method to convert day number to day name
+  getDayName(dayNumber: number): string {
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    return days[dayNumber] || 'Unknown';
+  }
+
+  // Helper method to update submission status from timetable
+  updateSubmissionStatusFromTimetable(timetable: any) {
+    const currentDate = new Date();
+    
+    switch (timetable.status) {
+      case 'draft':
+        this.submissionStatus = {
+          status: 'draft',
+          label: 'Draft',
+          message: 'Continue building your timetable.',
+          canEdit: true,
+          buttonText: 'Edit Timetable'
+        };
+        break;
+      case 'submitted':
+        this.submissionStatus = {
+          status: 'submitted',
+          label: 'Submitted',
+          message: 'Your timetable has been submitted for review.',
+          canEdit: false,
+          buttonText: 'View Timetable'
+        };
+        break;
+      case 'approved':
+        this.submissionStatus = {
+          status: 'approved',
+          label: 'Approved',
+          message: 'Your timetable has been approved.',
+          canEdit: false,
+          buttonText: 'View Timetable'
+        };
+        break;
+      case 'rejected':
+        this.submissionStatus = {
+          status: 'rejected',
+          label: 'Rejected',
+          message: timetable.adminFeedback || 'Your timetable needs revisions.',
+          canEdit: true,
+          buttonText: 'Edit Timetable'
+        };
+        break;
+      default:
+        this.submissionStatus = {
+          status: 'in-progress',
+          label: 'In Progress',
+          message: 'Continue working on your timetable.',
+          canEdit: true,
+          buttonText: 'Edit Timetable'
+        };
+    }
   }
 
   // View submission details

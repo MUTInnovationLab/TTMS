@@ -247,7 +247,9 @@
 
         <!-- Timetable Grid (hidden when conflict resolver is shown) -->
         <app-timetable-grid *ngIf="!showConflictResolver" [sessions]="formattedTimetableSessions"
-          (sessionClick)="handleSessionClick($event)" (sessionDrop)="handleSessionDrop($event)">
+          (sessionClick)="handleSessionClick($event)" 
+          (sessionDrop)="handleSessionDrop($event)"
+          (sessionDelete)="handleSessionDelete($event)">
         </app-timetable-grid>
       </div>
 

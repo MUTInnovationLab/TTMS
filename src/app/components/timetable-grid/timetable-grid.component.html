@@ -1,4 +1,15 @@
 <div class="timetable-container">
+  <!-- Delete Zone (shown when dragging) -->
+  <div class="delete-zone" 
+       *ngIf="showDeleteZone"
+       [class.drag-over]="dragOverDeleteZone"
+       (dragover)="onDeleteZoneDragOver($event)"
+       (dragleave)="onDeleteZoneDragLeave($event)"
+       (drop)="onDeleteZoneDrop($event)">
+    <ion-icon name="trash-outline"></ion-icon>
+    <span>Drop here to delete session</span>
+  </div>
+
   <!-- Control Panel -->
   <div class="control-panel">
     <div class="panel-section">
@@ -73,6 +84,16 @@
         </div>
       </div>
     </div>
+    
+    <!-- Drag and Drop Instructions -->
+    <div class="panel-section instructions" *ngIf="sessions.length > 0">
+      <h4>Instructions</h4>
+      <ul>
+        <li>Drag sessions to move them to different time slots</li>
+        <li>Drag sessions to the delete zone to remove them</li>
+        <li>Click on sessions to view details</li>
+      </ul>
+    </div>
   </div>
   
   <!-- Timetable Grid -->
@@ -97,7 +118,11 @@
         <!-- Days (columns) -->
         <div class="grid-cell" 
              *ngFor="let day of days; let dayIndex = index"
-             (dragover)="allowDrop($event)"
+             [class.highlighted]="isCellHighlighted(dayIndex, slot.id)"
+             [class.conflict]="isCellInConflict(dayIndex, slot.id)"
+             [class.drop-target]="isDragging"
+             (dragover)="onDragOver($event, dayIndex, slot.id)"
+             (dragleave)="onDragLeave($event)"
              (drop)="onDrop($event, dayIndex, slot.id)">
           
           <!-- Sessions in this cell -->
@@ -106,8 +131,11 @@
                  *ngIf="isSlotStart(dayIndex, slot.id, session)"
                  [style.grid-row]="'span ' + (session.endSlot - session.startSlot)"
                  [style.background-color]="session.color"
+                 [class.dragging]="draggedSession?.id === session.id"
+                 [class.has-conflict]="session.hasConflict"
                  draggable="true"
                  (dragstart)="onDragStart($event, session)"
+                 (dragend)="onDragEnd($event)"
                  (click)="handleSessionClick(session)">
               
               <div class="session-content">
@@ -117,9 +145,20 @@
                   <p><ion-icon name="person-outline"></ion-icon> {{ session.lecturer }}</p>
                   <p><ion-icon name="people-outline"></ion-icon> {{ session.group }}</p>
                 </div>
+                
+                <!-- Drag handle -->
+                <div class="drag-handle">
+                  <ion-icon name="move-outline"></ion-icon>
+                </div>
               </div>
             </div>
           </ng-container>
+          
+          <!-- Empty cell indicator when dragging -->
+          <div class="empty-cell-indicator" 
+               *ngIf="isDragging && getSessionsForDayAndSlot(dayIndex, slot.id).length === 0">
+            <ion-icon name="add-outline"></ion-icon>
+          </div>
         </div>
       </div>
     </div>

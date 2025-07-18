@@ -377,3 +377,206 @@
     }
   }
 }
+
+// Delete Zone Styles
+.delete-zone {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  width: 200px;
+  height: 80px;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  border: 3px dashed #fff;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 14px;
+  text-align: center;
+  z-index: 1000;
+  opacity: 0.9;
+  transition: all 0.3s ease;
+  animation: slideInRight 0.3s ease-out;
+  
+  ion-icon {
+    font-size: 24px;
+    margin-bottom: 5px;
+  }
+  
+  span {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  
+  &.drag-over {
+    background: linear-gradient(135deg, #ff4757, #c44569);
+    transform: scale(1.05);
+    box-shadow: 0 8px 25px rgba(255, 71, 87, 0.4);
+    border-color: #fff;
+    animation: pulse 0.5s infinite alternate;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 0.9;
+  }
+}
+
+@keyframes pulse {
+  from {
+    transform: scale(1.05);
+  }
+  to {
+    transform: scale(1.1);
+  }
+}
+
+// Enhanced Grid Cell Styles
+.grid-cell {
+  position: relative;
+  transition: all 0.2s ease;
+  
+  &.drop-target {
+    cursor: crosshair;
+  }
+  
+  &.highlighted {
+    background: rgba(76, 141, 255, 0.1);
+    border: 2px dashed var(--ion-color-primary);
+    border-radius: 6px;
+    
+    .empty-cell-indicator {
+      display: flex;
+    }
+  }
+  
+  &.conflict {
+    background: rgba(235, 68, 90, 0.1);
+    border: 2px dashed var(--ion-color-danger);
+    border-radius: 6px;
+  }
+  
+  .empty-cell-indicator {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 60px;
+    color: var(--ion-color-primary);
+    font-size: 24px;
+    opacity: 0.5;
+  }
+}
+
+// Enhanced Session Block Styles
+.session-block {
+  position: relative;
+  cursor: grab;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    z-index: 2;
+  }
+  
+  &.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg) scale(0.95);
+    cursor: grabbing;
+    z-index: 1000;
+  }
+  
+  &.has-conflict {
+    border: 2px solid var(--ion-color-danger);
+    animation: conflictPulse 2s infinite;
+  }
+  
+  .session-content {
+    position: relative;
+    height: 100%;
+    
+    .drag-handle {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      color: rgba(255, 255, 255, 0.7);
+      font-size: 16px;
+      cursor: grab;
+    }
+  }
+  
+  &:hover .drag-handle {
+    opacity: 1;
+  }
+}
+
+@keyframes conflictPulse {
+  0%, 100% {
+    border-color: var(--ion-color-danger);
+  }
+  50% {
+    border-color: rgba(235, 68, 90, 0.5);
+  }
+}
+
+// Instructions Panel
+.instructions {
+  ul {
+    margin: 0;
+    padding-left: 20px;
+    
+    li {
+      margin-bottom: 5px;
+      font-size: 12px;
+      color: var(--ion-color-medium);
+    }
+  }
+}
+
+// Custom Drag Preview (handled in TypeScript)
+.drag-preview {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1000;
+  font-family: var(--ion-font-family);
+  max-width: 200px;
+}
+
+// Mobile Responsive Drag and Drop
+@media (max-width: 768px) {
+  .delete-zone {
+    width: 150px;
+    height: 60px;
+    top: 10px;
+    right: 10px;
+    font-size: 12px;
+    
+    ion-icon {
+      font-size: 20px;
+      margin-bottom: 3px;
+    }
+    
+    span {
+      font-size: 10px;
+    }
+  }
+  
+  .session-block {
+    .drag-handle {
+      display: none; // Hide drag handle on mobile for better touch experience
+    }
+  }
+}

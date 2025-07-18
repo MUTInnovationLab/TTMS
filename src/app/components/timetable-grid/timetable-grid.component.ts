@@ -37,6 +37,7 @@ export class TimetableGridComponent implements OnInit {
   @Input() sessions: TimetableSession[] = [];
   @Output() sessionClick = new EventEmitter<TimetableSession>();
   @Output() sessionDrop = new EventEmitter<{session: TimetableSession, day: number, startSlot: number}>();
+  @Output() sessionDelete = new EventEmitter<TimetableSession>();
 
   // Date range
   startDate: Date = new Date();
@@ -71,6 +72,15 @@ export class TimetableGridComponent implements OnInit {
     { name: 'Exam', color: '#eb445a' },
     { name: 'Other', color: '#92949c' }
   ];
+
+  // Drag and drop state
+  draggedSession: TimetableSession | null = null;
+  isDragging = false;
+  showDeleteZone = false;
+  dragOverDeleteZone = false;
+  
+  // Grid state
+  highlightedCell: { day: number, slot: number } | null = null;
 
   constructor() { }
 
@@ -124,30 +134,185 @@ export class TimetableGridComponent implements OnInit {
   }
 
   handleSessionClick(session: TimetableSession) {
-    this.sessionClick.emit(session);
+    if (!this.isDragging) {
+      this.sessionClick.emit(session);
+    }
   }
 
   onDragStart(event: DragEvent, session: TimetableSession) {
-    event.dataTransfer?.setData('sessionId', session.id.toString());
+    if (!event.dataTransfer) return;
+    
+    this.draggedSession = session;
+    this.isDragging = true;
+    this.showDeleteZone = true;
+    
+    // Set drag data
+    event.dataTransfer.setData('sessionId', session.id.toString());
+    event.dataTransfer.effectAllowed = 'move';
+    
+    // Create a custom drag image
+    this.createDragPreview(event, session);
+    
+    console.log('Drag started for session:', session.title);
+  }
+
+  onDragEnd(event: DragEvent) {
+    // Clean up drag state
+    this.draggedSession = null;
+    this.isDragging = false;
+    this.showDeleteZone = false;
+    this.dragOverDeleteZone = false;
+    this.highlightedCell = null;
+    
+    console.log('Drag ended');
   }
 
   onDrop(event: DragEvent, day: number, slot: number) {
     event.preventDefault();
+    event.stopPropagation();
+    
     const sessionId = event.dataTransfer?.getData('sessionId');
-    if (sessionId) {
-      const session = this.sessions.find(s => s.id === +sessionId);
-      if (session) {
-        this.sessionDrop.emit({
-          session,
-          day,
-          startSlot: slot
-        });
-      }
+    if (!sessionId) return;
+    
+    const session = this.sessions.find(s => s.id === +sessionId);
+    if (!session) return;
+
+    // Check if dropping in the same position
+    if (session.day === day && session.startSlot === slot) {
+      console.log('Session dropped in same position');
+      return;
     }
+
+    // Check for conflicts
+    if (this.hasConflict(session, day, slot)) {
+      console.log('Cannot drop session due to conflict');
+      // You could show a toast or alert here
+      return;
+    }
+
+    console.log(`Dropping session ${session.title} to day ${day}, slot ${slot}`);
+    
+    this.sessionDrop.emit({
+      session,
+      day,
+      startSlot: slot
+    });
+    
+    // Clear highlighting
+    this.highlightedCell = null;
+  }
+
+  onDragOver(event: DragEvent, day: number, slot: number) {
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = 'move';
+    
+    // Highlight the cell being dragged over
+    this.highlightedCell = { day, slot };
+  }
+
+  onDragLeave(event: DragEvent) {
+    // Only clear highlighting if we're leaving the entire grid area
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = event.clientX;
+    const y = event.clientY;
+    
+    if (x < rect.left || x > rect.right || y < rect.top || y > rect.bottom) {
+      this.highlightedCell = null;
+    }
+  }
+
+  // Delete zone handlers
+  onDeleteZoneDragOver(event: DragEvent) {
+    event.preventDefault();
+    event.dataTransfer!.dropEffect = 'move';
+    this.dragOverDeleteZone = true;
+  }
+
+  onDeleteZoneDragLeave(event: DragEvent) {
+    this.dragOverDeleteZone = false;
+  }
+
+  onDeleteZoneDrop(event: DragEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    
+    const sessionId = event.dataTransfer?.getData('sessionId');
+    if (!sessionId) return;
+    
+    const session = this.sessions.find(s => s.id === +sessionId);
+    if (!session) return;
+
+    console.log('Deleting session:', session.title);
+    this.sessionDelete.emit(session);
+    
+    // Clean up drag state
+    this.dragOverDeleteZone = false;
   }
 
   allowDrop(event: DragEvent) {
     event.preventDefault();
+  }
+
+  // Helper methods
+  private createDragPreview(event: DragEvent, session: TimetableSession) {
+    // Create a custom drag preview element
+    const dragPreview = document.createElement('div');
+    dragPreview.className = 'drag-preview';
+    dragPreview.style.cssText = `
+      position: absolute;
+      top: -1000px;
+      left: -1000px;
+      background: ${session.color};
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      font-size: 12px;
+      white-space: nowrap;
+      pointer-events: none;
+      z-index: 1000;
+    `;
+    dragPreview.innerHTML = `
+      <strong>${session.title}</strong><br>
+      ${session.venue} • ${session.lecturer}
+    `;
+    
+    document.body.appendChild(dragPreview);
+    
+    // Set the custom drag image
+    event.dataTransfer?.setDragImage(dragPreview, 75, 25);
+    
+    // Clean up the preview element after a short delay
+    setTimeout(() => {
+      document.body.removeChild(dragPreview);
+    }, 0);
+  }
+
+  private hasConflict(session: TimetableSession, targetDay: number, targetSlot: number): boolean {
+    const sessionDuration = session.endSlot - session.startSlot;
+    const targetEndSlot = targetSlot + sessionDuration;
+    
+    return this.sessions.some(existingSession => {
+      if (existingSession.id === session.id) return false; // Skip the session being moved
+      
+      return existingSession.day === targetDay &&
+             ((targetSlot >= existingSession.startSlot && targetSlot < existingSession.endSlot) ||
+              (targetEndSlot > existingSession.startSlot && targetEndSlot <= existingSession.endSlot) ||
+              (targetSlot <= existingSession.startSlot && targetEndSlot >= existingSession.endSlot));
+    });
+  }
+
+  isCellHighlighted(day: number, slot: number): boolean {
+    return this.highlightedCell?.day === day && this.highlightedCell?.slot === slot;
+  }
+
+  isCellInConflict(day: number, slot: number): boolean {
+    if (!this.draggedSession) return false;
+    
+    const sessionDuration = this.draggedSession.endSlot - this.draggedSession.startSlot;
+    return this.highlightedCell?.day === day && 
+           this.highlightedCell?.slot === slot && 
+           this.hasConflict(this.draggedSession, day, slot);
   }
 
   private generateMockData() {
