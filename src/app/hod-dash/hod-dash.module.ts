@@ -16,6 +16,11 @@ import { ConflictResComponent } from '../components/conflict-res/conflict-res.co
 import { AngularFirestoreModule } from '@angular/fire/compat/firestore';
 import { AngularFireAuthModule } from '@angular/fire/compat/auth';
 
+// New Firebase v9+ imports for components that need Firestore
+import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
+import { provideFirestore, getFirestore } from '@angular/fire/firestore';
+import { environment } from '../../environments/environment';
+
 @NgModule({
   imports: [
     CommonModule,
@@ -29,6 +34,11 @@ import { AngularFireAuthModule } from '@angular/fire/compat/auth';
     AngularFirestoreModule,
     AngularFireAuthModule,
     HttpClientModule  // Add this to imports array
+  ],
+  providers: [
+    // Add Firebase v9+ providers for this module
+    provideFirebaseApp(() => initializeApp(environment.firebaseConfig)),
+    provideFirestore(() => getFirestore())
   ],
   declarations: [HodDashPage],
   schemas: [CUSTOM_ELEMENTS_SCHEMA] // Add schema support for custom elements

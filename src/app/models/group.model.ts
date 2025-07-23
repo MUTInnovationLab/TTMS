@@ -7,6 +7,6 @@ export interface Group {
   studentCount: number;
   createdAt: Date;
   updatedAt: Date;
-  size?: number; // Added size property as optional
+  size: number; // Made required since it's used in the form
   groupType?: string; // Added groupType property as optional
 }

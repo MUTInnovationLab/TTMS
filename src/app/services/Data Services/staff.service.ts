@@ -448,13 +448,35 @@ export class StaffService {
         const firebaseApp = firebase.app();
         const firestore = firebaseApp.firestore();
         
-        firestore.collection(this.STAFF_COLLECTION).doc(departmentName).get()
+        // Access the staff collection and get the department document
+        firestore.collection('staff').doc(departmentName).get()
           .then(doc => {
             if (doc.exists) {
               const data = doc.data() as any;
               const lecturers = data.lecturers || [];
-              resolve(lecturers);
+              
+              // Map the lecturers array to User format
+              const mappedLecturers: User[] = lecturers.map((lecturer: any) => ({
+                id: lecturer.id || '',
+                name: lecturer.name || '',
+                title: lecturer.title || '',
+                sex: lecturer.sex || '',
+                department: departmentName,
+                roomName: lecturer.roomName || '',
+                schedulable: lecturer.schedulable || false,
+                role: lecturer.role || '',
+                contact: lecturer.contact || {},
+                address: lecturer.address || {},
+                accessibility: lecturer.accessibility || {},
+                weeklyTarget: lecturer.weeklyTarget || 0,
+                totalTarget: lecturer.totalTarget || 0,
+                profile: lecturer.profile || '',
+                tags: lecturer.tags || []
+              }));
+              
+              resolve(mappedLecturers);
             } else {
+              console.log('No staff document found for department:', departmentName);
               resolve([]);
             }
           })
@@ -550,27 +572,34 @@ export class StaffService {
         const firebaseApp = firebase.app();
         const firestore = firebaseApp.firestore();
         
-        firestore.collection(this.MODULES_COLLECTION).doc(department).get()
+        // Access the module collection and get the department document
+        firestore.collection('module').doc(department).get()
           .then(doc => {
             if (doc.exists) {
               const data = doc.data() as any;
               const modules = data.modules || [];
-              resolve(modules.map((m: any) => ({
-                id: m.id,
-                code: m.code,
-                name: m.name,
-                credits: m.credits,
-                sessionsPerWeek: m.sessionsPerWeek,
-                groupCount: m.groupCount,
-                lecturerCount: m.lecturerCount,
-                lecturerIds: m.lecturerIds,
-                program: m.program,
-                year: m.year,
-                electiveGroup: m.electiveGroup,
-                createdAt: m.createdAt ? new Date(m.createdAt) : new Date(),
-                updatedAt: m.updatedAt ? new Date(m.updatedAt) : new Date()
-              })));
+              
+              // Map the modules array to Module format
+              const mappedModules: Module[] = modules.map((module: any) => ({
+                id: module.id || 0,
+                code: module.code || '',
+                name: module.name || '',
+                credits: module.credits || 0,
+                sessionsPerWeek: module.sessionsPerWeek || 0,
+                groupCount: module.groupCount || 0,
+                lecturerCount: module.lecturerCount || 0,
+                lecturerIds: module.lecturerIds || [],
+                department: department,
+                program: module.program || '',
+                year: module.year || '',
+                electiveGroup: module.electiveGroup || '',
+                createdAt: module.createdAt ? module.createdAt.toDate() : new Date(),
+                updatedAt: module.updatedAt ? module.updatedAt.toDate() : new Date()
+              }));
+              
+              resolve(mappedModules);
             } else {
+              console.log('No module document found for department:', department);
               resolve([]);
             }
           })

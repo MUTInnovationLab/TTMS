@@ -121,6 +121,12 @@
             <p>Scheduled Sessions</p>
           </div>
 
+          <div class="stat-card">
+            <ion-icon name="document-text"></ion-icon>
+            <h2>{{stats.submissions}}</h2>
+            <p>Submissions</p>
+          </div>
+
           <div class="stat-card alert">
             <ion-icon name="warning"></ion-icon>
             <h2>{{stats.conflicts}}</h2>
@@ -205,60 +211,162 @@
           </div>
 
           <div *ngIf="timetableView === 'submissions'">
-            <div class="filter-controls submission-filters">
-              <ion-select placeholder="Select Department" [(ngModel)]="selectedDepartment"
-                (ionChange)="loadDepartmentSubmission()">
-                <ion-select-option *ngFor="let dept of departments" [value]="dept.id">{{dept.name}}</ion-select-option>
-              </ion-select>
-              <ion-button color="success" [disabled]="!selectedDepartment" (click)="approveDepartmentSubmission()">
-                <ion-icon name="checkmark-circle" slot="start"></ion-icon>
-                Approve Submission
-              </ion-button>
-              <ion-button color="danger" [disabled]="!selectedDepartment" (click)="rejectDepartmentSubmission()">
-                <ion-icon name="close-circle" slot="start"></ion-icon>
-                Request Changes
-              </ion-button>
-            </div>
-
-            <!-- Conflict warning alert if conflicts are detected -->
-            <ion-card *ngIf="selectedDepartment && departmentSubmissionConflicts.length > 0" color="warning"
-              class="submission-conflict-alert">
-              <ion-card-header>
-                <ion-card-title>
-                  <ion-icon name="warning-outline"></ion-icon>
-                  Conflicts Detected in Submission
-                </ion-card-title>
-                <ion-card-subtitle>{{departmentSubmissionConflicts.length}} conflicts need to be resolved before
-                  approval</ion-card-subtitle>
-              </ion-card-header>
+            <!-- Loading indicator -->
+            <ion-card *ngIf="submissionsLoading" class="loading-card">
               <ion-card-content>
-                <ion-button expand="block" (click)="showDepartmentSubmissionConflicts()">
-                  <ion-icon name="construct-outline" slot="start"></ion-icon>
-                  Resolve Conflicts
-                </ion-button>
+                <ion-spinner name="crescent"></ion-spinner>
+                <p>Loading submitted timetables...</p>
               </ion-card-content>
             </ion-card>
 
-            <!-- Toggle between timetable view and conflict resolution view -->
-            <div *ngIf="selectedDepartment && !showingDeptConflictRes">
-              <app-timetable-grid [sessions]="departmentSubmissionSessions" (sessionClick)="handleSessionClick($event)">
-              </app-timetable-grid>
+            <!-- Submitted Timetables List -->
+            <div *ngIf="!submissionsLoading && submittedTimetables.length > 0" class="submissions-list">
+              <ion-card *ngFor="let timetable of submittedTimetables" class="submission-card"
+                [class.selected]="selectedSubmittedTimetable?.id === timetable.id">
+                <ion-card-header>
+                  <div class="submission-header">
+                    <div class="submission-info">
+                      <ion-card-title>{{ timetable.department }}</ion-card-title>
+                      <ion-card-subtitle>
+                        {{ timetable.academicYear }}, Semester {{ timetable.semester }}
+                      </ion-card-subtitle>
+                    </div>
+                    <div class="submission-status">
+                      <ion-chip [color]="getStatusColor(timetable.status)">
+                        <ion-icon [name]="getStatusIcon(timetable.status)"></ion-icon>
+                        <ion-label>{{ timetable.status | titlecase }}</ion-label>
+                      </ion-chip>
+                    </div>
+                  </div>
+                </ion-card-header>
+                
+                <ion-card-content>
+                  <div class="submission-details">
+                    <p><strong>HOD:</strong> {{ timetable.hodEmail }}</p>
+                    <p><strong>Sessions:</strong> {{ timetable.sessions?.length || 0 }}</p>
+                    <p><strong>Submitted:</strong> {{ formatDate(timetable.submittedAt) }}</p>
+                    <div *ngIf="timetable.adminFeedback" class="admin-feedback">
+                      <p><strong>Admin Feedback:</strong></p>
+                      <p class="feedback-text">{{ timetable.adminFeedback }}</p>
+                    </div>
+                  </div>
+                  
+                  <div class="submission-actions">
+                    <ion-button fill="outline" size="small" 
+                      (click)="selectTimetableForReview(timetable)">
+                      <ion-icon name="eye-outline" slot="start"></ion-icon>
+                      View Details
+                    </ion-button>
+                    
+                    <div *ngIf="timetable.status === 'submitted'" class="approval-actions">
+                      <ion-button color="success" size="small" 
+                        [disabled]="isSubmitting"
+                        (click)="selectAndApprove(timetable)">
+                        <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+                        Approve
+                      </ion-button>
+                      
+                      <ion-button color="danger" size="small" 
+                        [disabled]="isSubmitting"
+                        (click)="selectAndReject(timetable)">
+                        <ion-icon name="close-circle" slot="start"></ion-icon>
+                        Reject
+                      </ion-button>
+                    </div>
+                  </div>
+                </ion-card-content>
+              </ion-card>
             </div>
 
-            <!-- Department submission conflict resolution interface -->
-            <div *ngIf="selectedDepartment && showingDeptConflictRes" class="department-conflict-resolution">
-              <ion-button fill="outline" (click)="showingDeptConflictRes = false" class="back-button">
-                <ion-icon name="arrow-back-outline" slot="start"></ion-icon>
-                Back to Timetable
-              </ion-button>
+            <!-- Selected Timetable Details -->
+            <div *ngIf="selectedSubmittedTimetable && !submissionsLoading" class="selected-submission-details">
+              <ion-card class="selected-timetable-card">
+                <ion-card-header>
+                  <div class="selected-header">
+                    <ion-card-title>
+                      Reviewing: {{ selectedSubmittedTimetable.department }} Timetable
+                    </ion-card-title>
+                    <ion-button fill="clear" (click)="clearSelection()">
+                      <ion-icon name="close-outline"></ion-icon>
+                    </ion-button>
+                  </div>
+                </ion-card-header>
+                
+                <ion-card-content>
+                  <!-- Conflict warning alert if conflicts are detected -->
+                  <ion-card *ngIf="departmentSubmissionConflicts.length > 0" color="warning" class="submission-conflict-alert">
+                    <ion-card-header>
+                      <ion-card-title>
+                        <ion-icon name="warning-outline"></ion-icon>
+                        Conflicts Detected in Submission
+                      </ion-card-title>
+                      <ion-card-subtitle>
+                        {{ departmentSubmissionConflicts.length }} conflicts need to be resolved before approval
+                      </ion-card-subtitle>
+                    </ion-card-header>
+                    <ion-card-content>
+                      <ion-button expand="block" (click)="showDepartmentSubmissionConflicts()">
+                        <ion-icon name="construct-outline" slot="start"></ion-icon>
+                        Resolve Conflicts
+                      </ion-button>
+                    </ion-card-content>
+                  </ion-card>
 
-              <app-conflict-res [conflicts]="departmentSubmissionConflicts"
-                (resolveConflict)="handleDepartmentConflictResolution($event)">
-              </app-conflict-res>
+                  <!-- Action buttons for submitted timetables -->
+                  <div *ngIf="selectedSubmittedTimetable.status === 'submitted'" class="action-buttons">
+                    <ion-button color="success" 
+                      [disabled]="departmentSubmissionConflicts.length > 0 || isSubmitting" 
+                      (click)="approveDepartmentSubmission()">
+                      <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+                      <ion-spinner *ngIf="isSubmitting" name="crescent" slot="start"></ion-spinner>
+                      Approve Submission
+                    </ion-button>
+                    
+                    <ion-button color="danger" 
+                      [disabled]="isSubmitting" 
+                      (click)="rejectDepartmentSubmission()">
+                      <ion-icon name="close-circle" slot="start"></ion-icon>
+                      Request Changes
+                    </ion-button>
+                  </div>
+
+                  <!-- Timetable view toggle -->
+                  <div class="view-toggle">
+                    <ion-segment [(ngModel)]="showingDeptConflictRes" (ionChange)="onViewToggle()">
+                      <ion-segment-button [value]="false">
+                        <ion-label>Timetable Grid</ion-label>
+                      </ion-segment-button>
+                      <ion-segment-button [value]="true" [disabled]="departmentSubmissionConflicts.length === 0">
+                        <ion-label>Conflict Resolution</ion-label>
+                      </ion-segment-button>
+                    </ion-segment>
+                  </div>
+
+                  <!-- Timetable Grid View -->
+                  <div *ngIf="!showingDeptConflictRes" class="timetable-view">
+                    <app-timetable-grid [sessions]="departmentSubmissionSessions" (sessionClick)="handleSessionClick($event)">
+                    </app-timetable-grid>
+                  </div>
+
+                  <!-- Conflict Resolution View -->
+                  <div *ngIf="showingDeptConflictRes" class="conflict-resolution-view">
+                    <app-conflict-res [conflicts]="departmentSubmissionConflicts"
+                      (resolveConflict)="handleDepartmentConflictResolution($event)">
+                    </app-conflict-res>
+                  </div>
+                </ion-card-content>
+              </ion-card>
             </div>
 
-            <div *ngIf="!selectedDepartment" class="placeholder-content">
-              <p>Please select a department to view their submission</p>
+            <!-- No submissions message -->
+            <div *ngIf="!submissionsLoading && submittedTimetables.length === 0" class="no-submissions">
+              <ion-card>
+                <ion-card-content class="text-center">
+                  <ion-icon name="document-outline" size="large" color="medium"></ion-icon>
+                  <h3>No Submitted Timetables</h3>
+                  <p>There are currently no timetable submissions from departments.</p>
+                </ion-card-content>
+              </ion-card>
             </div>
           </div>
 
@@ -380,13 +488,26 @@
         </div>
 
         <ion-list class="department-list">
-          <ion-item *ngFor="let department of departments" button detail (click)="editDepartment(department)">
-            <ion-icon name="business" slot="start"></ion-icon>
+          <ion-item *ngFor="let department of departments" button detail>
+            <ion-icon name="business" slot="start" [color]="department.status === 'active' ? 'primary' : 'medium'"></ion-icon>
             <ion-label>
-              <h2>{{department.name}}</h2>
-              <p>HOD: {{department.hod}}</p>
-              <p>Modules: {{department.moduleCount}}</p>
+              <h2>{{department.name}} ({{department.code}})</h2>
+              <p>HOD: {{department.hodName || 'Not assigned'}}</p>
+              <p>{{department.location}}</p>
+              <p>Modules: {{department.moduleCount || 0}} | Status: 
+                <ion-badge [color]="department.status === 'active' ? 'success' : 'warning'">
+                  {{department.status | titlecase}}
+                </ion-badge>
+              </p>
             </ion-label>
+            <div slot="end" class="department-actions">
+              <ion-button fill="clear" size="small" (click)="editDepartment(department); $event.stopPropagation()">
+                <ion-icon name="create" color="primary"></ion-icon>
+              </ion-button>
+              <ion-button fill="clear" size="small" (click)="deleteDepartment(department); $event.stopPropagation()">
+                <ion-icon name="trash" color="danger"></ion-icon>
+              </ion-button>
+            </div>
           </ion-item>
         </ion-list>
       </div>

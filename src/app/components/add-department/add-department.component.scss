@@ -1,0 +1,93 @@
+ion-card {
+  margin-bottom: 16px;
+  
+  ion-card-header {
+    padding-bottom: 8px;
+    
+    ion-card-title {
+      font-size: 1.2em;
+      font-weight: 600;
+      color: var(--ion-color-primary);
+    }
+  }
+  
+  ion-card-content {
+    padding-top: 8px;
+  }
+}
+
+ion-item {
+  margin-bottom: 16px;
+  border-radius: 8px;
+  border: 1px solid var(--ion-color-light);
+  
+  &.ion-invalid {
+    border-color: var(--ion-color-danger);
+  }
+  
+  ion-label {
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+  
+  ion-input, ion-textarea, ion-select {
+    --padding-start: 12px;
+    --padding-end: 12px;
+  }
+  
+  ion-note {
+    font-size: 0.8em;
+    color: var(--ion-color-medium);
+    margin-top: 4px;
+  }
+}
+
+.form-actions {
+  margin-top: 24px;
+  padding: 16px 0;
+  
+  ion-button {
+    margin-bottom: 12px;
+    
+    &.submit-button {
+      --background: var(--ion-color-primary);
+      --color: white;
+      font-weight: 600;
+      
+      &:disabled {
+        --background: var(--ion-color-light);
+        --color: var(--ion-color-medium);
+      }
+    }
+  }
+}
+
+// Validation styles
+.ion-invalid {
+  --border-color: var(--ion-color-danger);
+  --highlight-color-focused: var(--ion-color-danger);
+}
+
+ion-input.ion-invalid,
+ion-textarea.ion-invalid,
+ion-select.ion-invalid {
+  --border-color: var(--ion-color-danger);
+  --highlight-color-focused: var(--ion-color-danger);
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  ion-content {
+    --padding-start: 8px;
+    --padding-end: 8px;
+  }
+  
+  ion-card {
+    margin-bottom: 12px;
+  }
+  
+  .form-actions {
+    margin-top: 16px;
+    padding: 12px 0;
+  }
+}

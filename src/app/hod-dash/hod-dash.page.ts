@@ -20,11 +20,15 @@ import { LecturerService } from '../services/Entity Management Services/lecturer
 import { BulkUploadModulesComponent } from '../components/bulk-upload-modules/bulk-upload-modules.component';
 import { ModuleService, Module } from '../services/Entity Management Services/module.service';
 import { AddModuleComponent } from '../components/add-module/add-module.component';
+import { AddGroupComponent } from '../components/add-group/add-group.component';
 import { AuthService } from '../services/Authentication Services/auth.service';
 import { UserService, DepartmentInfo, DepartmentStats } from '../services/Authentication Services/user.service';
-import { AngularFirestore } from '@angular/fire/compat/firestore';
+import { Firestore, collection, collectionData, doc, deleteDoc } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
+// Import Firebase compat for accessing existing data
+import firebase from 'firebase/compat/app';
+import 'firebase/compat/firestore';
 // Temporarily comment out GroupService to resolve circular dependency
 // import { GroupService } from '../services/group.service';
 
@@ -145,13 +149,20 @@ export class HodDashPage implements OnInit, OnDestroy {
   // Conflict resolution properties
   showConflictResolver: boolean = false;
   departmentConflicts: Conflict[] = [];
+  
+  // Timetable view mode
+  timetableViewMode: 'creation' | 'conflicts' = 'creation';
 
   // Add these properties
   // Department ID - will be set from current user's department
-  private departmentId: number = 0;
+  departmentId: number = 0; // Make public for template access
   sessionToAdd: SessionForm | null = null;
   private autoSaveInterval: any; // For auto-save functionality
   lastSaveTime: Date | null = null; // Make this public for template access
+  hasUnsavedChanges: boolean = false; // Track if there are unsaved changes
+  private sessionsLoadedFromDatabase: boolean = false; // Track if sessions were loaded from database
+  private venuesLoaded: boolean = false; // Track if venues are loaded
+  private departmentLoaded: boolean = false; // Track if department info is loaded
 
   constructor(
     private alertController: AlertController,
@@ -168,7 +179,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     private moduleService: ModuleService,
     private authService: AuthService,
     private userService: UserService,
-    private firestore: AngularFirestore // Add Firestore directly to load groups
+    private firestore: Firestore // Add Firestore directly to load groups
   ) {
     console.log('HodDashPage constructor');
   }
@@ -200,9 +211,85 @@ export class HodDashPage implements OnInit, OnDestroy {
     this.loadDepartmentGroups();
     this.loadRecentSessions();
     this.loadSubmissionStatusFromDatabase();
+    this.loadTimetableSessionsFromDatabase();
+
+    // Debug: Check what collections exist in Firestore
+    this.debugFirestoreCollections();
 
     // Start auto-save functionality (save every 30 seconds)
     this.startAutoSave();
+  }
+
+  // Debug method to check Firestore collections
+  debugFirestoreCollections() {
+    console.log('=== DEBUGGING FIRESTORE COLLECTIONS ===');
+    
+    // Check staff collection for the current department
+    const currentDept = this.departmentInfo.name !== 'Loading...' ? this.departmentInfo.name : 'INFO & COMMS TECHNOLOGY';
+    
+    try {
+      const firebaseApp = firebase.app();
+      const firestore = firebaseApp.firestore();
+      
+      // Check staff collection
+      firestore.collection('staff').doc(currentDept).get()
+        .then((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            console.log('Found staff document for department:', currentDept);
+            console.log('Staff document data:', data);
+            console.log('Lecturers array length:', data?.['lecturers']?.length || 0);
+            if (data?.['lecturers'] && data['lecturers'].length > 0) {
+              console.log('Sample lecturer:', data['lecturers'][0]);
+            }
+          } else {
+            console.log('No staff document found for department:', currentDept);
+          }
+        })
+        .catch((error) => {
+          console.log('Error accessing staff collection:', error);
+        });
+
+      // Check module collection
+      firestore.collection('module').doc(currentDept).get()
+        .then((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            console.log('Found module document for department:', currentDept);
+            console.log('Module document data:', data);
+            console.log('Modules array length:', data?.['modules']?.length || 0);
+            if (data?.['modules'] && data['modules'].length > 0) {
+              console.log('Sample module:', data['modules'][0]);
+            }
+          } else {
+            console.log('No module document found for department:', currentDept);
+          }
+        })
+        .catch((error) => {
+          console.log('Error accessing module collection:', error);
+        });
+
+      // Check timetables collection
+      firestore.collection('timetables')
+        .where('department', '==', currentDept)
+        .get()
+        .then((querySnapshot) => {
+          console.log('Found timetables for department:', currentDept, 'Count:', querySnapshot.size);
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            console.log('Timetable document:', doc.id, data);
+            console.log('Sessions array length:', data?.['sessions']?.length || 0);
+          });
+        })
+        .catch((error) => {
+          console.log('Error accessing timetables collection:', error);
+        });
+        
+    } catch (error) {
+      console.log('Firebase app not available for debugging:', error);
+    }
+
+    console.log('=== END FIRESTORE DEBUG ===');
   }
 
   // Updated method to load current user's department with real data
@@ -253,13 +340,22 @@ export class HodDashPage implements OnInit, OnDestroy {
           console.log('Department info loaded:', departmentInfo);
           this.departmentInfo = departmentInfo;
           
-          // Set departmentId from the loaded info
-          this.departmentId = parseInt(departmentInfo.id) || 0;
+          // Set departmentId using a hash-based approach since the ID is the department name
+          this.departmentId = this.getDepartmentIdFromName(departmentName);
+          this.departmentLoaded = true;
+          
+          console.log('Department loaded, ID set to:', this.departmentId);
           
           this.cdr.detectChanges();
           
           // Load submission history after department is loaded
           this.loadSubmissionHistoryFromDatabase();
+          
+          // Load timetable sessions after department is loaded
+          this.loadTimetableSessionsFromDatabase();
+          
+          // Check if we can initialize timetable now
+          this.checkAndInitializeTimetable();
         } else {
           console.warn('Department info not found, using fallback');
           this.setFallbackDepartmentInfo(departmentName);
@@ -303,7 +399,29 @@ export class HodDashPage implements OnInit, OnDestroy {
       location: 'Location not specified'
     };
     
+    // Set a proper department ID using hash-based approach
+    this.departmentId = this.getDepartmentIdFromName(departmentName || 'unknown');
+    this.departmentLoaded = true;
+    
+    console.log('Fallback department loaded, ID set to:', this.departmentId);
+    
     this.cdr.detectChanges();
+    
+    // Check if we can initialize timetable now
+    this.checkAndInitializeTimetable();
+  }
+
+  // Generate a consistent numeric ID from department name
+  private getDepartmentIdFromName(departmentName: string): number {
+    // Create a simple hash function to generate consistent numeric IDs
+    let hash = 0;
+    for (let i = 0; i < departmentName.length; i++) {
+      const char = departmentName.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    // Ensure positive number and within reasonable range
+    return Math.abs(hash % 10000) + 1;
   }
 
   // New method to load venues first, then initialize other components
@@ -340,15 +458,17 @@ export class HodDashPage implements OnInit, OnDestroy {
         }
 
         this.venuesLoading = false;
+        this.venuesLoaded = true;
 
-        // Now initialize timetable after venues are loaded
-        this.initializeTimetable();
+        // Check if we can initialize timetable now
+        this.checkAndInitializeTimetable();
       },
       error: (error) => {
         console.error('HOD: Error in initial venue load:', error);
         this.venuesLoading = false;
         this.createMockVenues(); // Fallback to mock data
-        this.initializeTimetable();
+        this.venuesLoaded = true;
+        this.checkAndInitializeTimetable();
       }
     });
   }
@@ -360,30 +480,57 @@ export class HodDashPage implements OnInit, OnDestroy {
     // Initialize the current timetable
     this.timetableService.getCurrentTimetable(this.departmentId).subscribe(timetable => {
       if (timetable) {
-        console.log('Current timetable loaded:', timetable);
-        this.formatTimetableSessions();
+        console.log('Current timetable loaded from service:', timetable);
+        // Only format if we don't already have sessions loaded from database
+        if (this.timetableSessions.length === 0) {
+          this.formatTimetableSessions();
+        }
       }
     });
 
-    // Subscribe to session changes
+    // Subscribe to session changes from service
     this.timetableService.sessions$.subscribe(sessions => {
-      this.timetableSessions = sessions.map(session => ({
-        id: session.id,
-        moduleId: session.moduleId,
-        moduleName: session.moduleName,
-        day: session.day,
-        timeSlot: session.timeSlot,
-        venueId: session.venueId,
-        venue: session.venue,
-        lecturerId: session.lecturerId,
-        lecturer: session.lecturer,
-        groupId: session.groupId,
-        group: session.group,
-        hasConflict: session.hasConflict || false
-      }));
-      this.formatTimetableSessions();
-      this.detectTimetableConflicts();
+      // Only update if we don't have database-loaded sessions or if this is a real update from session creation
+      if (!this.sessionsLoadedFromDatabase || this.hasUnsavedChanges) {
+        console.log('Updating sessions from service:', sessions.length);
+        
+        const mappedSessions = sessions.map(session => ({
+          id: session.id,
+          moduleId: session.moduleId,
+          moduleName: session.moduleName,
+          day: session.day, // Preserve day from service
+          timeSlot: session.timeSlot, // Preserve timeSlot from service
+          venueId: session.venueId,
+          venue: session.venue,
+          lecturerId: session.lecturerId,
+          lecturer: session.lecturer,
+          groupId: session.groupId,
+          group: session.group,
+          hasConflict: session.hasConflict || false
+        }));
+        
+        // Only update if there are actual differences
+        if (JSON.stringify(mappedSessions) !== JSON.stringify(this.timetableSessions)) {
+          this.timetableSessions = mappedSessions;
+          this.formatTimetableSessions();
+          this.detectTimetableConflicts();
+        }
+      } else {
+        console.log('Skipping service update - using database-loaded sessions');
+      }
     });
+  }
+
+  // Check if both venues and department are loaded, then initialize timetable
+  private checkAndInitializeTimetable() {
+    console.log('Checking initialization readiness - venues:', this.venuesLoaded, 'department:', this.departmentLoaded);
+    
+    if (this.venuesLoaded && this.departmentLoaded && this.departmentId > 0) {
+      console.log('Both venues and department loaded, initializing timetable with department ID:', this.departmentId);
+      this.initializeTimetable();
+    } else {
+      console.log('Not ready yet - waiting for both venues and department to load');
+    }
   }
 
   // Remove the original loadVenues method and replace with this simpler version
@@ -423,6 +570,41 @@ export class HodDashPage implements OnInit, OnDestroy {
   // Navigation
   changeSection(section: string) {
     this.activeSection = section;
+    
+    // Reset timetable view mode when entering timetable section
+    if (section === 'timetable') {
+      this.timetableViewMode = 'creation';
+    }
+    
+    // Refresh submission data when entering submissions section
+    if (section === 'submissions') {
+      console.log('Entering submissions section, refreshing status and history');
+      this.loadSubmissionStatusFromDatabase();
+      this.loadSubmissionHistoryFromDatabase();
+    }
+  }
+  
+  // Toggle timetable view mode
+  changeTimetableViewMode(mode: 'creation' | 'conflicts') {
+    this.timetableViewMode = mode;
+    
+    // Update conflict resolver state for backward compatibility
+    this.showConflictResolver = (mode === 'conflicts');
+    
+    // Detect conflicts when switching to conflicts view
+    if (mode === 'conflicts') {
+      this.detectTimetableConflicts();
+    }
+    
+    console.log('Timetable view mode changed to:', mode);
+  }
+
+  // Handle segment change event with proper type checking
+  onTimetableViewModeChange(event: any) {
+    const value = event.detail?.value;
+    if (value === 'creation' || value === 'conflicts') {
+      this.changeTimetableViewMode(value);
+    }
   }
 
   // Toggle sidebar
@@ -472,7 +654,33 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   // Update the add session method to use the service
   addSession() {
-    // Reset the session to add
+    // Only set default values if not already set (e.g., when called from general add button)
+    if (!this.sessionToAdd) {
+      this.sessionToAdd = {
+        moduleId: 0,
+        moduleName: '',
+        lecturerId: 0,
+        lecturer: '',
+        venueId: '',
+        venue: '',
+        groupId: 0,
+        group: '',
+        day: 'Monday',
+        timeSlot: '08:00 - 09:00',
+        departmentId: this.departmentId,
+        category: 'Lecture',
+        notes: ''
+      };
+    }
+
+    // Open venue selection modal
+    this.openVenueAvailability();
+  }
+
+  addSessionAt(day: string, timeSlot: string) {
+    console.log(`Adding session at ${day}, ${timeSlot}`);
+    
+    // Initialize session with the specific day and time slot
     this.sessionToAdd = {
       moduleId: 0,
       moduleName: '',
@@ -482,20 +690,15 @@ export class HodDashPage implements OnInit, OnDestroy {
       venue: '',
       groupId: 0,
       group: '',
-      day: 'Monday',
-      timeSlot: '08:00 - 09:00',
+      day: day,
+      timeSlot: timeSlot,
       departmentId: this.departmentId,
       category: 'Lecture',
       notes: ''
     };
 
-    // Open venue selection modal
+    // Open venue selection modal for this specific time slot
     this.openVenueAvailability();
-  }
-
-  addSessionAt(day: string, timeSlot: string) {
-    console.log(`Adding session at ${day}, ${timeSlot}`);
-    // Show modal to add session at specific time
   }
 
   editSession(session: any) {
@@ -529,7 +732,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     this.sessionToAdd.venueId = event.venue.id;
     this.sessionToAdd.venue = event.venue.name;
 
-    // If slots are provided, update the session time
+    // If slots are provided, update the session time (this will override any pre-set time)
     if (event.startSlot !== undefined && event.endSlot !== undefined) {
       // Convert slot numbers to time string
       this.sessionToAdd.timeSlot = this.sessionService.formatTimeSlot(event.startSlot, event.endSlot);
@@ -540,6 +743,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         this.sessionToAdd.day = this.weekDays[dayOfWeek - 1]; // Adjust for zero-based array
       }
     }
+    // If no slots provided, keep the existing day and timeSlot from addSessionAt
 
     this.closeVenueModal();
     this.openSessionDetailsModal();
@@ -731,6 +935,30 @@ export class HodDashPage implements OnInit, OnDestroy {
       (newSession) => {
         console.log('Session created:', newSession);
 
+        // Add the new session to the local timetable sessions with preserved position
+        const mappedSession = {
+          id: newSession.id,
+          moduleId: newSession.moduleId,
+          moduleName: newSession.moduleName,
+          day: this.sessionToAdd?.day || 'Monday', // Use the day from sessionToAdd to preserve position
+          timeSlot: this.sessionToAdd?.timeSlot || '08:00 - 09:00', // Use the timeSlot from sessionToAdd to preserve position
+          venueId: newSession.venueId,
+          venue: newSession.venue,
+          lecturerId: newSession.lecturerId,
+          lecturer: newSession.lecturer,
+          groupId: newSession.groupId,
+          group: newSession.group,
+          hasConflict: false
+        };
+        
+        // Add to local sessions
+        this.timetableSessions.push(mappedSession);
+        
+        // Re-format sessions for the grid
+        this.formatTimetableSessions();
+
+        // Mark that there are unsaved changes
+        this.hasUnsavedChanges = true;
         // Auto-save after creating session
         this.autoSaveTimetable();
 
@@ -757,25 +985,133 @@ export class HodDashPage implements OnInit, OnDestroy {
     );
   }
 
-  // Override this method to use the timetable service
-  submitTimetable() {
-    // Check for conflicts before submission
-    this.detectTimetableConflicts();
+  // Enhanced method to submit timetable to database
+  async submitTimetable() {
+    try {
+      console.log('Starting timetable submission process...');
 
-    if (this.departmentConflicts.length > 0) {
-      this.showConflictResolver = true;
-      console.log('Cannot submit timetable with conflicts. Please resolve them first.');
-      return;
-    }
+      // Check for conflicts before submission
+      this.detectTimetableConflicts();
 
-    console.log('Submitting timetable');
+      if (this.departmentConflicts.length > 0) {
+        this.showConflictResolver = true;
+        console.log('Cannot submit timetable with conflicts. Please resolve them first.');
+        
+        await this.alertController.create({
+          header: 'Conflicts Detected',
+          message: `Your timetable has ${this.departmentConflicts.length} conflict(s). Please resolve them before submitting.`,
+          buttons: ['OK']
+        }).then(alert => alert.present());
+        
+        return;
+      }
 
-    // Use the timetable service to submit
-    this.timetableService.submitTimetable().subscribe(
-      (submittedTimetable) => {
-        console.log('Timetable submitted:', submittedTimetable);
+      // Check if user has department info
+      if (!this.departmentInfo.name || this.departmentInfo.name === 'Loading...') {
+        console.error('Department information not available');
+        await this.alertController.create({
+          header: 'Error',
+          message: 'Department information not available. Please refresh the page.',
+          buttons: ['OK']
+        }).then(alert => alert.present());
+        return;
+      }
 
-        // Update submission status
+      // Show loading message
+      const loadingAlert = await this.alertController.create({
+        header: 'Submitting...',
+        message: 'Please wait while your timetable is being submitted.',
+        backdropDismiss: false
+      });
+      await loadingAlert.present();
+
+      console.log('Submitting timetable for department:', this.departmentInfo.name);
+
+      // First, save the current timetable to database using department info we have
+      // Instead of using timetableService.saveTimetableToDatabase(), we'll create/save directly
+      let currentTimetableDoc = await this.timetableDatabaseService.getCurrentTimetable(this.departmentInfo.name).toPromise();
+      
+      if (!currentTimetableDoc) {
+        // Create new timetable directly with the department we have
+        const createResult = await this.timetableDatabaseService.createNewTimetable(
+          this.departmentInfo.name,
+          `${new Date().getFullYear()} Timetable`,
+          `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+          1
+        ).toPromise();
+        
+        if (!createResult || !createResult.success) {
+          throw new Error(createResult?.message || 'Failed to create timetable');
+        }
+        
+        // Get the newly created timetable
+        currentTimetableDoc = await this.timetableDatabaseService.getCurrentTimetable(this.departmentInfo.name).toPromise();
+        
+        if (!currentTimetableDoc) {
+          throw new Error('Failed to retrieve newly created timetable');
+        }
+        
+        console.log('New timetable created:', currentTimetableDoc.id);
+      }
+
+      // Update the timetable with current sessions before submission
+      if (this.timetableSessions && this.timetableSessions.length > 0) {
+        const timetableSessions = this.timetableSessions.map(session => {
+          const sessionData: any = {
+            id: session.id,
+            moduleId: session.moduleId,
+            moduleName: session.moduleName,
+            lecturerId: session.lecturerId,
+            lecturer: session.lecturer,
+            venueId: session.venueId || session.venue, // Handle both cases
+            venue: session.venue,
+            groupId: session.groupId,
+            group: session.group,
+            day: session.day,
+            timeSlot: session.timeSlot,
+            category: (session as any).category || 'Lecture',
+            color: (session as any).color || '#007bff',
+            departmentId: (session as any).departmentId || 1,
+            hasConflict: session.hasConflict || false
+          };
+
+          // Only add optional fields if they have values
+          if ((session as any).startTime) {
+            sessionData.startTime = (session as any).startTime;
+          }
+          if ((session as any).endTime) {
+            sessionData.endTime = (session as any).endTime;
+          }
+          if ((session as any).notes) {
+            sessionData.notes = (session as any).notes;
+          }
+
+          return sessionData;
+        });
+
+        const updateResult = await this.timetableDatabaseService.saveTimetable({
+          sessions: timetableSessions,
+          status: 'draft'
+        }, currentTimetableDoc.id).toPromise();
+
+        if (!updateResult || !updateResult.success) {
+          throw new Error(updateResult?.message || 'Failed to save timetable sessions');
+        }
+        
+        console.log('Timetable sessions updated successfully');
+      }
+
+      console.log('Submitting timetable ID:', currentTimetableDoc.id);
+
+      // Submit the timetable using database service
+      const submissionResult = await this.timetableDatabaseService.submitTimetable(currentTimetableDoc.id).toPromise();
+
+      await loadingAlert.dismiss();
+
+      if (submissionResult && submissionResult.success) {
+        console.log('Timetable submitted successfully:', submissionResult);
+
+        // Update local submission status
         this.submissionStatus = {
           status: 'submitted',
           label: 'Submitted',
@@ -784,36 +1120,50 @@ export class HodDashPage implements OnInit, OnDestroy {
           buttonText: 'View Timetable'
         };
 
-        // Add to submission history
-        const newSubmission = {
-          id: Math.max(0, ...this.submissionHistory.map(s => s.id)) + 1,
-          academicPeriod: submittedTimetable.academicYear + ', Semester ' + submittedTimetable.semester,
-          submittedAt: new Date(),
-          status: 'Pending',
-          conflictCount: 0,
-          hasAdminFeedback: false
-        };
-
-        this.submissionHistory.unshift(newSubmission);
+        // Reload submission history to show the new submission
+        this.loadSubmissionHistoryFromDatabase();
 
         // Show success message
-        this.alertController.create({
+        await this.alertController.create({
           header: 'Success',
-          message: 'Timetable has been submitted for approval',
+          message: 'Your timetable has been successfully submitted for approval!',
           buttons: ['OK']
         }).then(alert => alert.present());
-      },
-      (error) => {
-        console.error('Error submitting timetable:', error);
 
-        // Show error message
-        this.alertController.create({
-          header: 'Error',
-          message: 'Failed to submit timetable. Please try again.',
-          buttons: ['OK']
-        }).then(alert => alert.present());
+        // Show success toast
+        await this.presentToast('Timetable submitted successfully!');
+
+        // Switch to submissions view to show the new submission
+        this.changeSection('submissions');
+
+      } else {
+        throw new Error(submissionResult?.message || 'Unknown submission error');
       }
-    );
+
+    } catch (error: any) {
+      console.error('Error during timetable submission:', error);
+
+      // Dismiss loading if still present
+      try {
+        await this.alertController.getTop().then(alert => {
+          if (alert && alert.tagName === 'ION-ALERT') {
+            alert.dismiss();
+          }
+        });
+      } catch (dismissError) {
+        console.log('No alert to dismiss');
+      }
+
+      // Show error message
+      await this.alertController.create({
+        header: 'Submission Failed',
+        message: `Failed to submit timetable: ${error?.message || 'Unknown error'}. Please try again.`,
+        buttons: ['OK']
+      }).then(alert => alert.present());
+
+      // Show error toast
+      await this.presentToast('Submission failed. Please try again.');
+    }
   }
 
   // Format the existing timetable sessions for the timetable grid component
@@ -913,6 +1263,9 @@ export class HodDashPage implements OnInit, OnDestroy {
         timeSlot: newTimeSlot
       };
 
+      // Mark as having unsaved changes
+      this.hasUnsavedChanges = true;
+      
       // Re-format sessions for the grid
       this.formatTimetableSessions();
       
@@ -963,6 +1316,9 @@ export class HodDashPage implements OnInit, OnDestroy {
           
           // Remove from local timetable sessions
           this.timetableSessions = this.timetableSessions.filter(s => s.id !== session.id);
+          
+          // Mark as having unsaved changes
+          this.hasUnsavedChanges = true;
           
           // Re-format sessions for the grid
           this.formatTimetableSessions();
@@ -1017,14 +1373,56 @@ export class HodDashPage implements OnInit, OnDestroy {
     );
   }
 
-  addGroup() {
+  async addGroup() {
     console.log('Adding new group');
-    // Show add group modal
+    try {
+      const modal = await this.modalController.create({
+        component: AddGroupComponent,
+        componentProps: {
+          currentUserRole: 'HOD',
+          departmentName: this.departmentInfo.name
+        },
+        cssClass: 'group-modal'
+      });
+
+      await modal.present();
+
+      const { data } = await modal.onDidDismiss();
+
+      if (data) {
+        this.handleNewGroupCreation(data);
+      }
+    } catch (error) {
+      console.error('Error opening add group modal:', error);
+      // Fallback to navigation if modal fails
+      this.router.navigate(['/hod-dash/add-group']);
+    }
   }
 
-  editGroup(group: Group) {
+  async editGroup(group: Group) {
     console.log('Editing group:', group);
-    // Show edit group modal
+    try {
+      const modal = await this.modalController.create({
+        component: AddGroupComponent,
+        componentProps: {
+          group: group,
+          currentUserRole: 'HOD',
+          departmentName: this.departmentInfo.name
+        },
+        cssClass: 'group-modal'
+      });
+
+      await modal.present();
+
+      const { data } = await modal.onDidDismiss();
+
+      if (data) {
+        this.handleGroupUpdate(data);
+      }
+    } catch (error) {
+      console.error('Error opening edit group modal:', error);
+      this.presentToast('Error opening edit dialog');
+    }
   }
 
   loadGroupTimetable() {
@@ -1051,6 +1449,49 @@ export class HodDashPage implements OnInit, OnDestroy {
   getGroupById(groupId: number | null): Group | undefined {
     if (!groupId) return undefined;
     return this.groups.find(g => g.id === groupId);
+  }
+
+  async deleteGroup(group: Group) {
+    console.log('Deleting group:', group);
+    
+    // Show confirmation dialog
+    const alert = await this.alertController.create({
+      header: 'Delete Group',
+      message: `Are you sure you want to delete "${group.name}"? This action cannot be undone.`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'secondary'
+        },
+        {
+          text: 'Delete',
+          cssClass: 'danger',
+          handler: async () => {
+            try {
+              // Use Firestore directly to delete the group
+              const groupDocRef = doc(this.firestore, 'groups', group.id.toString());
+              await deleteDoc(groupDocRef);
+              this.presentToast('Group deleted successfully');
+              
+              // Refresh the groups list
+              this.loadDepartmentGroups();
+              
+              // Update department stats
+              this.departmentStats = {
+                ...this.departmentStats,
+                groups: Math.max(0, this.departmentStats.groups - 1)
+              };
+            } catch (error: any) {
+              console.error('Error deleting group:', error);
+              this.presentToast('Error deleting group: ' + (error.message || 'Unknown error'));
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
   }
 
   // Module Management
@@ -1103,6 +1544,34 @@ export class HodDashPage implements OnInit, OnDestroy {
     });
   }
 
+  private handleNewGroupCreation(groupData: Group) {
+    console.log('Creating new group:', groupData);
+    
+    // The group will be automatically saved to Firestore by the AddGroupComponent
+    // We just need to refresh the local groups list and show success message
+    this.presentToast('Group added successfully');
+    
+    // Refresh the groups list to include the new group
+    this.loadDepartmentGroups();
+    
+    // Update department stats
+    this.departmentStats = {
+      ...this.departmentStats,
+      groups: this.departmentStats.groups + 1
+    };
+  }
+
+  private handleGroupUpdate(groupData: Group) {
+    console.log('Updating group:', groupData);
+    
+    // The group will be automatically updated in Firestore by the AddGroupComponent
+    // We just need to refresh the local groups list and show success message
+    this.presentToast('Group updated successfully');
+    
+    // Refresh the groups list to show the updated group
+    this.loadDepartmentGroups();
+  }
+
     loadDepartmentModules() {
       this.moduleService.getDepartmentModules().subscribe({
         next: (modules) => {
@@ -1138,6 +1607,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     switch (status.toLowerCase()) {
       case 'approved': return 'checkmark-circle';
       case 'rejected': return 'close-circle';
+      case 'submitted':
       case 'pending': return 'time';
       default: return 'document-text';
     }
@@ -1147,6 +1617,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     switch (status.toLowerCase()) {
       case 'approved': return 'success';
       case 'rejected': return 'danger';
+      case 'submitted':
       case 'pending': return 'warning';
       default: return 'medium';
     }
@@ -1255,11 +1726,9 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   // Conflict Resolution Methods
   toggleConflictResolver() {
-    this.showConflictResolver = !this.showConflictResolver;
-
-    if (this.showConflictResolver) {
-      this.detectTimetableConflicts();
-    }
+    // Use the new view mode system
+    const newMode = this.timetableViewMode === 'creation' ? 'conflicts' : 'creation';
+    this.changeTimetableViewMode(newMode);
   }
 
   detectTimetableConflicts() {
@@ -1463,19 +1932,104 @@ export class HodDashPage implements OnInit, OnDestroy {
     return venue ? venue.id : '1';
   }
 
-  async presentToast(message: string) {
+  async presentToast(message: string, color: string = 'success') {
     const toast = await this.toastController.create({
       message: message,
       duration: 2000,
       position: 'bottom',
-      color: 'success'
+      color: color
     });
     toast.present();
   }
 
-  logout() {
+  // Check if timetable can be submitted
+  canSubmitCurrentTimetable(): boolean {
+    // Check if there are any sessions
+    if (!this.timetableSessions || this.timetableSessions.length === 0) {
+      console.log('Cannot submit: No sessions scheduled');
+      return false;
+    }
+
+    // Check if there are unresolved conflicts
+    if (this.departmentConflicts && this.departmentConflicts.length > 0) {
+      console.log('Cannot submit: Unresolved conflicts exist');
+      return false;
+    }
+
+    // Check if submission status allows editing (not already submitted/approved)
+    if (this.submissionStatus.status === 'submitted') {
+      console.log('Cannot submit: Already submitted');
+      return false;
+    }
+
+    if (this.submissionStatus.status === 'approved') {
+      console.log('Cannot submit: Already approved');
+      return false;
+    }
+
+    console.log('Can submit timetable');
+    return true;
+  }
+
+  // Method to refresh timetable submission status
+  refreshSubmissionStatus() {
+    console.log('Refreshing submission status...');
+    this.loadSubmissionStatusFromDatabase();
+    this.loadSubmissionHistoryFromDatabase();
+  }
+
+  async logout() {
     console.log('Logging out...');
-    this.router.navigate(['/login']);
+    
+    try {
+      // Save any pending changes before logout
+      if (this.hasUnsavedChanges) {
+        await this.saveTimetable();
+      }
+      
+      // Stop auto-save and clean up event listeners
+      this.stopAutoSave();
+      
+      // Clear user authentication
+      await this.authService.logout();
+      
+      // Clear local data
+      this.clearLocalData();
+      
+      // Navigate to login
+      this.router.navigate(['/home'], { replaceUrl: true });
+      
+    } catch (error) {
+      console.error('Error during logout:', error);
+      // Force navigate to login even if logout fails
+      this.router.navigate(['/home'], { replaceUrl: true });
+    }
+  }
+
+  // Helper method to clear local data
+  private clearLocalData() {
+    // Reset user-specific data
+    this.departmentInfo = {
+      id: '',
+      name: 'Loading...',
+      hodName: 'Loading...',
+      email: '',
+      phone: '',
+      location: ''
+    };
+    
+    // Clear timetable data
+    this.timetableSessions = [];
+    this.formattedTimetableSessions = [];
+    
+    // Clear department data
+    this.lecturers = [];
+    this.groups = [];
+    this.modules = [];
+    
+    // Reset flags
+    this.hasUnsavedChanges = false;
+    this.lastSaveTime = null;
   }
 
   // Lecturer Management
@@ -1646,8 +2200,9 @@ export class HodDashPage implements OnInit, OnDestroy {
   loadDepartmentGroups() {
     console.log('Loading department groups...');
     
-    // Use Firestore directly to avoid circular dependency with GroupService
-    this.firestore.collection('groups').valueChanges({ idField: 'id' }).subscribe({
+    // Use Firestore v9+ API to load groups
+    const groupsCollection = collection(this.firestore, 'groups');
+    collectionData(groupsCollection, { idField: 'id' }).subscribe({
       next: (groups: any[]) => {
         console.log('Department groups loaded:', groups);
         
@@ -1659,6 +2214,8 @@ export class HodDashPage implements OnInit, OnDestroy {
           year: group.year,
           semester: group.semester,
           studentCount: group.studentCount,
+          size: group.size || 0, // Add default size
+          groupType: group.groupType, // Include groupType
           createdAt: group.createdAt?.toDate ? group.createdAt.toDate() : new Date(),
           updatedAt: group.updatedAt?.toDate ? group.updatedAt.toDate() : new Date()
         }));
@@ -1684,6 +2241,8 @@ export class HodDashPage implements OnInit, OnDestroy {
             year: 1,
             semester: 1,
             studentCount: 25,
+            size: 25,
+            groupType: 'Annual',
             createdAt: new Date(),
             updatedAt: new Date()
           },
@@ -1694,6 +2253,8 @@ export class HodDashPage implements OnInit, OnDestroy {
             year: 1,
             semester: 1,
             studentCount: 28,
+            size: 30,
+            groupType: 'Annual',
             createdAt: new Date(),
             updatedAt: new Date()
           }
@@ -1711,34 +2272,207 @@ export class HodDashPage implements OnInit, OnDestroy {
   loadRecentSessions() {
     console.log('Loading recent sessions...');
     
-    // Get current timetable sessions and use the most recent ones
-    this.timetableService.sessions$.subscribe({
-      next: (sessions) => {
-        console.log('Recent sessions loaded from timetable:', sessions.length);
-        
-        // Take the last 3 sessions as "recent" (or all if less than 3)
-        const recentSessions = sessions.slice(-3);
+    // Get the current department name
+    const currentDept = this.departmentInfo.name !== 'Loading...' ? this.departmentInfo.name : 'INFO & COMMS TECHNOLOGY';
+    
+    // Use Firebase compat API to access timetables collection
+    try {
+      const firebaseApp = firebase.app();
+      const firestore = firebaseApp.firestore();
+      
+      // Query timetables collection for current department
+      firestore.collection('timetables')
+        .where('department', '==', currentDept)
+        .where('isCurrentVersion', '==', true)
+        .limit(1)
+        .get()
+        .then((querySnapshot: any) => {
+          if (!querySnapshot.empty) {
+            const timetableDoc = querySnapshot.docs[0];
+            const timetableData = timetableDoc.data();
+            
+            console.log('Found current timetable:', timetableData);
+            console.log('Sessions in timetable:', timetableData['sessions']?.length || 0);
+            
+            if (timetableData['sessions'] && timetableData['sessions'].length > 0) {
+              // Take the last 3 sessions as "recent" (or all if less than 3)
+              const sessions = timetableData['sessions'];
+              const recentSessions = sessions.slice(-3);
 
-        // Map to the format expected by the UI
-        this.recentSessions = recentSessions.map((session, index) => ({
-          id: session.id,
-          moduleName: session.moduleName,
-          moduleId: session.moduleId,
-          day: session.day,
-          timeSlot: session.timeSlot,
-          venue: session.venue,
-          lecturer: session.lecturer,
-          group: session.group,
-          scheduledAt: new Date(Date.now() - (index * 3600000)) // Simulate different times
-        }));
+              // Map to the format expected by the UI
+              this.recentSessions = recentSessions.map((session: any, index: number) => ({
+                id: session.id || index + 1,
+                moduleName: session.moduleName || session.module || 'Unknown Module',
+                moduleId: session.moduleId || session.id || 0,
+                day: session.day || 'Monday',
+                timeSlot: session.timeSlot || session.time || '08:00 - 09:00',
+                venue: session.venue || session.venueId || 'Unknown Venue',
+                lecturer: session.lecturer || session.lecturerId || 'Unknown Lecturer',
+                group: session.group || session.groupId || 'Unknown Group',
+                scheduledAt: session.createdAt ? session.createdAt.toDate() : new Date(Date.now() - (index * 3600000))
+              }));
+              
+              // Update department stats with session count
+              this.departmentStats = {
+                ...this.departmentStats,
+                sessions: sessions.length
+              };
+              
+              console.log('Recent sessions loaded:', this.recentSessions);
+              this.cdr.detectChanges();
+            } else {
+              console.log('No sessions found in current timetable');
+              this.recentSessions = [];
+              this.departmentStats = {
+                ...this.departmentStats,
+                sessions: 0
+              };
+            }
+          } else {
+            console.log('No current timetable found for department:', currentDept);
+            this.recentSessions = [];
+            this.departmentStats = {
+              ...this.departmentStats,
+              sessions: 0
+            };
+          }
+        })
+        .catch((error: any) => {
+          console.error('Error loading recent sessions:', error);
+          this.presentToast('Error loading recent sessions: ' + (error.message || 'Unknown error'));
+          this.recentSessions = [];
+        });
+    } catch (error) {
+      console.log('Firebase app not available, using timetable service fallback:', error);
+      
+      // Fallback to using timetable service
+      this.timetableService.sessions$.subscribe({
+        next: (sessions) => {
+          console.log('Recent sessions loaded from timetable service:', sessions.length);
+          
+          if (sessions.length > 0) {
+            // Take the last 3 sessions as "recent" (or all if less than 3)
+            const recentSessions = sessions.slice(-3);
 
-        this.cdr.detectChanges();
-      },
-      error: (error) => {
-        console.error('Error loading recent sessions:', error);
-        this.presentToast('Error loading recent sessions: ' + (error.message || 'Unknown error'));
-      }
-    });
+            // Map to the format expected by the UI
+            this.recentSessions = recentSessions.map((session, index) => ({
+              id: session.id,
+              moduleName: session.moduleName,
+              moduleId: session.moduleId,
+              day: session.day,
+              timeSlot: session.timeSlot,
+              venue: session.venue,
+              lecturer: session.lecturer,
+              group: session.group,
+              scheduledAt: new Date(Date.now() - (index * 3600000))
+            }));
+            
+            this.departmentStats = {
+              ...this.departmentStats,
+              sessions: sessions.length
+            };
+          } else {
+            this.recentSessions = [];
+            this.departmentStats = {
+              ...this.departmentStats,
+              sessions: 0
+            };
+          }
+          
+          this.cdr.detectChanges();
+        },
+        error: (error) => {
+          console.error('Error loading recent sessions from timetable service:', error);
+          this.presentToast('Error loading recent sessions: ' + (error.message || 'Unknown error'));
+        }
+      });
+    }
+  }
+
+  // Load complete timetable sessions from database and preserve their positions
+  loadTimetableSessionsFromDatabase() {
+    console.log('Loading complete timetable sessions from database...');
+    
+    // Wait for department to be loaded
+    if (this.departmentInfo.name === 'Loading...') {
+      console.log('Department not loaded yet, will retry in 1 second');
+      setTimeout(() => this.loadTimetableSessionsFromDatabase(), 1000);
+      return;
+    }
+    
+    const currentDept = this.departmentInfo.name;
+    
+    try {
+      const firebaseApp = firebase.app();
+      const firestore = firebaseApp.firestore();
+      
+      // Query timetables collection for current department
+      firestore.collection('timetables')
+        .where('department', '==', currentDept)
+        .where('isCurrentVersion', '==', true)
+        .limit(1)
+        .get()
+        .then((querySnapshot: any) => {
+          if (!querySnapshot.empty) {
+            const timetableDoc = querySnapshot.docs[0];
+            const timetableData = timetableDoc.data();
+            
+            console.log('Found current timetable for sessions:', timetableData);
+            
+            if (timetableData['sessions'] && timetableData['sessions'].length > 0) {
+              // Map sessions while preserving their day and time slot positions
+              this.timetableSessions = timetableData['sessions'].map((session: any) => ({
+                id: session.id,
+                moduleId: session.moduleId || 0,
+                moduleName: session.moduleName || session.module || 'Unknown Module',
+                day: session.day || 'Monday', // Preserve the original day
+                timeSlot: session.timeSlot || '08:00 - 09:00', // Preserve the original time slot
+                venueId: session.venueId || session.venue,
+                venue: session.venue || 'Unknown Venue',
+                lecturerId: session.lecturerId || 0,
+                lecturer: session.lecturer || 'Unknown Lecturer',
+                groupId: session.groupId || 0,
+                group: session.group || 'Unknown Group',
+                hasConflict: session.hasConflict || false
+              }));
+              
+              console.log(`Loaded ${this.timetableSessions.length} sessions from database`);
+              
+              // Set flag to indicate sessions were loaded from database
+              this.sessionsLoadedFromDatabase = true;
+              
+              // Format sessions for the grid display
+              this.formatTimetableSessions();
+              
+              // Detect any conflicts
+              this.detectTimetableConflicts();
+              
+              this.cdr.detectChanges();
+            } else {
+              console.log('No sessions found in current timetable');
+              this.timetableSessions = [];
+              this.formattedTimetableSessions = [];
+            }
+          } else {
+            console.log('No current timetable found for department:', currentDept);
+            this.timetableSessions = [];
+            this.formattedTimetableSessions = [];
+          }
+        })
+        .catch((error: any) => {
+          console.error('Error loading timetable sessions:', error);
+          this.presentToast('Error loading timetable sessions: ' + (error.message || 'Unknown error'));
+          
+          // Fallback to empty sessions
+          this.timetableSessions = [];
+          this.formattedTimetableSessions = [];
+        });
+    } catch (error) {
+      console.log('Firebase app not available, using timetable service fallback:', error);
+      
+      // Fallback to using existing timetable service subscription
+      console.log('Using existing timetable service subscription for session loading');
+    }
   }
 
   // Load submission status from database
@@ -1849,9 +2583,81 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   // Load timetable for selected submission
   loadSubmissionTimetable(submissionId: number) {
-    // In a real app, this would fetch the submission timetable from the backend
-    // For now, we'll use mock data based on the submission ID
+    console.log('Loading timetable for submission ID:', submissionId);
+    
+    // Find the submission in our history
+    const submission = this.submissionHistory.find(s => s.id === submissionId);
+    if (!submission || !submission.timetableId) {
+      console.log('No timetable ID found for submission, using current sessions');
+      this.useCurrentSessionsForSubmission(submissionId);
+      return;
+    }
+    
+    // Load the actual timetable from database using the timetableId
+    this.timetableDatabaseService.getTimetableById(submission.timetableId).subscribe({
+      next: (timetable) => {
+        if (timetable && timetable.sessions) {
+          console.log('Loaded timetable for submission:', timetable);
+          
+          // Convert database sessions to grid format
+          this.selectedSubmissionTimetable = timetable.sessions.map(session => {
+            const dayMap: { [key: string]: number } = {
+              'Monday': 0,
+              'Tuesday': 1,
+              'Wednesday': 2,
+              'Thursday': 3,
+              'Friday': 4,
+              'Saturday': 5,
+              'Sunday': 6
+            };
 
+            // Extract start and end times from timeSlot
+            const timeSlotMatch = session.timeSlot?.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+            let startSlot = 1;
+            let endSlot = 2;
+            
+            if (timeSlotMatch) {
+              const startTime = timeSlotMatch[1];
+              const endTime = timeSlotMatch[2];
+              startSlot = parseInt(startTime.split(':')[0]) - 8; // Convert to slot number
+              endSlot = parseInt(endTime.split(':')[0]) - 8;
+            }
+
+            return {
+              id: session.id,
+              title: session.moduleName || 'Unknown Module',
+              module: session.moduleName || 'Unknown Module',
+              moduleCode: this.getModuleCode(session.moduleId),
+              lecturer: session.lecturer || 'Unknown Lecturer',
+              venue: session.venue || 'Unknown Venue',
+              group: session.group || 'Unknown Group',
+              day: dayMap[session.day] || 0,
+              startSlot: Math.max(startSlot, 0),
+              endSlot: Math.max(endSlot, 1),
+              category: session.category || this.getModuleCategory(session.moduleId),
+              color: session.hasConflict ? '#eb445a' : this.getModuleColor(session.moduleId),
+              departmentId: parseInt(this.departmentInfo.id) || 1,
+              hasConflict: session.hasConflict || false
+            } as TimetableSession;
+          });
+          
+          console.log('Converted submission timetable sessions:', this.selectedSubmissionTimetable);
+        } else {
+          console.log('No sessions found in timetable, using current sessions');
+          this.useCurrentSessionsForSubmission(submissionId);
+        }
+        
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading submission timetable:', error);
+        this.useCurrentSessionsForSubmission(submissionId);
+      }
+    });
+  }
+
+  // Fallback method to use current sessions for submission display
+  private useCurrentSessionsForSubmission(submissionId: number) {
     // Create a copy of the current timetable with some modifications
     const submissionSessions: SessionForGrid[] = [...this.timetableSessions].map((session: SessionForGrid) => {
       // Add some variations based on submission ID
@@ -1894,6 +2700,8 @@ export class HodDashPage implements OnInit, OnDestroy {
         hasConflict: session.hasConflict
       } as TimetableSession;
     });
+    
+    this.cdr.detectChanges();
   }
 
   // View details of a session from submission timetable
@@ -1902,18 +2710,27 @@ export class HodDashPage implements OnInit, OnDestroy {
     // Show details of the session, e.g., in a modal
   }
 
-  // Auto-save functionality
+  // Auto-save functionality - only on window events
   startAutoSave() {
-    console.log('Starting auto-save functionality');
+    console.log('Starting auto-save functionality for window events');
     
-    // Save every 30 seconds
-    this.autoSaveInterval = setInterval(() => {
-      this.autoSaveTimetable();
-    }, 30000);
+    // Listen for beforeunload event (when user tries to close/refresh page)
+    window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+    
+    // Listen for visibilitychange event (when user switches tabs/apps)
+    document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+    
+    // Listen for pagehide event (when page is hidden)
+    window.addEventListener('pagehide', this.handlePageHide.bind(this));
   }
 
   stopAutoSave() {
     console.log('Stopping auto-save functionality');
+    
+    // Remove event listeners
+    window.removeEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
+    window.removeEventListener('pagehide', this.handlePageHide.bind(this));
     
     if (this.autoSaveInterval) {
       clearInterval(this.autoSaveInterval);
@@ -1921,47 +2738,183 @@ export class HodDashPage implements OnInit, OnDestroy {
     }
   }
 
+  // Handle before page unload (closing/refreshing)
+  private handleBeforeUnload(event: BeforeUnloadEvent) {
+    if (this.hasUnsavedChanges) {
+      console.log('Page unload detected, saving timetable...');
+      this.autoSaveTimetable();
+      
+      // Show confirmation dialog if there are unsaved changes
+      event.preventDefault();
+      event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+      return event.returnValue;
+    }
+  }
+
+  // Handle visibility change (switching tabs/apps)
+  private handleVisibilityChange() {
+    if (document.hidden && this.hasUnsavedChanges) {
+      console.log('Page hidden, saving timetable...');
+      this.autoSaveTimetable();
+    }
+  }
+
+  // Handle page hide event
+  private handlePageHide(event: PageTransitionEvent) {
+    if (this.hasUnsavedChanges) {
+      console.log('Page hide detected, saving timetable...');
+      this.autoSaveTimetable();
+    }
+  }
+
   autoSaveTimetable() {
-    console.log('Auto-saving timetable...');
-    
-    // Only auto-save if there have been changes and it's been at least 10 seconds since last save
-    if (this.lastSaveTime && (Date.now() - this.lastSaveTime.getTime()) < 10000) {
-      return; // Skip if saved too recently
+    // Only auto-save if there are unsaved changes
+    if (!this.hasUnsavedChanges) {
+      console.log('No unsaved changes, skipping auto-save');
+      return;
     }
 
-    this.timetableService.autoSaveTimetable().subscribe({
-      next: (result) => {
-        if (result.success) {
-          console.log('Auto-save successful');
-          this.lastSaveTime = new Date();
-        } else {
-          console.warn('Auto-save failed:', result.message);
-        }
-      },
-      error: (error) => {
-        console.error('Auto-save error:', error);
+    console.log('Auto-saving timetable due to window event...');
+    
+    // Don't auto-save if department info is not loaded
+    if (!this.departmentInfo.name || this.departmentInfo.name === 'Loading...') {
+      console.log('Department not loaded, skipping auto-save');
+      return;
+    }
+
+    // Use our custom save method instead of timetable service
+    this.saveCurrentTimetableToDatabase().then(result => {
+      if (result.success) {
+        console.log('Event-triggered auto-save successful');
+        this.lastSaveTime = new Date();
+        this.hasUnsavedChanges = false; // Mark changes as saved
+      } else {
+        console.warn('Event-triggered auto-save failed:', result.message);
       }
+    }).catch(error => {
+      console.error('Event-triggered auto-save error:', error);
     });
   }
 
   // Manual save functionality
-  saveTimetable() {
+  async saveTimetable() {
     console.log('Manually saving timetable...');
     
-    this.timetableService.saveTimetableToDatabase().subscribe({
-      next: (result) => {
-        if (result.success) {
-          this.presentToast('Timetable saved successfully');
-          this.lastSaveTime = new Date();
-        } else {
-          this.presentToast('Failed to save timetable: ' + result.message);
-        }
-      },
-      error: (error) => {
-        console.error('Error saving timetable:', error);
-        this.presentToast('Error saving timetable');
+    try {
+      const result = await this.saveCurrentTimetableToDatabase();
+      if (result.success) {
+        this.presentToast('Timetable saved successfully');
+        this.lastSaveTime = new Date();
+        this.hasUnsavedChanges = false; // Mark changes as saved
+      } else {
+        this.presentToast('Failed to save timetable: ' + result.message);
       }
-    });
+    } catch (error) {
+      console.error('Error saving timetable:', error);
+      this.presentToast('Error saving timetable');
+    }
+  }
+
+  // Custom save method that uses our department info
+  private async saveCurrentTimetableToDatabase(): Promise<{ success: boolean; message: string }> {
+    try {
+      if (!this.departmentInfo.name || this.departmentInfo.name === 'Loading...') {
+        return {
+          success: false,
+          message: 'Department information not available'
+        };
+      }
+
+      // Get or create timetable
+      let currentTimetableDoc = await this.timetableDatabaseService.getCurrentTimetable(this.departmentInfo.name).toPromise();
+      
+      if (!currentTimetableDoc) {
+        // Create new timetable
+        const createResult = await this.timetableDatabaseService.createNewTimetable(
+          this.departmentInfo.name,
+          `${new Date().getFullYear()} Timetable`,
+          `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+          1
+        ).toPromise();
+        
+        if (!createResult || !createResult.success) {
+          return {
+            success: false,
+            message: createResult?.message || 'Failed to create timetable'
+          };
+        }
+        
+        // Get the newly created timetable
+        currentTimetableDoc = await this.timetableDatabaseService.getCurrentTimetable(this.departmentInfo.name).toPromise();
+        
+        if (!currentTimetableDoc) {
+          return {
+            success: false,
+            message: 'Failed to retrieve newly created timetable'
+          };
+        }
+      }
+
+      // Update with current sessions if any
+      if (this.timetableSessions && this.timetableSessions.length > 0) {
+        const timetableSessions = this.timetableSessions.map(session => {
+          const sessionData: any = {
+            id: session.id,
+            moduleId: session.moduleId,
+            moduleName: session.moduleName,
+            lecturerId: session.lecturerId,
+            lecturer: session.lecturer,
+            venueId: session.venueId || session.venue,
+            venue: session.venue,
+            groupId: session.groupId,
+            group: session.group,
+            day: session.day,
+            timeSlot: session.timeSlot,
+            category: (session as any).category || 'Lecture',
+            color: (session as any).color || '#007bff',
+            departmentId: (session as any).departmentId || 1,
+            hasConflict: session.hasConflict || false
+          };
+
+          // Only add optional fields if they have values
+          if ((session as any).startTime) {
+            sessionData.startTime = (session as any).startTime;
+          }
+          if ((session as any).endTime) {
+            sessionData.endTime = (session as any).endTime;
+          }
+          if ((session as any).notes) {
+            sessionData.notes = (session as any).notes;
+          }
+
+          return sessionData;
+        });
+
+        const updateResult = await this.timetableDatabaseService.saveTimetable({
+          sessions: timetableSessions,
+          status: currentTimetableDoc.status || 'draft'
+        }, currentTimetableDoc.id).toPromise();
+
+        if (!updateResult || !updateResult.success) {
+          return {
+            success: false,
+            message: updateResult?.message || 'Failed to save timetable sessions'
+          };
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Timetable saved successfully'
+      };
+
+    } catch (error: any) {
+      console.error('Error in saveCurrentTimetableToDatabase:', error);
+      return {
+        success: false,
+        message: error?.message || 'Unknown error occurred'
+      };
+    }
   }
 
   // Load submission history from database
@@ -1975,25 +2928,222 @@ export class HodDashPage implements OnInit, OnDestroy {
     
     this.timetableDatabaseService.loadSubmissionHistory(this.departmentInfo.name).subscribe({
       next: (submissions) => {
-        console.log('Submission history loaded from database:', submissions);
+        console.log('Submission history loaded from database service:', submissions);
         
-        // Transform database submissions to display format
-        this.submissionHistory = submissions.map(submission => ({
-          id: parseInt(submission.id) || 0,
-          academicPeriod: submission.academicPeriod,
-          submittedAt: submission.submittedAt?.toDate ? submission.submittedAt.toDate() : new Date(submission.submittedAt),
-          status: submission.status,
-          conflictCount: submission.conflictCount,
-          hasAdminFeedback: submission.hasAdminFeedback,
-          adminFeedback: submission.adminFeedback
-        }));
+        if (submissions && submissions.length > 0) {
+          // Transform database submissions to display format
+          this.submissionHistory = submissions.map((submission, index) => ({
+            id: parseInt(submission.id) || (index + 1),
+            academicPeriod: submission.academicPeriod || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+            submittedAt: submission.submittedAt?.toDate ? submission.submittedAt.toDate() : new Date(submission.submittedAt || Date.now()),
+            status: submission.status || 'pending',
+            conflictCount: submission.conflictCount || 0,
+            hasAdminFeedback: submission.hasAdminFeedback || false,
+            adminFeedback: submission.adminFeedback || ''
+          }));
+          
+          console.log('Transformed submission history:', this.submissionHistory);
+        } else {
+          console.log('No submission history found from service, trying direct Firebase query');
+          this.loadSubmissionHistoryDirectFromFirebase();
+        }
         
         this.cdr.detectChanges();
       },
       error: (error) => {
-        console.error('Error loading submission history:', error);
-        this.presentToast('Error loading submission history');
+        console.error('Error loading submission history from service:', error);
+        this.presentToast('Error loading submission history from service, trying direct query');
+        
+        // Fallback to direct Firebase query
+        this.loadSubmissionHistoryDirectFromFirebase();
       }
     });
+  }
+
+  // Fallback method to load submission history directly from Firebase
+  private loadSubmissionHistoryDirectFromFirebase() {
+    console.log('Loading submission history directly from Firebase for:', this.departmentInfo.name);
+    
+    try {
+      const firebaseApp = firebase.app();
+      const firestore = firebaseApp.firestore();
+      
+      // Query the correct collection name that admin uses: 'timetable_submissions'
+      // Remove the orderBy to avoid requiring a composite index
+      firestore.collection('timetable_submissions')
+        .where('department', '==', this.departmentInfo.name)
+        .get()
+        .then((querySnapshot: any) => {
+          if (!querySnapshot.empty) {
+            // Get all documents and sort them in JavaScript instead of Firestore
+            let submissions = querySnapshot.docs.map((doc: any, index: number) => {
+              const data = doc.data();
+              console.log('Submission history doc data:', data);
+              return {
+                id: parseInt(doc.id) || (index + 1),
+                academicPeriod: data.academicPeriod || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+                submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : new Date(data.submittedAt || Date.now()),
+                status: data.status || 'pending',
+                conflictCount: data.conflictCount || 0,
+                hasAdminFeedback: !!(data.adminFeedback && data.adminFeedback.trim()),
+                adminFeedback: data.adminFeedback || '',
+                timetableId: data.timetableId || doc.id
+              };
+            });
+            
+            // Sort by submittedAt in descending order (newest first)
+            submissions.sort((a: any, b: any) => {
+              const dateA = new Date(a.submittedAt).getTime();
+              const dateB = new Date(b.submittedAt).getTime();
+              return dateB - dateA; // Descending order
+            });
+            
+            this.submissionHistory = submissions;
+            
+            console.log('Loaded submission history directly from Firebase:', this.submissionHistory);
+            
+            // Update the current submission status if we have submissions
+            if (this.submissionHistory.length > 0) {
+              const latestSubmission = this.submissionHistory[0];
+              this.updateSubmissionStatusFromHistory(latestSubmission);
+            }
+          } else {
+            console.log('No submission history found in Firebase');
+            this.submissionHistory = [];
+          }
+          
+          this.cdr.detectChanges();
+        })
+        .catch((error: any) => {
+          console.error('Error loading submission history from Firebase:', error);
+          
+          // If we still get an error, try a more basic query
+          this.loadSubmissionHistoryBasicQuery();
+        });
+    } catch (error) {
+      console.log('Firebase app not available for submission history:', error);
+      this.submissionHistory = [];
+      this.cdr.detectChanges();
+    }
+  }
+
+  // Even more basic query as ultimate fallback
+  private loadSubmissionHistoryBasicQuery() {
+    console.log('Loading submission history with basic query');
+    
+    try {
+      const firebaseApp = firebase.app();
+      const firestore = firebaseApp.firestore();
+      
+      // Get all documents from the collection and filter in JavaScript
+      firestore.collection('timetable_submissions')
+        .get()
+        .then((querySnapshot: any) => {
+          if (!querySnapshot.empty) {
+            // Filter for this department in JavaScript
+            let submissions = querySnapshot.docs
+              .map((doc: any, index: number) => {
+                const data = doc.data();
+                return {
+                  id: parseInt(doc.id) || (index + 1),
+                  department: data.department,
+                  academicPeriod: data.academicPeriod || `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`,
+                  submittedAt: data.submittedAt?.toDate ? data.submittedAt.toDate() : new Date(data.submittedAt || Date.now()),
+                  status: data.status || 'pending',
+                  conflictCount: data.conflictCount || 0,
+                  hasAdminFeedback: !!(data.adminFeedback && data.adminFeedback.trim()),
+                  adminFeedback: data.adminFeedback || '',
+                  timetableId: data.timetableId || doc.id
+                };
+              })
+              .filter((submission: any) => submission.department === this.departmentInfo.name)
+              .sort((a: any, b: any) => {
+                const dateA = new Date(a.submittedAt).getTime();
+                const dateB = new Date(b.submittedAt).getTime();
+                return dateB - dateA; // Descending order
+              });
+            
+            this.submissionHistory = submissions;
+            
+            console.log('Loaded submission history with basic query:', this.submissionHistory);
+            
+            // Update the current submission status if we have submissions
+            if (this.submissionHistory.length > 0) {
+              const latestSubmission = this.submissionHistory[0];
+              this.updateSubmissionStatusFromHistory(latestSubmission);
+            }
+          } else {
+            console.log('No submissions found in collection');
+            this.submissionHistory = [];
+          }
+          
+          this.cdr.detectChanges();
+        })
+        .catch((error: any) => {
+          console.error('Error with basic query:', error);
+          this.presentToast('Error loading submission history: ' + (error.message || 'Unknown error'));
+          this.submissionHistory = [];
+          this.cdr.detectChanges();
+        });
+    } catch (error) {
+      console.log('Firebase app not available for basic query:', error);
+      this.submissionHistory = [];
+      this.cdr.detectChanges();
+    }
+  }
+
+  // Update submission status based on latest submission history
+  private updateSubmissionStatusFromHistory(submission: any) {
+    console.log('Updating submission status from history:', submission);
+    
+    switch (submission.status.toLowerCase()) {
+      case 'submitted':
+      case 'pending':
+        this.submissionStatus = {
+          status: 'submitted',
+          label: 'Under Review',
+          message: 'Your timetable is being reviewed by the administration.',
+          canEdit: false,
+          buttonText: 'View Submission'
+        };
+        break;
+      case 'approved':
+        this.submissionStatus = {
+          status: 'approved',
+          label: 'Approved',
+          message: 'Your timetable has been approved and published.',
+          canEdit: false,
+          buttonText: 'View Approved Timetable'
+        };
+        break;
+      case 'rejected':
+        this.submissionStatus = {
+          status: 'rejected',
+          label: 'Needs Revision',
+          message: submission.adminFeedback || 'Your timetable needs revisions. Please check the admin feedback and resubmit.',
+          canEdit: true,
+          buttonText: 'Revise & Resubmit'
+        };
+        break;
+      default:
+        // Don't update if status is unknown
+        break;
+    }
+    
+    console.log('Updated submission status:', this.submissionStatus);
+  }
+
+  // Get the latest admin feedback for display
+  getLatestAdminFeedback(): string {
+    if (this.submissionHistory.length === 0) {
+      return 'No feedback available';
+    }
+    
+    // Find the most recent submission with admin feedback
+    const latestWithFeedback = this.submissionHistory.find(submission => 
+      submission.hasAdminFeedback && submission.adminFeedback
+    );
+    
+    return latestWithFeedback?.adminFeedback || 'No specific feedback provided. Please review your timetable and resubmit.';
   }
 }

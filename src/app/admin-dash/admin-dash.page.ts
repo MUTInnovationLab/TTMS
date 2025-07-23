@@ -1,4 +1,4 @@
-import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, OnInit, ChangeDetectorRef, OnDestroy, Injector } from '@angular/core';
 import { TimetableSession } from '../components/timetable-grid/timetable-grid.component';
 import { Conflict, ConflictType, ConflictResolution } from '../components/conflict-res/conflict-res.component';
 import { SidebarService } from '../services/Utility Services/sidebar.service';
@@ -6,11 +6,16 @@ import { Subscription } from 'rxjs';
 import { ModalController } from '@ionic/angular';
 import { AddUserComponent, User } from '../components/add-user/add-user.component';
 import { AddVenueComponent } from '../components/add-venue/add-venue.component';
+import { AddDepartmentComponent } from '../components/add-department/add-department.component';
+import { Department } from '../interfaces/department.interface';
 import { AuthService } from '../services/Authentication Services/auth.service';
 import { StaffService } from '../services/Data Services/staff.service';
 import { AlertController } from '@ionic/angular';
 import { Router } from '@angular/router';
 import { VenueService, VenueDisplayInfo } from '../services/Entity Management Services/venue.service';
+import { DepartmentService } from '../services/Entity Management Services/department.service';
+import { TimetableDatabaseService, TimetableDocument } from '../services/Timetable Core Services/timetable-database.service';
+import { ToastController } from '@ionic/angular';
 
 interface ConflictSummary {
   id: number;
@@ -36,7 +41,7 @@ interface DepartmentLecturerStats {
 })
 export class AdminDashPage implements OnInit, OnDestroy {
   // Sidebar state
-  sidebarVisible = false;
+  sidebarVisible = true;
   private sidebarSubscription?: Subscription;
   
   // Active section tracking
@@ -55,7 +60,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
     departments: 8,
     venues: 25,
     sessions: 142,
-    conflicts: 3
+    conflicts: 3,
+    submissions: 0 // Will be updated when submissions are loaded
   };
   
   // Recent activities
@@ -131,11 +137,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
   ];
   
   // Department management
-  departments = [
-    { id: 1, name: 'Computer Science', hod: 'Dr. John Smith', moduleCount: 12 },
-    { id: 2, name: 'Engineering', hod: 'Dr. Emily Brown', moduleCount: 15 },
-    { id: 3, name: 'Business Studies', hod: 'Prof. Michael Davis', moduleCount: 10 }
-  ];
+  departments: Department[] = [];
+  departmentsLoading: boolean = false;
   
   // Venue management - Update to use VenueDisplayInfo type
   venues: VenueDisplayInfo[] = [];
@@ -165,6 +168,13 @@ export class AdminDashPage implements OnInit, OnDestroy {
   // Department submission conflict properties
   departmentSubmissionConflicts: Conflict[] = [];
   showingDeptConflictRes: boolean = false;
+
+  // Submitted timetables management
+  submittedTimetables: TimetableDocument[] = [];
+  selectedSubmittedTimetable: TimetableDocument | null = null;
+  submissionsLoading: boolean = false;
+  selectedDepartmentName: string = '';
+  rejectionReason: string = '';
 
   // Reports section properties
   reportView: string = 'usage';
@@ -244,6 +254,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Add isSubmitting property if it doesn't exist
   isSubmitting: boolean = false;
+  private _departmentService?: DepartmentService;
 
   constructor(
     private alertController: AlertController,
@@ -253,9 +264,20 @@ export class AdminDashPage implements OnInit, OnDestroy {
     private modalController: ModalController,
     private authService: AuthService,
     private staffService: StaffService,
-    private venueService: VenueService
+    private venueService: VenueService,
+    private injector: Injector,
+    private timetableDatabaseService: TimetableDatabaseService,
+    private toastController: ToastController
   ) { 
     console.log('AdminDashPage constructor');
+  }
+
+  // Lazy getter for DepartmentService
+  private get departmentService(): DepartmentService {
+    if (!this._departmentService) {
+      this._departmentService = this.injector.get(DepartmentService);
+    }
+    return this._departmentService;
   }
 
   ngOnInit() {
@@ -264,6 +286,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
     // Initialize dashboard
     this.generateMockTimetableData();
     this.loadVenues(); // Load venues from database
+    this.loadDepartments(); // Load departments from database
+    this.loadSubmittedTimetables(); // Load submitted timetables from database
     
     // Set initial sidebar state
     this.sidebarVisible = this.sidebarService.isSidebarVisible;
@@ -281,6 +305,30 @@ export class AdminDashPage implements OnInit, OnDestroy {
     
     // Load Heads of Department from Firebase
     this.loadHODs();
+  }
+
+  // Load departments from database
+  loadDepartments() {
+    console.log('Loading departments from database');
+    this.departmentsLoading = true;
+    
+    this.departmentService.getAllDepartments().subscribe({
+      next: (departments) => {
+        console.log('Departments loaded successfully:', departments);
+        this.departments = departments;
+        this.departmentsLoading = false;
+        
+        // Update stats
+        this.stats.departments = departments.length;
+        
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading departments:', error);
+        this.presentToast('Failed to load departments: ' + (error.message || 'Unknown error'));
+        this.departmentsLoading = false;
+      }
+    });
   }
 
   // Load HODs from Firebase
@@ -403,10 +451,179 @@ export class AdminDashPage implements OnInit, OnDestroy {
   
   createNewTimetable() {
     console.log('Creating new timetable');
+    
+    // Show dialog to select parameters for new timetable
+    this.presentNewTimetableDialog();
   }
-  
+
+  async presentNewTimetableDialog() {
+    const alert = await this.alertController.create({
+      header: 'Create New Timetable',
+      message: 'Create a new master timetable for the academic year',
+      inputs: [
+        {
+          name: 'title',
+          type: 'text',
+          placeholder: 'Timetable Title',
+          value: `${new Date().getFullYear()} Master Timetable`
+        },
+        {
+          name: 'academicPeriod',
+          type: 'text',
+          placeholder: 'Academic Period',
+          value: `${new Date().getFullYear()}-${new Date().getFullYear() + 1}`
+        },
+        {
+          name: 'semester',
+          type: 'number',
+          placeholder: 'Semester',
+          value: 1,
+          min: 1,
+          max: 2
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Create',
+          handler: (data) => {
+            if (data.title && data.academicPeriod && data.semester) {
+              this.performTimetableCreation(data);
+              return true;
+            } else {
+              this.presentToast('Please fill in all fields');
+              return false;
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  private performTimetableCreation(timetableData: any) {
+    this.isSubmitting = true;
+    
+    // Create new timetable using the database service
+    this.timetableDatabaseService.createNewTimetable(
+      'MASTER', // Master timetable for all departments
+      timetableData.title,
+      timetableData.academicPeriod,
+      parseInt(timetableData.semester)
+    ).subscribe({
+      next: (result) => {
+        this.isSubmitting = false;
+        if (result.success) {
+          this.presentToast('New timetable created successfully');
+          
+          // Switch to master timetable view
+          this.timetableView = 'master';
+          this.activeSection = 'timetable';
+          
+          // Reload submitted timetables
+          this.loadSubmittedTimetables();
+        } else {
+          this.presentToast('Failed to create timetable: ' + result.message);
+        }
+      },
+      error: (error) => {
+        this.isSubmitting = false;
+        console.error('Error creating timetable:', error);
+        this.presentToast('Error creating timetable: ' + (error.message || 'Unknown error'));
+      }
+    });
+  }
+
   publishTimetable() {
     console.log('Publishing timetable');
+    
+    // Check if there are unresolved conflicts
+    if (this.formattedConflicts.length > 0) {
+      this.presentToast('Cannot publish timetable with unresolved conflicts. Please resolve all conflicts first.');
+      return;
+    }
+    
+    // Show publication dialog
+    this.presentPublicationDialog();
+  }
+
+  async presentPublicationDialog() {
+    const alert = await this.alertController.create({
+      header: 'Publish Master Timetable',
+      message: 'This will publish the master timetable and notify all departments. This action cannot be undone.',
+      inputs: [
+        {
+          name: 'title',
+          type: 'text',
+          placeholder: 'Publication Title',
+          value: this.publicationTitle || `Master Timetable ${new Date().getFullYear()}`
+        },
+        {
+          name: 'notes',
+          type: 'textarea',
+          placeholder: 'Publication Notes (Optional)',
+          value: this.publicationNotes
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Publish',
+          cssClass: 'primary',
+          handler: (data) => {
+            this.publicationTitle = data.title;
+            this.publicationNotes = data.notes;
+            this.performTimetablePublication();
+            return true;
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  private performTimetablePublication() {
+    this.isSubmitting = true;
+    
+    // Create publication data
+    const publicationData = {
+      title: this.publicationTitle,
+      notes: this.publicationNotes,
+      sessions: this.masterTimetableSessions,
+      publishedAt: new Date(),
+      publishedBy: 'Admin', // Should be current user
+      notifyUsers: this.notifyUsers
+    };
+
+    // In a real implementation, you would call a publication service
+    // For now, we'll simulate the process
+    setTimeout(() => {
+      this.isSubmitting = false;
+      this.presentToast('Master timetable published successfully');
+      
+      // Add activity
+      this.recentActivities.unshift({
+        type: 'success',
+        icon: 'cloud-upload',
+        message: `Master timetable "${this.publicationTitle}" published`,
+        timestamp: new Date()
+      });
+      
+      // Keep only recent activities
+      if (this.recentActivities.length > 10) {
+        this.recentActivities = this.recentActivities.slice(0, 10);
+      }
+      
+      this.cdr.detectChanges();
+    }, 2000);
   }
   
   resolveConflicts() {
@@ -414,20 +631,116 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.activeSection = 'timetable';
     this.timetableView = 'conflicts';
   }
+
+  // Load submitted timetables from database
+  loadSubmittedTimetables() {
+    console.log('Loading submitted timetables from database');
+    this.submissionsLoading = true;
+    
+    this.timetableDatabaseService.getAllTimetables().subscribe({
+      next: (timetables) => {
+        console.log('All timetables loaded:', timetables);
+        // Filter for submitted, approved, or rejected timetables
+        this.submittedTimetables = timetables.filter(t => 
+          t.status === 'submitted' || t.status === 'approved' || t.status === 'rejected'
+        );
+        
+        // Update dashboard stats
+        this.stats.submissions = this.submittedTimetables.length;
+        
+        console.log('Submitted timetables:', this.submittedTimetables);
+        this.submissionsLoading = false;
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error loading submitted timetables:', error);
+        this.submissionsLoading = false;
+        this.presentToast('Error loading submitted timetables: ' + (error.message || 'Unknown error'));
+        this.cdr.detectChanges();
+      }
+    });
+  }
   
   loadDepartmentSubmission() {
     if (this.selectedDepartment) {
       console.log('Loading submission for department ID:', this.selectedDepartment);
       
-      // In a real application, you would fetch this data from a service
-      // For now, we'll filter our mock data based on department ID
-      this.departmentSubmissionSessions = this.masterTimetableSessions
-        .filter(session => session.departmentId === this.selectedDepartment)
-        .map(session => ({...session})); // Create a new copy of the sessions
+      // Find the selected timetable from submitted timetables
+      const selectedTimetable = this.submittedTimetables.find(t => 
+        t.department === this.selectedDepartmentName || t.id === this.selectedDepartment?.toString()
+      );
       
-      // Generate conflicts specifically for this department's submission
-      this.generateDepartmentSubmissionConflicts();
+      if (selectedTimetable) {
+        this.selectedSubmittedTimetable = selectedTimetable;
+        // Convert database sessions to grid sessions
+        this.departmentSubmissionSessions = selectedTimetable.sessions.map(session => 
+          this.convertDatabaseSessionToGridSession(session)
+        );
+        
+        // Generate conflicts specifically for this department's submission
+        this.generateDepartmentSubmissionConflicts();
+      } else {
+        // Fallback to mock data if no real submission found
+        this.departmentSubmissionSessions = this.masterTimetableSessions
+          .filter(session => session.departmentId === this.selectedDepartment)
+          .map(session => ({...session}));
+        
+        this.generateDepartmentSubmissionConflicts();
+      }
     }
+  }
+
+  // Helper method to convert database session to grid session format
+  private convertDatabaseSessionToGridSession(dbSession: any): TimetableSession {
+    // Convert day string to number
+    const dayMap: { [key: string]: number } = {
+      'Monday': 1,
+      'Tuesday': 2, 
+      'Wednesday': 3,
+      'Thursday': 4,
+      'Friday': 5,
+      'Saturday': 6,
+      'Sunday': 0
+    };
+
+    // Extract start and end times from timeSlot (e.g., "09:00 - 10:00")
+    const timeSlotMatch = dbSession.timeSlot?.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
+    let startSlot = 1;
+    let endSlot = 2;
+    
+    if (timeSlotMatch) {
+      const startTime = timeSlotMatch[1];
+      const endTime = timeSlotMatch[2];
+      
+      // Convert time to slot numbers (assuming 8:00 AM is slot 1, 1-hour slots)
+      startSlot = this.timeToSlot(startTime);
+      endSlot = this.timeToSlot(endTime);
+    }
+
+    return {
+      id: dbSession.id,
+      title: dbSession.moduleName || 'Unknown Module',
+      module: dbSession.moduleName || 'Unknown Module',
+      moduleCode: `MOD${dbSession.moduleId}`,
+      lecturer: dbSession.lecturer || 'Unknown Lecturer',
+      venue: dbSession.venue || 'Unknown Venue',
+      group: dbSession.group || 'Unknown Group',
+      day: dayMap[dbSession.day] || 1,
+      startSlot: startSlot,
+      endSlot: endSlot,
+      category: dbSession.category || 'Lecture',
+      color: dbSession.color || '#4c8dff',
+      departmentId: dbSession.departmentId || 0,
+      hasConflict: dbSession.hasConflict || false
+    };
+  }
+
+  // Helper method to convert time string to slot number
+  private timeToSlot(timeString: string): number {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    const totalMinutes = hours * 60 + minutes;
+    const baseMinutes = 8 * 60; // 8:00 AM base time
+    return Math.floor((totalMinutes - baseMinutes) / 60) + 1;
   }
   
   // Department submission conflict handling
@@ -571,51 +884,255 @@ export class AdminDashPage implements OnInit, OnDestroy {
   }
   
   approveDepartmentSubmission() {
-    if (this.selectedDepartment) {
-      // Check if there are any unresolved conflicts
-      if (this.departmentSubmissionConflicts.length > 0) {
-        this.presentToast('Cannot approve submission with unresolved conflicts');
-        this.showDepartmentSubmissionConflicts(); // Show the conflicts
-        return;
-      }
-      
-      console.log('Approving submission for department ID:', this.selectedDepartment);
-      // In a real application, you would make an API call to approve the submission
-      this.presentToast('Department submission approved successfully');
-      
-      // Add to master timetable (in a real app, this might be a separate step)
-      this.departmentSubmissionSessions.forEach(session => {
-        // Find if the session already exists in the master timetable
-        const existingIndex = this.masterTimetableSessions.findIndex(s => s.id === session.id);
-        
-        if (existingIndex >= 0) {
-          // Update existing session
-          this.masterTimetableSessions[existingIndex] = { ...session };
-        } else {
-          // Add new session
-          this.masterTimetableSessions.push({ ...session });
-        }
-      });
+    if (!this.selectedSubmittedTimetable) {
+      this.presentToast('No timetable selected for approval');
+      return;
     }
+
+    // Check if there are any unresolved conflicts
+    if (this.departmentSubmissionConflicts.length > 0) {
+      this.presentToast('Cannot approve submission with unresolved conflicts');
+      this.showDepartmentSubmissionConflicts(); // Show the conflicts
+      return;
+    }
+
+    // Show confirmation dialog
+    this.alertController.create({
+      header: 'Confirm Approval',
+      message: `Are you sure you want to approve the timetable submission from ${this.selectedSubmittedTimetable.department}?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Approve',
+          handler: () => {
+            this.performApproval();
+          }
+        }
+      ]
+    }).then(alert => alert.present());
+  }
+
+  private performApproval() {
+    if (!this.selectedSubmittedTimetable) return;
+
+    this.isSubmitting = true;
+    console.log('Approving submission for timetable ID:', this.selectedSubmittedTimetable.id);
+
+    this.timetableDatabaseService.approveTimetable(
+      this.selectedSubmittedTimetable.id,
+      'Timetable approved by admin'
+    ).subscribe({
+      next: (result) => {
+        this.isSubmitting = false;
+        if (result.success) {
+          this.presentToast('Department submission approved successfully');
+          
+          // Update local data
+          this.selectedSubmittedTimetable!.status = 'approved';
+          
+          // Reload submitted timetables to reflect changes
+          this.loadSubmittedTimetables();
+          
+          // Add approved sessions to master timetable
+          this.departmentSubmissionSessions.forEach(session => {
+            const existingIndex = this.masterTimetableSessions.findIndex(s => s.id === session.id);
+            
+            if (existingIndex >= 0) {
+              this.masterTimetableSessions[existingIndex] = { ...session };
+            } else {
+              this.masterTimetableSessions.push({ ...session });
+            }
+          });
+        } else {
+          this.presentToast('Failed to approve submission: ' + result.message);
+        }
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.isSubmitting = false;
+        console.error('Error approving submission:', error);
+        this.presentToast('Error approving submission: ' + (error.message || 'Unknown error'));
+        this.cdr.detectChanges();
+      }
+    });
   }
   
   rejectDepartmentSubmission() {
-    if (this.selectedDepartment) {
-      console.log('Rejecting submission for department ID:', this.selectedDepartment);
-      // Show prompt for rejection reason
-      this.promptForRejectionReason();
+    if (!this.selectedSubmittedTimetable) {
+      this.presentToast('No timetable selected for rejection');
+      return;
     }
+
+    console.log('Rejecting submission for timetable ID:', this.selectedSubmittedTimetable.id);
+    this.promptForRejectionReason();
   }
   
   promptForRejectionReason() {
-    // This would normally show a modal or alert to enter rejection reason
-    console.log('Prompting for rejection reason');
-    // After getting reason, you would send it along with the rejection
+    this.alertController.create({
+      header: 'Reject Submission',
+      message: 'Please provide a reason for rejecting this timetable submission:',
+      inputs: [
+        {
+          name: 'reason',
+          type: 'textarea',
+          placeholder: 'Enter rejection reason...',
+          value: this.rejectionReason
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Reject',
+          handler: (data) => {
+            if (data.reason && data.reason.trim()) {
+              this.rejectionReason = data.reason.trim();
+              this.performRejection();
+              return true;
+            } else {
+              this.presentToast('Please provide a rejection reason');
+              return false;
+            }
+          }
+        }
+      ]
+    }).then(alert => alert.present());
   }
-  
-  presentToast(message: string) {
-    // This would normally show a toast notification
-    console.log('TOAST:', message);
+
+  private performRejection() {
+    if (!this.selectedSubmittedTimetable || !this.rejectionReason) return;
+
+    this.isSubmitting = true;
+    console.log('Rejecting submission with reason:', this.rejectionReason);
+
+    this.timetableDatabaseService.rejectTimetable(
+      this.selectedSubmittedTimetable.id,
+      this.rejectionReason
+    ).subscribe({
+      next: (result) => {
+        this.isSubmitting = false;
+        if (result.success) {
+          this.presentToast('Department submission rejected successfully');
+          
+          // Update local data
+          this.selectedSubmittedTimetable!.status = 'rejected';
+          this.selectedSubmittedTimetable!.adminFeedback = this.rejectionReason;
+          
+          // Reload submitted timetables to reflect changes
+          this.loadSubmittedTimetables();
+          
+          // Clear rejection reason
+          this.rejectionReason = '';
+        } else {
+          this.presentToast('Failed to reject submission: ' + result.message);
+        }
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        this.isSubmitting = false;
+        console.error('Error rejecting submission:', error);
+        this.presentToast('Error rejecting submission: ' + (error.message || 'Unknown error'));
+        this.cdr.detectChanges();
+      }
+    });
+  }
+
+  async presentToast(message: string) {
+    const toast = await this.toastController.create({
+      message: message,
+      duration: 3000,
+      position: 'top',
+      color: message.includes('Error') || message.includes('Failed') ? 'danger' : 'success'
+    });
+    toast.present();
+  }
+
+  // Helper methods for the submissions view
+  getStatusColor(status: string): string {
+    switch (status) {
+      case 'submitted':
+        return 'warning';
+      case 'approved':
+        return 'success';
+      case 'rejected':
+        return 'danger';
+      default:
+        return 'medium';
+    }
+  }
+
+  getStatusIcon(status: string): string {
+    switch (status) {
+      case 'submitted':
+        return 'time-outline';
+      case 'approved':
+        return 'checkmark-circle-outline';
+      case 'rejected':
+        return 'close-circle-outline';
+      default:
+        return 'document-outline';
+    }
+  }
+
+  formatDate(date: any): string {
+    if (!date) return 'Unknown';
+    
+    let dateObj: Date;
+    if (date.toDate && typeof date.toDate === 'function') {
+      // Firestore timestamp
+      dateObj = date.toDate();
+    } else if (date instanceof Date) {
+      dateObj = date;
+    } else {
+      dateObj = new Date(date);
+    }
+    
+    return dateObj.toLocaleDateString() + ' ' + dateObj.toLocaleTimeString();
+  }
+
+  selectTimetableForReview(timetable: TimetableDocument) {
+    console.log('Selecting timetable for review:', timetable);
+    this.selectedSubmittedTimetable = timetable;
+    this.selectedDepartmentName = timetable.department;
+    
+    // Load the timetable sessions for review
+    this.departmentSubmissionSessions = timetable.sessions.map(session => 
+      this.convertDatabaseSessionToGridSession(session)
+    );
+    
+    // Generate conflicts for this submission
+    this.generateDepartmentSubmissionConflicts();
+    
+    // Reset conflict resolution view
+    this.showingDeptConflictRes = false;
+  }
+
+  selectAndApprove(timetable: TimetableDocument) {
+    this.selectTimetableForReview(timetable);
+    this.approveDepartmentSubmission();
+  }
+
+  selectAndReject(timetable: TimetableDocument) {
+    this.selectTimetableForReview(timetable);
+    this.rejectDepartmentSubmission();
+  }
+
+  clearSelection() {
+    this.selectedSubmittedTimetable = null;
+    this.selectedDepartmentName = '';
+    this.departmentSubmissionSessions = [];
+    this.departmentSubmissionConflicts = [];
+    this.showingDeptConflictRes = false;
+  }
+
+  onViewToggle() {
+    // Handle view toggle between timetable and conflicts
+    console.log('View toggled. Showing conflicts:', this.showingDeptConflictRes);
   }
   
   handleSessionClick(session: TimetableSession) {
@@ -1277,33 +1794,182 @@ export class AdminDashPage implements OnInit, OnDestroy {
   }
   
   // Department management
-  showAddDepartmentModal() {
-    console.log('Show add department modal');
+  async showAddDepartmentModal() {
+    const modal = await this.modalController.create({
+      component: AddDepartmentComponent,
+      componentProps: {
+        department: null,
+        currentUserRole: 'Admin'
+      },
+      cssClass: 'department-modal'
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+    if (data && data.department) {
+      this.handleDepartmentCreation(data.department);
+    }
   }
-  
-  editDepartment(department: any) {
-    console.log('Editing department:', department);
+
+  async editDepartment(department: Department) {
+    const modal = await this.modalController.create({
+      component: AddDepartmentComponent,
+      componentProps: {
+        department: department,
+        currentUserRole: 'Admin'
+      },
+      cssClass: 'department-modal'
+    });
+
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+    if (data && data.department) {
+      this.handleDepartmentUpdate(department.id!, data.department);
+    }
+  }
+
+  async deleteDepartment(department: Department) {
+    const alert = await this.alertController.create({
+      header: 'Confirm Delete',
+      message: `Are you sure you want to delete "${department.name}"? This action cannot be undone and will affect all related data.`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Delete',
+          cssClass: 'danger',
+          handler: () => {
+            this.performDepartmentDeletion(department.id!);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  private handleDepartmentCreation(departmentData: Department) {
+    this.isSubmitting = true;
+    
+    this.departmentService.addDepartment(departmentData).subscribe({
+      next: (result) => {
+        this.isSubmitting = false;
+        if (result.success) {
+          this.presentToast('Department created successfully');
+          this.loadDepartments(); // Reload departments
+        } else {
+          this.presentToast('Failed to create department: ' + result.message);
+        }
+      },
+      error: (error) => {
+        this.isSubmitting = false;
+        console.error('Error creating department:', error);
+        this.presentToast('Error creating department: ' + (error.message || 'Unknown error'));
+      }
+    });
+  }
+
+  private handleDepartmentUpdate(id: string, departmentData: Department) {
+    this.isSubmitting = true;
+    
+    this.departmentService.updateDepartment(id, departmentData).subscribe({
+      next: (result) => {
+        this.isSubmitting = false;
+        if (result.success) {
+          this.presentToast('Department updated successfully');
+          this.loadDepartments(); // Reload departments
+        } else {
+          this.presentToast('Failed to update department: ' + result.message);
+        }
+      },
+      error: (error) => {
+        this.isSubmitting = false;
+        console.error('Error updating department:', error);
+        this.presentToast('Error updating department: ' + (error.message || 'Unknown error'));
+      }
+    });
+  }
+
+  private performDepartmentDeletion(id: string) {
+    this.isSubmitting = true;
+    
+    this.departmentService.deleteDepartment(id).subscribe({
+      next: (result) => {
+        this.isSubmitting = false;
+        if (result.success) {
+          this.presentToast('Department deleted successfully');
+          this.loadDepartments(); // Reload departments
+        } else {
+          this.presentToast('Failed to delete department: ' + result.message);
+        }
+      },
+      error: (error) => {
+        this.isSubmitting = false;
+        console.error('Error deleting department:', error);
+        this.presentToast('Error deleting department: ' + (error.message || 'Unknown error'));
+      }
+    });
   }
   
   // Venue management
   async showAddVenueModal() {
-    const modal = await this.modalController.create({
-      component: AddVenueComponent, // Replace with your actual component
-      cssClass: 'add-venue-modal'
-    });
-    await modal.present();
-
-    const { data } = await modal.onDidDismiss();
-    if (data && data.venue) {
-      // Handle the new venue (e.g., add to this.venues)
-      this.venues.push(data.venue);
-      this.presentToast('Venue added successfully');
-    }
+    this.presentAddVenueModal();
   }
   
   editVenue(venue: VenueDisplayInfo) {
     console.log('Editing venue:', venue);
-    // Open venue edit modal with venue data
+    this.presentAddVenueModal(venue);
+  }
+
+  async presentAddVenueModal(venueData?: VenueDisplayInfo) {
+    const modal = await this.modalController.create({
+      component: AddVenueComponent,
+      componentProps: {
+        venue: venueData,
+        isEditMode: !!venueData
+      },
+      cssClass: 'add-venue-modal'
+    });
+    
+    await modal.present();
+
+    const { data } = await modal.onDidDismiss();
+    if (data && data.venue) {
+      if (venueData) {
+        // Update existing venue
+        this.handleVenueUpdate(venueData.id, data.venue);
+      } else {
+        // Add new venue
+        this.handleVenueCreation(data.venue);
+      }
+    }
+  }
+
+  private handleVenueCreation(venueData: any) {
+    // Handle the new venue (e.g., add to this.venues)
+    this.venues.push(venueData);
+    this.presentToast('Venue added successfully');
+    this.loadVenues(); // Reload to get updated data
+  }
+
+  private handleVenueUpdate(venueId: string, venueData: any) {
+    this.venueService.updateVenue(venueId, venueData).subscribe({
+      next: (result) => {
+        if (result.success) {
+          this.presentToast('Venue updated successfully');
+          this.loadVenues(); // Reload venues
+        } else {
+          this.presentToast('Failed to update venue: ' + result.message);
+        }
+      },
+      error: (error) => {
+        this.presentToast('Error updating venue: ' + error.message);
+      }
+    });
   }
 
   // Add method to delete venue

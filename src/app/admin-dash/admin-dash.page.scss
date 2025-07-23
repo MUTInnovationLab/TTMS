@@ -653,3 +653,248 @@ ion-list.backup-list {
 .timetable-content {
   margin-top: 16px;
 }
+
+// Submissions View Styles
+.submissions-list {
+  display: grid;
+  gap: 16px;
+  
+  .submission-card {
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+    }
+    
+    &.selected {
+      border: 2px solid var(--ion-color-primary);
+      box-shadow: 0 4px 16px rgba(var(--ion-color-primary-rgb), 0.2);
+    }
+    
+    .submission-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      
+      .submission-info {
+        flex: 1;
+        
+        ion-card-title {
+          font-size: 1.2rem;
+          font-weight: 600;
+          margin-bottom: 4px;
+        }
+        
+        ion-card-subtitle {
+          color: var(--ion-color-medium);
+          font-size: 0.9rem;
+        }
+      }
+      
+      .submission-status {
+        .ion-chip {
+          ion-icon {
+            margin-right: 4px;
+          }
+        }
+      }
+    }
+    
+    .submission-details {
+      margin-bottom: 16px;
+      
+      p {
+        margin: 8px 0;
+        font-size: 0.9rem;
+        
+        strong {
+          color: var(--ion-color-dark);
+        }
+      }
+      
+      .admin-feedback {
+        margin-top: 12px;
+        padding: 12px;
+        background: var(--ion-color-light);
+        border-radius: 8px;
+        border-left: 4px solid var(--ion-color-warning);
+        
+        .feedback-text {
+          font-style: italic;
+          color: var(--ion-color-medium);
+          margin: 4px 0 0 0;
+        }
+      }
+    }
+    
+    .submission-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      
+      .approval-actions {
+        display: flex;
+        gap: 8px;
+        
+        ion-button {
+          min-width: 100px;
+        }
+      }
+    }
+  }
+}
+
+.loading-card {
+  text-align: center;
+  
+  ion-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    
+    ion-spinner {
+      width: 32px;
+      height: 32px;
+    }
+    
+    p {
+      margin: 0;
+      color: var(--ion-color-medium);
+    }
+  }
+}
+
+.selected-submission-details {
+  margin-top: 24px;
+  
+  .selected-timetable-card {
+    border-radius: 12px;
+    
+    .selected-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      
+      ion-card-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: var(--ion-color-primary);
+      }
+    }
+    
+    .submission-conflict-alert {
+      margin: 16px 0;
+      border-radius: 8px;
+      
+      ion-card-header {
+        padding: 12px 16px 8px;
+        
+        ion-card-title {
+          display: flex;
+          align-items: center;
+          font-size: 1rem;
+          
+          ion-icon {
+            margin-right: 8px;
+          }
+        }
+        
+        ion-card-subtitle {
+          font-size: 0.85rem;
+          margin-top: 4px;
+        }
+      }
+    }
+    
+    .action-buttons {
+      display: flex;
+      gap: 12px;
+      margin: 16px 0 24px;
+      
+      ion-button {
+        min-width: 140px;
+        
+        ion-spinner {
+          width: 20px;
+          height: 20px;
+        }
+      }
+    }
+    
+    .view-toggle {
+      margin: 16px 0;
+      
+      ion-segment {
+        background: var(--ion-color-light);
+        border-radius: 8px;
+      }
+    }
+    
+    .timetable-view,
+    .conflict-resolution-view {
+      margin-top: 16px;
+      min-height: 400px;
+    }
+  }
+}
+
+.no-submissions {
+  .text-center {
+    text-align: center;
+    padding: 40px 20px;
+    
+    ion-icon {
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+    
+    h3 {
+      color: var(--ion-color-medium);
+      margin: 16px 0 8px;
+    }
+    
+    p {
+      color: var(--ion-color-medium);
+      margin: 0;
+    }
+  }
+}
+
+// Responsive design for submissions
+@media (max-width: 768px) {
+  .submissions-list {
+    .submission-card {
+      .submission-header {
+        flex-direction: column;
+        gap: 12px;
+        
+        .submission-status {
+          align-self: flex-start;
+        }
+      }
+      
+      .submission-actions {
+        flex-direction: column;
+        align-items: stretch;
+        
+        .approval-actions {
+          justify-content: center;
+        }
+      }
+    }
+  }
+  
+  .selected-submission-details {
+    .action-buttons {
+      flex-direction: column;
+      
+      ion-button {
+        width: 100%;
+      }
+    }
+  }
+}

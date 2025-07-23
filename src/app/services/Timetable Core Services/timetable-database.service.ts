@@ -74,20 +74,32 @@ export class TimetableDatabaseService {
         const currentYear = new Date().getFullYear();
         const academicYear = `${currentYear}-${currentYear + 1}`;
         
+        // Simplified query that doesn't require composite index
         firestore.collection(this.TIMETABLES_COLLECTION)
           .where('department', '==', department)
           .where('academicYear', '==', academicYear)
-          .where('status', 'in', ['draft', 'submitted'])
-          .orderBy('createdAt', 'desc')
-          .limit(1)
           .get()
           .then(snapshot => {
             if (!snapshot.empty) {
-              const doc = snapshot.docs[0];
-              const timetable = { id: doc.id, ...doc.data() } as TimetableDocument;
-              console.log('Current timetable found:', timetable);
-              this.currentTimetableSubject.next(timetable);
-              resolve(timetable);
+              // Filter and sort on client side to avoid index requirements
+              const docs = snapshot.docs
+                .map(doc => ({ id: doc.id, ...doc.data() } as TimetableDocument))
+                .filter(timetable => timetable.status === 'draft' || timetable.status === 'submitted')
+                .sort((a, b) => {
+                  const aDate = a.createdAt?.toDate?.() || new Date(a.createdAt);
+                  const bDate = b.createdAt?.toDate?.() || new Date(b.createdAt);
+                  return bDate.getTime() - aDate.getTime();
+                });
+              
+              if (docs.length > 0) {
+                const timetable = docs[0];
+                console.log('Current timetable found:', timetable);
+                this.currentTimetableSubject.next(timetable);
+                resolve(timetable);
+              } else {
+                console.log('No current timetable found for department:', department);
+                resolve(null);
+              }
             } else {
               console.log('No current timetable found for department:', department);
               resolve(null);
@@ -183,12 +195,36 @@ export class TimetableDatabaseService {
     );
   }
 
+  // Helper function to remove undefined values from objects
+  private cleanUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return obj;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.cleanUndefinedValues(item));
+    }
+    
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+          cleaned[key] = this.cleanUndefinedValues(obj[key]);
+        }
+      }
+      return cleaned;
+    }
+    
+    return obj;
+  }
+
   // Save timetable (update existing or create new)
   saveTimetable(timetableData: Partial<TimetableDocument>, timetableId?: string): Observable<{ success: boolean; message: string; timetableId?: string }> {
     console.log('Saving timetable:', timetableId ? 'Update existing' : 'Create new');
     
+    const cleanedData = this.cleanUndefinedValues(timetableData);
     const updateData = {
-      ...timetableData,
+      ...cleanedData,
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     };
 

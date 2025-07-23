@@ -456,41 +456,7 @@ export class VenueAvailComponent implements OnInit, OnChanges {
     const today = new Date();
     const formattedDate = this.formatDateString(today);
     
-    this.bookings = [
-      {
-        id: 1,
-        venueId: '1',
-        date: formattedDate,
-        startSlot: 2, // 10:00
-        endSlot: 4,   // 12:00
-        title: 'Software Engineering',
-        module: 'Software Engineering',
-        moduleCode: 'CSC2290',
-        color: '#4c8dff'
-      },
-      {
-        id: 2,
-        venueId: '2',
-        date: formattedDate,
-        startSlot: 6, // 14:00
-        endSlot: 8,   // 16:00
-        title: 'Database Lab',
-        module: 'Database Systems',
-        moduleCode: 'CSC2291',
-        color: '#ffc409'
-      },
-      {
-        id: 3,
-        venueId: '3',
-        date: formattedDate,
-        startSlot: 1, // 09:00
-        endSlot: 3,   // 11:00
-        title: 'Advanced Programming',
-        module: 'Advanced Programming',
-        moduleCode: 'CSC3001',
-        color: '#2dd36f'
-      }
-    ];
+    this.bookings = [ ];
     
     console.log('Mock bookings initialized:', this.bookings);
   }

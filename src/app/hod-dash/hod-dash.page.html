@@ -142,10 +142,74 @@
                 <span class="status-badge">{{submissionStatus.label}}</span>
               </div>
               <p>{{submissionStatus.message}}</p>
-              <ion-button *ngIf="submissionStatus.canEdit" (click)="changeSection('timetable')">
-                <ion-icon name="create" slot="start"></ion-icon>
-                {{submissionStatus.buttonText}}
-              </ion-button>
+              
+              <!-- Progress indicators -->
+              <div class="submission-progress" *ngIf="submissionStatus.status !== 'draft'">
+                <div class="progress-step" [class.completed]="true">
+                  <ion-icon name="create-outline"></ion-icon>
+                  <span>Created</span>
+                </div>
+                <div class="progress-step" 
+                     [class.completed]="submissionStatus.status === 'submitted' || submissionStatus.status === 'approved' || submissionStatus.status === 'rejected'">
+                  <ion-icon name="cloud-upload-outline"></ion-icon>
+                  <span>Submitted</span>
+                </div>
+                <div class="progress-step" 
+                     [class.completed]="submissionStatus.status === 'approved'"
+                     [class.rejected]="submissionStatus.status === 'rejected'">
+                  <ion-icon name="checkmark-circle-outline" *ngIf="submissionStatus.status !== 'rejected'"></ion-icon>
+                  <ion-icon name="close-circle-outline" *ngIf="submissionStatus.status === 'rejected'"></ion-icon>
+                  <span>{{submissionStatus.status === 'rejected' ? 'Rejected' : 'Approved'}}</span>
+                </div>
+              </div>
+
+              <!-- Action buttons -->
+              <div class="status-actions">
+                <ion-button *ngIf="submissionStatus.canEdit" 
+                           fill="outline" 
+                           color="primary"
+                           (click)="changeSection('timetable')">
+                  <ion-icon name="create" slot="start"></ion-icon>
+                  {{submissionStatus.buttonText}}
+                </ion-button>
+                
+                <ion-button *ngIf="submissionStatus.status === 'submitted'" 
+                           fill="clear" 
+                           color="medium"
+                           (click)="changeSection('submissions')">
+                  <ion-icon name="eye" slot="start"></ion-icon>
+                  View Submission
+                </ion-button>
+              </div>
+
+              <!-- Admin Feedback for Rejected Submissions -->
+              <div class="admin-feedback-section" *ngIf="submissionStatus.status === 'rejected' && submissionHistory.length > 0">
+                <div class="feedback-header">
+                  <ion-icon name="chatbox-ellipses-outline" color="warning"></ion-icon>
+                  <h5>Admin Feedback</h5>
+                </div>
+                <div class="feedback-content">
+                  <p>{{getLatestAdminFeedback()}}</p>
+                </div>
+                <div class="feedback-actions">
+                  <ion-button size="small" fill="outline" color="warning" (click)="changeSection('submissions')">
+                    <ion-icon name="list-outline" slot="start"></ion-icon>
+                    View All Feedback
+                  </ion-button>
+                </div>
+              </div>
+
+              <!-- Session count and conflict info -->
+              <div class="submission-info" *ngIf="timetableSessions.length > 0">
+                <div class="info-item">
+                  <ion-icon name="calendar"></ion-icon>
+                  <span>{{timetableSessions.length}} sessions scheduled</span>
+                </div>
+                <div class="info-item" [class.warning]="departmentConflicts.length > 0">
+                  <ion-icon [name]="departmentConflicts.length > 0 ? 'warning' : 'checkmark-circle'"></ion-icon>
+                  <span>{{departmentConflicts.length}} conflicts</span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -189,68 +253,120 @@
       <div *ngIf="activeSection === 'timetable'" class="section-container">
         <h1>Department Timetable</h1>
 
-        <div class="timetable-controls">
-          <div class="auto-save-indicator" *ngIf="lastSaveTime">
-            <ion-icon name="checkmark-circle" color="success"></ion-icon>
-            <span>Last saved: {{ lastSaveTime | date:'short' }}</span>
-          </div>
-          
-          <div class="filters-group">
-            <ion-select placeholder="Lecturer" [(ngModel)]="timetableFilters.lecturer">
-              <ion-select-option [value]="null">All Lecturers</ion-select-option>
-              <ion-select-option *ngFor="let lecturer of lecturers" [value]="lecturer.id">
-                {{lecturer.name}}
-              </ion-select-option>
-            </ion-select>
-
-            <ion-select placeholder="Group" [(ngModel)]="timetableFilters.group">
-              <ion-select-option [value]="null">All Groups</ion-select-option>
-              <ion-select-option *ngFor="let group of groups" [value]="group.id">{{group.name}}</ion-select-option>
-            </ion-select>
-
-            <ion-select placeholder="Module" [(ngModel)]="timetableFilters.module">
-              <ion-select-option [value]="null">All Modules</ion-select-option>
-              <ion-select-option *ngFor="let module of modules" [value]="module.id">{{module.name}}</ion-select-option>
-            </ion-select>
-          </div>
-
-          <div class="action-buttons">
-            <ion-button color="secondary" (click)="saveTimetable()">
-              <ion-icon name="save" slot="start"></ion-icon>
-              Save Timetable
-            </ion-button>
-
-            <ion-button color="primary" (click)="addSession()">
-              <ion-icon name="add-circle" slot="start"></ion-icon>
-              Add Session
-            </ion-button>
-
-            <ion-button color="warning" [disabled]="departmentConflicts.length === 0"
-              (click)="toggleConflictResolver()">
-              <ion-icon name="warning" slot="start"></ion-icon>
-              Resolve Conflicts ({{ departmentConflicts.length }})
-            </ion-button>
-
-            <ion-button color="success" [disabled]="!canSubmitTimetable || departmentConflicts.length > 0"
-              (click)="submitTimetable()">
-              <ion-icon name="cloud-upload" slot="start"></ion-icon>
-              Submit Timetable
-            </ion-button>
-          </div>
+        <!-- View Mode Toggle -->
+        <div class="view-mode-toggle">
+          <ion-segment [(ngModel)]="timetableViewMode" (ionChange)="onTimetableViewModeChange($event)">
+            <ion-segment-button value="creation">
+              <ion-icon name="calendar-outline"></ion-icon>
+              <ion-label>Timetable Creation</ion-label>
+            </ion-segment-button>
+            <ion-segment-button value="conflicts">
+              <ion-icon name="warning-outline"></ion-icon>
+              <ion-label>Conflict Resolution</ion-label>
+              <ion-badge *ngIf="departmentConflicts.length > 0" color="danger">
+                {{departmentConflicts.length}}
+              </ion-badge>
+            </ion-segment-button>
+          </ion-segment>
         </div>
 
-        <!-- Conflict Resolution Component -->
-        <div *ngIf="showConflictResolver" class="conflict-resolver-container">
+        <!-- Timetable Creation View -->
+        <div *ngIf="timetableViewMode === 'creation'" class="timetable-creation-view">
+          <div class="timetable-controls">
+            <div class="auto-save-indicator" *ngIf="lastSaveTime">
+              <ion-icon name="checkmark-circle" color="success"></ion-icon>
+              <span>Last saved: {{ lastSaveTime | date:'short' }}</span>
+            </div>
+            
+            <div class="filters-group">
+              <ion-select placeholder="Lecturer" [(ngModel)]="timetableFilters.lecturer">
+                <ion-select-option [value]="null">All Lecturers</ion-select-option>
+                <ion-select-option *ngFor="let lecturer of lecturers" [value]="lecturer.id">
+                  {{lecturer.name}}
+                </ion-select-option>
+              </ion-select>
+
+              <ion-select placeholder="Group" [(ngModel)]="timetableFilters.group">
+                <ion-select-option [value]="null">All Groups</ion-select-option>
+                <ion-select-option *ngFor="let group of groups" [value]="group.id">{{group.name}}</ion-select-option>
+              </ion-select>
+
+              <ion-select placeholder="Module" [(ngModel)]="timetableFilters.module">
+                <ion-select-option [value]="null">All Modules</ion-select-option>
+                <ion-select-option *ngFor="let module of modules" [value]="module.id">{{module.name}}</ion-select-option>
+              </ion-select>
+            </div>
+
+            <div class="action-buttons">
+              <ion-button color="secondary" (click)="saveTimetable()">
+                <ion-icon name="save" slot="start"></ion-icon>
+                Save Timetable
+              </ion-button>
+
+              <ion-button color="primary" (click)="addSession()">
+                <ion-icon name="add-circle" slot="start"></ion-icon>
+                Add Session
+              </ion-button>
+
+              <ion-button color="success" 
+                [disabled]="!canSubmitCurrentTimetable() || submissionStatus.status === 'submitted'"
+                (click)="submitTimetable()">
+                <ion-icon name="cloud-upload" slot="start"></ion-icon>
+                <span *ngIf="submissionStatus.status === 'draft' || submissionStatus.status === 'in-progress'">
+                  Submit Timetable
+                </span>
+                <span *ngIf="submissionStatus.status === 'submitted'">
+                  Already Submitted
+                </span>
+                <span *ngIf="submissionStatus.status === 'approved'">
+                  Approved
+                </span>
+                <span *ngIf="submissionStatus.status === 'rejected'">
+                  Resubmit Timetable
+                </span>
+              </ion-button>
+            </div>
+          </div>
+
+          <!-- Timetable Grid -->
+          <app-timetable-grid [sessions]="formattedTimetableSessions"
+            (sessionClick)="handleSessionClick($event)" 
+            (sessionDrop)="handleSessionDrop($event)"
+            (sessionDelete)="handleSessionDelete($event)">
+          </app-timetable-grid>
+        </div>
+
+        <!-- Conflict Resolution View -->
+        <div *ngIf="timetableViewMode === 'conflicts'" class="conflict-resolution-view">
+          <div class="conflict-header">
+            <h2>Timetable Conflicts</h2>
+            <p *ngIf="departmentConflicts.length === 0" class="no-conflicts">
+              <ion-icon name="checkmark-circle" color="success"></ion-icon>
+              No conflicts detected in your timetable
+            </p>
+            <p *ngIf="departmentConflicts.length > 0" class="conflicts-found">
+              <ion-icon name="warning" color="warning"></ion-icon>
+              {{departmentConflicts.length}} conflict(s) found - please resolve them before submitting
+            </p>
+          </div>
+
+          <!-- Conflict Resolution Component -->
           <app-conflict-res [conflicts]="departmentConflicts" (resolveConflict)="handleConflictResolution($event)">
           </app-conflict-res>
-        </div>
 
-        <!-- Timetable Grid (hidden when conflict resolver is shown) -->
-        <app-timetable-grid *ngIf="!showConflictResolver" [sessions]="formattedTimetableSessions"
-          (sessionClick)="handleSessionClick($event)" 
-          (sessionDrop)="handleSessionDrop($event)"
-          (sessionDelete)="handleSessionDelete($event)">
-        </app-timetable-grid>
+          <!-- Quick Actions for Conflict Resolution -->
+          <div class="conflict-actions" *ngIf="departmentConflicts.length > 0">
+            <ion-button color="warning" (click)="detectTimetableConflicts()">
+              <ion-icon name="refresh" slot="start"></ion-icon>
+              Refresh Conflicts
+            </ion-button>
+            
+            <ion-button color="primary" (click)="changeTimetableViewMode('creation')">
+              <ion-icon name="arrow-back" slot="start"></ion-icon>
+              Back to Timetable
+            </ion-button>
+          </div>
+        </div>
       </div>
 
       <!-- Lecturers Management Section -->
@@ -404,13 +520,19 @@
         <!-- Groups List View -->
         <div *ngIf="groupView === 'list'" class="groups-list-container">
           <ion-list class="groups-list">
-            <ion-item *ngFor="let group of filteredGroups" button detail (click)="editGroup(group)">
+            <ion-item *ngFor="let group of filteredGroups">
               <ion-icon name="people-circle" slot="start"></ion-icon>
               <ion-label>
                 <h2>{{group.name}}</h2>
-                <p>Year: {{group.year}} | Size: {{group.size}} students</p>
+                <p>Year: {{group.year}} | Size: {{group.size || 'N/A'}} students</p>
                 <p>Program: {{group.program}}</p>
               </ion-label>
+              <ion-button fill="clear" slot="end" (click)="editGroup(group)" color="primary">
+                <ion-icon name="create-outline"></ion-icon>
+              </ion-button>
+              <ion-button fill="clear" slot="end" (click)="deleteGroup(group)" color="danger">
+                <ion-icon name="trash-outline"></ion-icon>
+              </ion-button>
             </ion-item>
           </ion-list>
         </div>
@@ -490,19 +612,30 @@
 
         <ion-list class="submissions-list">
           <ion-item *ngFor="let submission of submissionHistory" button detail
-            (click)="viewSubmissionDetails(submission)">
+            (click)="viewSubmissionDetails(submission)" [class]="'status-' + submission.status.toLowerCase()">
             <ion-icon [name]="getSubmissionIcon(submission.status)" slot="start"
               [color]="getSubmissionColor(submission.status)"></ion-icon>
             <ion-label>
               <h2>Submission for {{submission.academicPeriod}}</h2>
               <p>Submitted: {{submission.submittedAt | date:'medium'}}</p>
-              <p>Status: {{submission.status}}
-                <ion-badge *ngIf="submission.conflictCount > 0" color="warning">{{submission.conflictCount}}
-                  conflicts</ion-badge>
+              <div class="status-info">
+                <ion-badge [color]="getSubmissionColor(submission.status)">
+                  {{submission.status | titlecase}}
+                </ion-badge>
+                <ion-badge *ngIf="submission.conflictCount > 0" color="warning">
+                  {{submission.conflictCount}} conflicts
+                </ion-badge>
+                <ion-badge *ngIf="submission.hasAdminFeedback" color="tertiary">
+                  Has Feedback
+                </ion-badge>
+              </div>
+              <p *ngIf="submission.hasAdminFeedback && submission.status.toLowerCase() === 'rejected'" 
+                 class="feedback-preview">
+                {{submission.adminFeedback | slice:0:100}}{{submission.adminFeedback?.length > 100 ? '...' : ''}}
               </p>
             </ion-label>
             <ion-note slot="end" color="medium">
-              <ion-icon *ngIf="submission.hasAdminFeedback" name="chatbox-ellipses"></ion-icon>
+              <ion-icon *ngIf="submission.hasAdminFeedback" name="chatbox-ellipses" color="tertiary"></ion-icon>
             </ion-note>
           </ion-item>
         </ion-list>

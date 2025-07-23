@@ -1,0 +1,126 @@
+<ion-header>
+  <ion-toolbar>
+    <ion-title>{{ isEditMode ? 'Edit Group' : 'Add New Group' }}</ion-title>
+    <ion-buttons slot="end">
+      <ion-button (click)="cancel()" fill="clear">
+        <ion-icon name="close"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content class="ion-padding">
+  <form [formGroup]="groupForm" (ngSubmit)="onSubmit()">
+    
+    <!-- Error Message -->
+    <ion-item *ngIf="errorMessage" color="danger" lines="none">
+      <ion-icon name="alert-circle" slot="start"></ion-icon>
+      <ion-label>{{ errorMessage }}</ion-label>
+    </ion-item>
+
+    <!-- Group Type -->
+    <ion-item [class.ion-invalid]="isFieldInvalid('groupType')">
+      <ion-label position="stacked">Group Type *</ion-label>
+      <ion-select formControlName="groupType" placeholder="Select group type">
+        <ion-select-option *ngFor="let type of groupTypes" [value]="type.value">
+          {{ type.label }}
+        </ion-select-option>
+      </ion-select>
+    </ion-item>
+    <ion-note *ngIf="isFieldInvalid('groupType')" color="danger">
+      {{ getFieldError('groupType') }}
+    </ion-note>
+
+    <!-- Stream Type -->
+    <ion-item [class.ion-invalid]="isFieldInvalid('stream')">
+      <ion-label position="stacked">Stream Type *</ion-label>
+      <ion-select formControlName="stream" placeholder="Select stream type">
+        <ion-select-option *ngFor="let stream of streamTypes" [value]="stream.value">
+          {{ stream.label }}
+        </ion-select-option>
+      </ion-select>
+    </ion-item>
+    <ion-note *ngIf="isFieldInvalid('stream')" color="danger">
+      {{ getFieldError('stream') }}
+    </ion-note>
+
+    <!-- Year Level -->
+    <ion-item [class.ion-invalid]="isFieldInvalid('yearLevel')">
+      <ion-label position="stacked">Year Level *</ion-label>
+      <ion-select formControlName="yearLevel" placeholder="Select year level">
+        <ion-select-option *ngFor="let year of getYearLevelOptions()" [value]="year">
+          {{ year }}
+        </ion-select-option>
+      </ion-select>
+    </ion-item>
+    <ion-note *ngIf="isFieldInvalid('yearLevel')" color="danger">
+      {{ getFieldError('yearLevel') }}
+    </ion-note>
+
+    <!-- Group Name -->
+    <ion-item [class.ion-invalid]="isFieldInvalid('name')">
+      <ion-label position="stacked">Group Name *</ion-label>
+      <ion-input
+        formControlName="name"
+        type="text"
+        placeholder="e.g., ECP Group A"
+        maxlength="100">
+      </ion-input>
+    </ion-item>
+    <ion-note *ngIf="isFieldInvalid('name')" color="danger">
+      {{ getFieldError('name') }}
+    </ion-note>
+
+    <!-- Program Name -->
+    <ion-item [class.ion-invalid]="isFieldInvalid('program')">
+      <ion-label position="stacked">Program Name *</ion-label>
+      <ion-input
+        formControlName="program"
+        type="text"
+        placeholder="e.g., Diploma in IT"
+        maxlength="100">
+      </ion-input>
+    </ion-item>
+    <ion-note *ngIf="isFieldInvalid('program')" color="danger">
+      {{ getFieldError('program') }}
+    </ion-note>
+
+    <!-- Group Size -->
+    <ion-item [class.ion-invalid]="isFieldInvalid('size')">
+      <ion-label position="stacked">Group Size *</ion-label>
+      <ion-input
+        formControlName="size"
+        type="number"
+        placeholder="e.g., 40"
+        min="1"
+        max="200">
+      </ion-input>
+    </ion-item>
+    <ion-note *ngIf="isFieldInvalid('size')" color="danger">
+      {{ getFieldError('size') }}
+    </ion-note>
+
+    <!-- Action Buttons -->
+    <div class="ion-margin-top">
+      <ion-button 
+        expand="block" 
+        type="submit" 
+        [disabled]="groupForm.invalid || isSubmitting"
+        color="primary">
+        <ion-icon name="checkmark" slot="start" *ngIf="!isSubmitting"></ion-icon>
+        <ion-spinner slot="start" *ngIf="isSubmitting"></ion-spinner>
+        {{ isSubmitting ? 'Saving...' : (isEditMode ? 'Update Group' : 'Add Group') }}
+      </ion-button>
+      
+      <ion-button 
+        expand="block" 
+        fill="outline" 
+        color="medium" 
+        (click)="cancel()"
+        [disabled]="isSubmitting">
+        Cancel
+      </ion-button>
+    </div>
+
+  </form>
+</ion-content>

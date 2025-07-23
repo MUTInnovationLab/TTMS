@@ -850,3 +850,480 @@ ion-button[color="warning"] {
   --height: 80%;
   --max-height: 700px;
 }
+
+// Enhanced Submission Status Styles
+.submission-status {
+  .status-card {
+    .submission-progress {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 20px 0;
+      padding: 15px 0;
+      border-top: 1px solid #eee;
+      border-bottom: 1px solid #eee;
+
+      .progress-step {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        opacity: 0.5;
+        transition: opacity 0.3s ease;
+
+        &.completed {
+          opacity: 1;
+          color: var(--ion-color-success);
+        }
+
+        &.rejected {
+          opacity: 1;
+          color: var(--ion-color-danger);
+        }
+
+        ion-icon {
+          font-size: 24px;
+          margin-bottom: 5px;
+        }
+
+        span {
+          font-size: 12px;
+          font-weight: 500;
+          text-align: center;
+        }
+      }
+
+      // Add connecting lines between steps
+      .progress-step:not(:last-child)::after {
+        content: '';
+        position: absolute;
+        width: 60px;
+        height: 2px;
+        background: #ddd;
+        top: 12px;
+        right: -30px;
+        z-index: -1;
+      }
+
+      .progress-step.completed:not(:last-child)::after {
+        background: var(--ion-color-success);
+      }
+    }
+
+    .status-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+
+      ion-button {
+        --border-radius: 8px;
+        margin: 0;
+      }
+    }
+
+    .submission-info {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid #eee;
+
+      .info-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 8px;
+
+        &.warning {
+          color: var(--ion-color-warning);
+        }
+
+        ion-icon {
+          font-size: 16px;
+          margin-right: 8px;
+        }
+
+        span {
+          font-size: 14px;
+        }
+      }
+    }
+
+    // Enhanced status colors
+    &.submitted {
+      border-left: 5px solid var(--ion-color-tertiary);
+      
+      .status-badge {
+        background: var(--ion-color-tertiary);
+        color: white;
+      }
+    }
+
+    &.approved {
+      border-left: 5px solid var(--ion-color-success);
+      
+      .status-badge {
+        background: var(--ion-color-success);
+        color: white;
+      }
+    }
+
+    &.rejected {
+      border-left: 5px solid var(--ion-color-danger);
+      
+      .status-badge {
+        background: var(--ion-color-danger);
+        color: white;
+      }
+    }
+  }
+}
+
+// Enhanced timetable action buttons
+.timetable-actions {
+  .timetable-action-buttons {
+    ion-button {
+      margin-right: 10px;
+      margin-bottom: 10px;
+
+      &[disabled] {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+
+      // Enhanced submit button styling
+      &[color="success"] {
+        --background: var(--ion-color-success);
+        --color: white;
+        font-weight: 500;
+
+        &[disabled] {
+          --background: #ccc;
+          --color: #666;
+        }
+      }
+    }
+  }
+}
+
+// Timetable View Mode Toggle Styles
+.view-mode-toggle {
+  margin-bottom: 20px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e0e0e0;
+
+  ion-segment {
+    --background: #f8f9fa;
+    border-radius: 8px;
+    padding: 4px;
+
+    ion-segment-button {
+      --color: #666;
+      --color-checked: #fff;
+      --background-checked: var(--ion-color-primary);
+      --indicator-color: transparent;
+      --ripple-color: var(--ion-color-primary-tint);
+      
+      border-radius: 6px;
+      margin: 2px;
+      min-height: 50px;
+      font-weight: 500;
+      
+      ion-label {
+        margin-top: 5px;
+        font-size: 0.9rem;
+      }
+      
+      ion-icon {
+        margin-bottom: 2px;
+      }
+      
+      ion-badge {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        font-size: 10px;
+        min-width: 18px;
+        height: 18px;
+      }
+
+      &.segment-button-checked {
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+    }
+  }
+}
+
+// Timetable Creation View Styles
+.timetable-creation-view {
+  .timetable-controls {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+
+    .auto-save-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 15px;
+      color: var(--ion-color-success);
+      font-size: 0.9rem;
+      
+      ion-icon {
+        font-size: 1.1rem;
+      }
+    }
+
+    .filters-group {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+
+      ion-select {
+        flex: 1;
+        min-width: 150px;
+      }
+    }
+
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+
+      ion-button {
+        flex: 1;
+        min-width: 140px;
+      }
+    }
+  }
+}
+
+// Conflict Resolution View Styles
+.conflict-resolution-view {
+  .conflict-header {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid var(--ion-color-warning);
+
+    h2 {
+      margin: 0 0 10px 0;
+      color: var(--ion-color-dark);
+      font-size: 1.4rem;
+    }
+
+    .no-conflicts {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ion-color-success);
+      margin: 0;
+      font-weight: 500;
+
+      ion-icon {
+        font-size: 1.2rem;
+      }
+    }
+
+    .conflicts-found {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ion-color-warning);
+      margin: 0;
+      font-weight: 500;
+
+      ion-icon {
+        font-size: 1.2rem;
+      }
+    }
+  }
+
+  .conflict-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+
+    ion-button {
+      flex: 1;
+      max-width: 200px;
+    }
+  }
+}
+
+// Responsive Design
+@media (max-width: 768px) {
+  .view-mode-toggle {
+    ion-segment {
+      ion-segment-button {
+        min-height: 45px;
+        
+        ion-label {
+          font-size: 0.8rem;
+        }
+        
+        ion-icon {
+          font-size: 1.1rem;
+        }
+      }
+    }
+  }
+
+  .timetable-creation-view {
+    .timetable-controls {
+      .filters-group {
+        flex-direction: column;
+        
+        ion-select {
+          min-width: 100%;
+        }
+      }
+
+      .action-buttons {
+        flex-direction: column;
+        
+        ion-button {
+          min-width: 100%;
+        }
+      }
+    }
+  }
+
+  .conflict-resolution-view {
+    .conflict-actions {
+      flex-direction: column;
+      
+      ion-button {
+        max-width: 100%;
+      }
+    }
+  }
+}
+
+// Admin Feedback Section Styles
+.admin-feedback-section {
+  margin-top: 16px;
+  padding: 16px;
+  background: var(--ion-color-warning-tint);
+  border-radius: 8px;
+  border-left: 4px solid var(--ion-color-warning);
+  
+  .feedback-header {
+    display: flex;
+    align-items: center;
+    margin-bottom: 12px;
+    
+    ion-icon {
+      margin-right: 8px;
+      font-size: 1.2rem;
+    }
+    
+    h5 {
+      margin: 0;
+      font-weight: 600;
+      color: var(--ion-color-warning-shade);
+    }
+  }
+  
+  .feedback-content {
+    margin-bottom: 12px;
+    
+    p {
+      margin: 0;
+      font-size: 0.9rem;
+      line-height: 1.4;
+      color: var(--ion-color-dark);
+      font-style: italic;
+    }
+  }
+  
+  .feedback-actions {
+    display: flex;
+    justify-content: flex-end;
+  }
+}
+
+// Enhanced submission status styles
+.status-card {
+  &.rejected {
+    border-left: 4px solid var(--ion-color-danger);
+    background: var(--ion-color-danger-tint);
+    
+    .status-badge {
+      background: var(--ion-color-danger);
+      color: white;
+    }
+    
+    .progress-step.rejected {
+      color: var(--ion-color-danger);
+      
+      ion-icon {
+        color: var(--ion-color-danger);
+      }
+    }
+  }
+}
+
+// Enhanced submissions list styles
+.submissions-list {
+  margin-top: 16px;
+
+  ion-item {
+    --padding-start: 16px;
+    --padding-end: 16px;
+    margin-bottom: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--ion-color-light);
+
+    &.status-submitted {
+      border-left: 4px solid var(--ion-color-warning);
+    }
+
+    &.status-approved {
+      border-left: 4px solid var(--ion-color-success);
+    }
+
+    &.status-rejected {
+      border-left: 4px solid var(--ion-color-danger);
+    }
+
+    ion-label {
+      h2 {
+        color: var(--ion-color-dark);
+        font-weight: 600;
+        margin-bottom: 4px;
+      }
+
+      p {
+        color: var(--ion-color-medium);
+        font-size: 0.9em;
+        margin: 2px 0;
+      }
+
+      .status-info {
+        display: flex;
+        gap: 6px;
+        margin: 6px 0;
+        flex-wrap: wrap;
+
+        ion-badge {
+          font-size: 0.75em;
+          padding: 2px 6px;
+        }
+      }
+
+      .feedback-preview {
+        background: var(--ion-color-light);
+        padding: 8px;
+        border-radius: 4px;
+        font-style: italic;
+        margin-top: 6px;
+        border-left: 3px solid var(--ion-color-danger);
+      }
+    }
+  }
+}

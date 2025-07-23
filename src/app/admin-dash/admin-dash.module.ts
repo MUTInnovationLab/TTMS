@@ -8,6 +8,7 @@ import { AdminDashPage } from './admin-dash.page';
 import { SharedModule } from '../components/shared/shared.module';
 import { CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { SidebarService } from '../services/Utility Services/sidebar.service';
+import { DepartmentService } from '../services/Entity Management Services/department.service';
 
 @NgModule({
   imports: [
@@ -17,7 +18,9 @@ import { SidebarService } from '../services/Utility Services/sidebar.service';
     AdminDashPageRoutingModule,
     SharedModule
   ],
-  providers: [SidebarService],
+  providers: [
+    SidebarService
+  ],
   declarations: [AdminDashPage],
   schemas: [CUSTOM_ELEMENTS_SCHEMA] // Needed for any custom elements
 })

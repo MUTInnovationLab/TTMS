@@ -13,6 +13,11 @@ import { AngularFirestoreModule } from '@angular/fire/compat/firestore';
 import { AngularFireStorageModule } from '@angular/fire/compat/storage';
 import { AngularFireAnalyticsModule } from '@angular/fire/compat/analytics';
 
+// New Firebase v9+ imports for standalone components
+import { provideFirebaseApp, initializeApp } from '@angular/fire/app';
+import { provideFirestore, getFirestore } from '@angular/fire/firestore';
+import { provideAuth, getAuth } from '@angular/fire/auth';
+
 import { AppComponent } from './app.component';
 import { AppRoutingModule } from './app-routing.module';
 import { FormsModule } from '@angular/forms';
@@ -36,6 +41,10 @@ import { FormsModule } from '@angular/forms';
   ],
   providers: [
     { provide: RouteReuseStrategy, useClass: IonicRouteStrategy },
+    // New Firebase v9+ providers for standalone components
+    provideFirebaseApp(() => initializeApp(environment.firebaseConfig)),
+    provideFirestore(() => getFirestore()),
+    provideAuth(() => getAuth())
   ],
   // Remove bootstrap array since we're using standalone bootstrap
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
