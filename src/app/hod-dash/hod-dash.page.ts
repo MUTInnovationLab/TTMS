@@ -1,5 +1,5 @@
 import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
-import { TimetableSession } from '../components/timetable-grid/timetable-grid.component';
+import { TimetableSession, SessionDropEvent } from '../components/timetable-grid/timetable-grid.component';
 import { ModalController } from '@ionic/angular';
 import { Venue } from '../components/venue-avail/venue-avail.component';
 import { Conflict, ConflictResolution, ConflictType } from '../components/conflict-res/conflict-res.component';
@@ -86,8 +86,8 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   // Timetable Data
   weekDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
-  timeSlots = ['08:00 - 09:00', '09:00 - 10:00', '10:00 - 11:00', '11:00 - 12:00',
-    '12:00 - 13:00', '13:00 - 14:00', '14:00 - 15:00', '15:00 - 16:00', '16:00 - 17:00'];
+  timeSlots = ['07:45 - 08:25', '09:15 - 09:55', '10:15 - 10:55', '11:00 - 11:40',
+    '11:45 - 12:25', '13:05 - 13:45', '13:50 - 14:30', '14:35 - 15:10', '15:15 - 16:00'];
 
   timetableFilters = {
     lecturer: null,
@@ -157,12 +157,33 @@ export class HodDashPage implements OnInit, OnDestroy {
   // Department ID - will be set from current user's department
   departmentId: number = 0; // Make public for template access
   sessionToAdd: SessionForm | null = null;
-  private autoSaveInterval: any; // For auto-save functionality
-  lastSaveTime: Date | null = null; // Make this public for template access
   hasUnsavedChanges: boolean = false; // Track if there are unsaved changes
+  
+  // Enhanced drag and drop configuration
+  dragDropConfig = {
+    enableMagneticSnap: true,
+    enableConflictPrevention: true,
+    showDropPreview: true
+  };
   private sessionsLoadedFromDatabase: boolean = false; // Track if sessions were loaded from database
   private venuesLoaded: boolean = false; // Track if venues are loaded
   private departmentLoaded: boolean = false; // Track if department info is loaded
+  private isCreatingSession: boolean = false; // Track if we're in the middle of creating a session
+
+  // Utility method to remove duplicate sessions based on ID
+  private removeDuplicateSessions() {
+    const uniqueSessions = this.timetableSessions.reduce((acc, session) => {
+      if (!acc.some(s => s.id === session.id)) {
+        acc.push(session);
+      }
+      return acc;
+    }, [] as any[]);
+    
+    if (uniqueSessions.length !== this.timetableSessions.length) {
+      console.warn(`Removed ${this.timetableSessions.length - uniqueSessions.length} duplicate sessions`);
+      this.timetableSessions = uniqueSessions;
+    }
+  }
 
   constructor(
     private alertController: AlertController,
@@ -186,6 +207,9 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   ngOnInit() {
     console.log('HodDashPage ngOnInit');
+
+    // Add beforeunload listener to warn about unsaved changes
+    window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
 
     // Load current user's department information first
     this.loadCurrentUserDepartment();
@@ -215,9 +239,6 @@ export class HodDashPage implements OnInit, OnDestroy {
 
     // Debug: Check what collections exist in Firestore
     this.debugFirestoreCollections();
-
-    // Start auto-save functionality (save every 30 seconds)
-    this.startAutoSave();
   }
 
   // Debug method to check Firestore collections
@@ -490,8 +511,10 @@ export class HodDashPage implements OnInit, OnDestroy {
 
     // Subscribe to session changes from service
     this.timetableService.sessions$.subscribe(sessions => {
-      // Only update if we don't have database-loaded sessions or if this is a real update from session creation
-      if (!this.sessionsLoadedFromDatabase || this.hasUnsavedChanges) {
+      // Skip service updates when we're manually managing sessions (adding/editing)
+      // or when we already have database-loaded sessions with correct positions
+      // or when we're in the middle of creating a session
+      if (!this.sessionsLoadedFromDatabase && !this.hasUnsavedChanges && !this.isCreatingSession) {
         console.log('Updating sessions from service:', sessions.length);
         
         const mappedSessions = sessions.map(session => ({
@@ -516,7 +539,7 @@ export class HodDashPage implements OnInit, OnDestroy {
           this.detectTimetableConflicts();
         }
       } else {
-        console.log('Skipping service update - using database-loaded sessions');
+        console.log('Skipping service update - preserving manually managed sessions');
       }
     });
   }
@@ -543,12 +566,21 @@ export class HodDashPage implements OnInit, OnDestroy {
     if (this.sidebarSubscription) {
       this.sidebarSubscription.unsubscribe();
     }
-    
-    // Stop auto-save
-    this.stopAutoSave();
-    
-    // Save final state before leaving
-    this.saveTimetable();
+
+    // Remove beforeunload listener
+    window.removeEventListener('beforeunload', this.handleBeforeUnload.bind(this));
+  }
+
+  // Handle browser beforeunload event to warn about unsaved changes
+  private handleBeforeUnload(event: BeforeUnloadEvent): string | undefined {
+    if (this.hasUnsavedChanges) {
+      // Standard way to trigger the browser's "leave page?" dialog
+      const message = 'You have unsaved changes. Are you sure you want to leave?';
+      event.preventDefault();
+      event.returnValue = message; // Required for Chrome
+      return message; // Required for other browsers
+    }
+    return undefined;
   }
 
   // Header actions
@@ -568,7 +600,20 @@ export class HodDashPage implements OnInit, OnDestroy {
   }
 
   // Navigation
-  changeSection(section: string) {
+  async changeSection(section: string) {
+    // Check for unsaved changes before navigation
+    if (this.hasUnsavedChanges && this.activeSection !== section) {
+      const shouldSave = await this.promptToSaveChanges();
+      if (shouldSave === 'cancel') {
+        return; // Cancel navigation
+      } else if (shouldSave === 'save') {
+        await this.saveTimetableChanges();
+      } else {
+        // User chose 'discard', so reset unsaved changes flag
+        this.hasUnsavedChanges = false;
+      }
+    }
+
     this.activeSection = section;
     
     // Reset timetable view mode when entering timetable section
@@ -666,7 +711,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         groupId: 0,
         group: '',
         day: 'Monday',
-        timeSlot: '08:00 - 09:00',
+        timeSlot: '07:45 - 08:25', // Use valid time slot format
         departmentId: this.departmentId,
         category: 'Lecture',
         notes: ''
@@ -721,7 +766,7 @@ export class HodDashPage implements OnInit, OnDestroy {
         groupId: 0,
         group: '',
         day: 'Monday',
-        timeSlot: '08:00 - 09:00',
+        timeSlot: '07:45 - 08:25', // Use valid time slot format
         departmentId: this.departmentId,
         category: 'Lecture',
         notes: ''
@@ -777,7 +822,9 @@ export class HodDashPage implements OnInit, OnDestroy {
               if (selectedModule) {
                 this.sessionToAdd.moduleId = selectedModule.id;
                 this.sessionToAdd.moduleName = selectedModule.name;
-                this.selectLecturerForSession();
+                
+                // Auto-assign lecturer based on module assignment
+                this.autoAssignLecturerForModule(selectedModule);
               }
             }
           }
@@ -786,6 +833,90 @@ export class HodDashPage implements OnInit, OnDestroy {
     });
 
     await moduleSelect.present();
+  }
+
+  // Auto-assign lecturer for module based on module assignment
+  autoAssignLecturerForModule(selectedModule: any) {
+    if (!selectedModule.lecturerIds || selectedModule.lecturerIds.length === 0) {
+      // No lecturers assigned to this module, show manual selection
+      console.log('No lecturers assigned to module:', selectedModule.name);
+      this.selectLecturerForSession();
+      return;
+    }
+
+    // Filter lecturers who are assigned to this module
+    const assignedLecturers = this.lecturers.filter(lecturer => 
+      selectedModule.lecturerIds.includes(lecturer.id)
+    );
+
+    if (assignedLecturers.length === 0) {
+      // Module has lecturer IDs but none found in current lecturer list
+      console.log('Assigned lecturers not found in current lecturer list for module:', selectedModule.name);
+      this.selectLecturerForSession();
+      return;
+    }
+
+    if (assignedLecturers.length === 1) {
+      // Only one lecturer assigned, auto-select them
+      const assignedLecturer = assignedLecturers[0];
+      this.sessionToAdd!.lecturerId = assignedLecturer.id;
+      this.sessionToAdd!.lecturer = assignedLecturer.name;
+      
+      console.log(`Auto-assigned lecturer ${assignedLecturer.name} to module ${selectedModule.name}`);
+      
+      // Show confirmation and proceed to group selection
+      this.presentToast(`Auto-assigned lecturer: ${assignedLecturer.name}`);
+      this.selectGroupForSession();
+    } else {
+      // Multiple lecturers assigned, let user choose from assigned ones
+      console.log(`Multiple lecturers assigned to module ${selectedModule.name}, showing selection`);
+      this.selectLecturerForSessionFromAssigned(assignedLecturers);
+    }
+  }
+
+  // Select lecturer for the session from pre-assigned lecturers
+  async selectLecturerForSessionFromAssigned(assignedLecturers: any[]) {
+    const lecturerSelect = await this.alertController.create({
+      header: 'Select Assigned Lecturer',
+      message: `Choose from lecturers assigned to this module:`,
+      inputs: assignedLecturers.map(lecturer => ({
+        name: `lecturer-${lecturer.id}`,
+        type: 'radio',
+        label: `${lecturer.name} (Assigned)`,
+        value: lecturer.id,
+        checked: false
+      })),
+      buttons: [
+        {
+          text: 'Back',
+          handler: () => {
+            this.openSessionDetailsModal();
+          }
+        },
+        {
+          text: 'Choose Different',
+          handler: () => {
+            // Allow manual selection from all lecturers
+            this.selectLecturerForSession();
+          }
+        },
+        {
+          text: 'Select',
+          handler: (lecturerId) => {
+            if (this.sessionToAdd && lecturerId) {
+              const selectedLecturer = assignedLecturers.find(l => l.id === lecturerId);
+              if (selectedLecturer) {
+                this.sessionToAdd.lecturerId = selectedLecturer.id;
+                this.sessionToAdd.lecturer = selectedLecturer.name;
+                this.selectGroupForSession();
+              }
+            }
+          }
+        }
+      ]
+    });
+
+    await lecturerSelect.present();
   }
 
   // Select lecturer for the session - use dynamic lecturer data
@@ -799,12 +930,19 @@ export class HodDashPage implements OnInit, OnDestroy {
       return;
     }
 
+    // Get the current module to show which lecturers are assigned
+    const currentModule = this.sessionToAdd ? this.modules.find(m => m.id === this.sessionToAdd!.moduleId) : null;
+    const assignedLecturerIds = currentModule?.lecturerIds || [];
+
     const lecturerSelect = await this.alertController.create({
       header: 'Select Lecturer',
+      message: currentModule ? `For module: ${currentModule.name}` : 'Choose a lecturer for this session',
       inputs: this.lecturers.map(lecturer => ({
         name: `lecturer-${lecturer.id}`,
         type: 'radio',
-        label: lecturer.name,
+        label: assignedLecturerIds.includes(lecturer.id) 
+          ? `${lecturer.name} ✓ (Assigned to module)` 
+          : lecturer.name,
         value: lecturer.id,
         checked: false
       })),
@@ -823,6 +961,12 @@ export class HodDashPage implements OnInit, OnDestroy {
               if (selectedLecturer) {
                 this.sessionToAdd.lecturerId = selectedLecturer.id;
                 this.sessionToAdd.lecturer = selectedLecturer.name;
+                
+                // Show warning if lecturer is not assigned to the module
+                if (currentModule && !assignedLecturerIds.includes(lecturerId)) {
+                  this.presentToast(`Warning: ${selectedLecturer.name} is not assigned to ${currentModule.name}`, 'warning');
+                }
+                
                 this.selectGroupForSession();
               }
             }
@@ -931,41 +1075,73 @@ export class HodDashPage implements OnInit, OnDestroy {
   createSession() {
     if (!this.sessionToAdd) return;
 
+    // Set flag to prevent service subscription interference
+    this.isCreatingSession = true;
+
+    // Store position data before creating session to prevent loss
+    const preservedDay = this.sessionToAdd.day;
+    const preservedTimeSlot = this.sessionToAdd.timeSlot;
+    
+    console.log('Creating session with preserved position:', {
+      day: preservedDay,
+      timeSlot: preservedTimeSlot
+    });
+
     this.sessionService.createSession(this.sessionToAdd).subscribe(
       (newSession) => {
         console.log('Session created:', newSession);
 
-        // Add the new session to the local timetable sessions with preserved position
-        const mappedSession = {
-          id: newSession.id,
-          moduleId: newSession.moduleId,
-          moduleName: newSession.moduleName,
-          day: this.sessionToAdd?.day || 'Monday', // Use the day from sessionToAdd to preserve position
-          timeSlot: this.sessionToAdd?.timeSlot || '08:00 - 09:00', // Use the timeSlot from sessionToAdd to preserve position
-          venueId: newSession.venueId,
-          venue: newSession.venue,
-          lecturerId: newSession.lecturerId,
-          lecturer: newSession.lecturer,
-          groupId: newSession.groupId,
-          group: newSession.group,
-          hasConflict: false
-        };
+        // Check if session already exists to prevent duplicates
+        const existingSessionIndex = this.timetableSessions.findIndex(s => s.id === newSession.id);
+        if (existingSessionIndex !== -1) {
+          console.warn('Session already exists, updating instead of adding');
+          this.timetableSessions[existingSessionIndex] = {
+            ...this.timetableSessions[existingSessionIndex],
+            ...newSession,
+            day: preservedDay || 'Monday',
+            timeSlot: preservedTimeSlot || '07:45 - 08:25'
+          };
+        } else {
+          // Add the new session to the local timetable sessions with preserved position
+          const mappedSession = {
+            id: newSession.id,
+            moduleId: newSession.moduleId,
+            moduleName: newSession.moduleName,
+            day: preservedDay || 'Monday', // Use preserved position data
+            timeSlot: preservedTimeSlot || '07:45 - 08:25', // Use preserved position data
+            venueId: newSession.venueId,
+            venue: newSession.venue,
+            lecturerId: newSession.lecturerId,
+            lecturer: newSession.lecturer,
+            groupId: newSession.groupId,
+            group: newSession.group,
+            hasConflict: false
+          };
+          
+          // Add to local sessions
+          this.timetableSessions.push(mappedSession);
+          console.log('Added new session at', mappedSession.day, mappedSession.timeSlot);
+        }
         
-        // Add to local sessions
-        this.timetableSessions.push(mappedSession);
+        // Clear formatted sessions to force fresh formatting
+        this.formattedTimetableSessions = [];
         
         // Re-format sessions for the grid
         this.formatTimetableSessions();
+        
+        // Force change detection to ensure UI updates
+        this.cdr.detectChanges();
 
         // Mark that there are unsaved changes
         this.hasUnsavedChanges = true;
-        // Auto-save after creating session
-        this.autoSaveTimetable();
+        
+        // Clear the session creation flag
+        this.isCreatingSession = false;
 
         // Show success message
         this.alertController.create({
           header: 'Success',
-          message: 'Session has been added to the timetable and saved',
+          message: 'Session has been added to the timetable. Remember to save your changes.',
           buttons: ['OK']
         }).then(alert => alert.present());
 
@@ -974,6 +1150,9 @@ export class HodDashPage implements OnInit, OnDestroy {
       },
       (error) => {
         console.error('Error creating session:', error);
+        
+        // Clear the session creation flag even on error
+        this.isCreatingSession = false;
 
         // Show error message
         this.alertController.create({
@@ -1168,6 +1347,11 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   // Format the existing timetable sessions for the timetable grid component
   formatTimetableSessions() {
+    // Remove duplicates first
+    this.removeDuplicateSessions();
+    
+    console.log('Formatting', this.timetableSessions.length, 'sessions for grid display');
+    
     this.formattedTimetableSessions = this.timetableSessions.map(session => {
       // Map day string to number (0-6)
       const dayMap: { [key: string]: number } = {
@@ -1175,14 +1359,30 @@ export class HodDashPage implements OnInit, OnDestroy {
         'Tuesday': 1,
         'Wednesday': 2,
         'Thursday': 3,
-        'Friday': 4
+        'Friday': 4,
+        'Saturday': 5,
+        'Sunday': 6
       };
 
-      // Map time slot to start and end slot numbers
-      const timeSlotParts = session.timeSlot.split(' - ');
-      const startHour = parseInt(timeSlotParts[0].split(':')[0]);
-      const endHour = parseInt(timeSlotParts[1].split(':')[0]);
+      // University time slots mapping
+      const timeSlotMap: { [key: string]: number } = {
+        '07:45 - 08:25': 0,
+        '09:15 - 09:55': 1,
+        '10:15 - 10:55': 2,
+        '11:00 - 11:40': 3,
+        '11:45 - 12:25': 4,
+        '13:05 - 13:45': 5,
+        '13:50 - 14:30': 6,
+        '14:35 - 15:10': 7,
+        '15:15 - 16:00': 8
+      };
 
+      // Get slot number from time slot string, default to 0 if not found
+      const slotNumber = timeSlotMap[session.timeSlot] ?? 0;
+      
+      // Ensure day is valid, default to Monday (0) if invalid
+      const dayNumber = dayMap[session.day] ?? 0;
+      
       // Get color based on module
       const moduleColor = this.getModuleColor(session.moduleId);
 
@@ -1194,15 +1394,17 @@ export class HodDashPage implements OnInit, OnDestroy {
         lecturer: session.lecturer,
         venue: session.venue,
         group: session.group,
-        day: dayMap[session.day],
-        startSlot: startHour - 8, // Assuming 8am is the first slot (slot 0)
-        endSlot: endHour - 8,     // Assuming 9am is the second slot (slot 1), etc.
+        day: dayNumber,
+        startSlot: slotNumber,
+        endSlot: slotNumber + 1, // Most sessions are single slot
         category: this.getModuleCategory(session.moduleId),
         color: moduleColor,
         departmentId: parseInt(this.departmentInfo.id) || 1,
         hasConflict: session.hasConflict
       } as TimetableSession;
     });
+    
+    console.log('Formatted sessions:', this.formattedTimetableSessions.length);
   }
 
   // Get module code by id
@@ -1241,22 +1443,37 @@ export class HodDashPage implements OnInit, OnDestroy {
     }
   }
 
-  // Handle session drop from timetable grid
-  handleSessionDrop(event: { session: TimetableSession, day: number, startSlot: number }) {
-    console.log('Session dropped:', event);
+  // Handle session drop from timetable grid with enhanced functionality
+  handleSessionDrop(event: SessionDropEvent) {
+    console.log('Enhanced session dropped:', event);
 
     // Map day number back to string
     const dayMap = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
     const newDay = dayMap[event.day];
+    const previousDay = event.previousDay !== undefined ? dayMap[event.previousDay] : '';
 
-    // Map start slot to time slot string
-    const newStartHour = event.startSlot + 8;
-    const newEndHour = newStartHour + 1; // Assuming 1-hour sessions
-    const newTimeSlot = `${newStartHour}:00 - ${newEndHour}:00`;
+    // University time slots mapping (reverse lookup)
+    const timeSlots = [
+      '07:45 - 08:25',  // slot 0
+      '09:15 - 09:55',  // slot 1
+      '10:15 - 10:55',  // slot 2
+      '11:00 - 11:40',  // slot 3
+      '11:45 - 12:25',  // slot 4
+      '13:05 - 13:45',  // slot 5
+      '13:50 - 14:30',  // slot 6
+      '14:35 - 15:10',  // slot 7
+      '15:15 - 16:00'   // slot 8
+    ];
+
+    const newTimeSlot = timeSlots[event.startSlot] || timeSlots[0];
+    const previousTimeSlot = event.previousSlot !== undefined ? 
+                           timeSlots[event.previousSlot] || '' : '';
 
     // Find and update the session
     const sessionIndex = this.timetableSessions.findIndex(s => s.id === event.session.id);
     if (sessionIndex !== -1) {
+      const originalSession = { ...this.timetableSessions[sessionIndex] };
+      
       this.timetableSessions[sessionIndex] = {
         ...this.timetableSessions[sessionIndex],
         day: newDay,
@@ -1266,15 +1483,50 @@ export class HodDashPage implements OnInit, OnDestroy {
       // Mark as having unsaved changes
       this.hasUnsavedChanges = true;
       
+      // Clear formatted sessions to force re-format
+      this.formattedTimetableSessions = [];
+      
       // Re-format sessions for the grid
       this.formatTimetableSessions();
       
-      // Auto-save the changes
-      this.autoSaveTimetable();
+      // Force change detection
+      this.cdr.detectChanges();
       
-      // Show success message
-      this.presentToast(`Session "${event.session.title}" moved to ${newDay} at ${newTimeSlot}`);
+      // Enhanced success message with more details
+      let message = `Session "${event.session.title}" moved to ${newDay} at ${newTimeSlot}`;
+      
+      if (event.isSnapped) {
+        message += ' (snapped to nearby session)';
+      }
+      
+      if (previousDay && previousTimeSlot) {
+        message += `. Previous location: ${previousDay} at ${previousTimeSlot}`;
+      }
+      
+      message += '. Remember to save your changes.';
+      
+      this.presentToast(message);
+      
+      // Log the move for potential undo functionality
+      this.logSessionMove(originalSession, this.timetableSessions[sessionIndex], event.isSnapped);
     }
+  }
+
+  // Log session moves for potential undo functionality
+  private logSessionMove(originalSession: any, newSession: any, wasSnapped?: boolean) {
+    const moveLog = {
+      sessionId: originalSession.id,
+      sessionTitle: originalSession.moduleName,
+      originalDay: originalSession.day,
+      originalTimeSlot: originalSession.timeSlot,
+      newDay: newSession.day,
+      newTimeSlot: newSession.timeSlot,
+      timestamp: new Date(),
+      wasSnapped: wasSnapped || false
+    };
+    
+    console.log('Session move logged:', moveLog);
+    // This could be expanded to maintain a history for undo functionality
   }
 
   // Handle session delete from timetable grid
@@ -1323,11 +1575,8 @@ export class HodDashPage implements OnInit, OnDestroy {
           // Re-format sessions for the grid
           this.formatTimetableSessions();
           
-          // Auto-save the changes
-          this.autoSaveTimetable();
-          
           // Show success message
-          this.presentToast(`Session "${session.title}" deleted successfully`);
+          this.presentToast(`Session "${session.title}" deleted successfully. Remember to save your changes.`);
           
           // Re-detect conflicts after deletion
           this.detectTimetableConflicts();
@@ -1345,9 +1594,15 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   // New method to get lecturer names from IDs
   getLecturerNames(lecturerIds: number[]): string[] {
-    return this.lecturers
+    if (!lecturerIds || lecturerIds.length === 0) {
+      return ['No lecturers assigned'];
+    }
+    
+    const assignedLecturers = this.lecturers
       .filter(lecturer => lecturerIds.includes(lecturer.id))
       .map(lecturer => lecturer.name);
+    
+    return assignedLecturers.length > 0 ? assignedLecturers : ['Assigned lecturers not found'];
   }
 
   editLecturer(lecturer: any) {
@@ -1576,15 +1831,10 @@ export class HodDashPage implements OnInit, OnDestroy {
       this.moduleService.getDepartmentModules().subscribe({
         next: (modules) => {
           console.log('Department modules loaded:', modules);
+          // Attach module.id as firebaseId for update
           this.modules = modules.map(module => ({
-            id: module.id,
-            code: module.code,
-            name: module.name,
-            credits: module.credits,
-            sessionsPerWeek: module.sessionsPerWeek,
-            groupCount: module.groupCount,
-            lecturerCount: module.lecturerCount,
-            lecturerIds: module.lecturerIds
+            ...module,
+            firebaseId: module.id // Use module.id as Firestore doc ID
           }));
           console.log('Mapped modules for display:', this.modules);
           this.departmentStats.modules = this.modules.length;
@@ -1599,7 +1849,144 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   editModule(module: any) {
     console.log('Editing module:', module);
-    // Show edit module modal
+    this.showModuleAssignmentModal(module);
+  }
+
+  // Show module assignment modal for managing lecturer assignments
+  async showModuleAssignmentModal(module: any) {
+    const assignedLecturerIds = module.lecturerIds || [];
+    
+    const assignmentModal = await this.alertController.create({
+      header: `Module Assignment: ${module.name}`,
+      message: 'Select lecturers to assign to this module:',
+      inputs: this.lecturers.map(lecturer => ({
+        name: `lecturer-${lecturer.id}`,
+        type: 'checkbox',
+        label: lecturer.name,
+        value: lecturer.id,
+        checked: assignedLecturerIds.includes(lecturer.id)
+      })),
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Save Assignment',
+          handler: (selectedLecturerIds: number[]) => {
+            this.updateModuleLecturerAssignment(module, selectedLecturerIds);
+          }
+        }
+      ]
+    });
+
+    await assignmentModal.present();
+  }
+
+  // Update module lecturer assignment
+  private updateModuleLecturerAssignment(module: any, selectedLecturerIds: number[]) {
+    console.log('Updating module lecturer assignment:', module.name, selectedLecturerIds);
+    
+    // Update the module locally first
+    const moduleIndex = this.modules.findIndex(m => m.id === module.id);
+    const originalModule = moduleIndex !== -1 ? { ...this.modules[moduleIndex] } : null;
+    
+    if (moduleIndex !== -1) {
+      this.modules[moduleIndex].lecturerIds = selectedLecturerIds;
+      this.modules[moduleIndex].lecturerCount = selectedLecturerIds.length;
+    }
+
+    // Update in Firebase directly (update module in department's modules array)
+    this.updateModuleInFirebase(this.departmentInfo.name, {
+      lecturerIds: selectedLecturerIds,
+      lecturerCount: selectedLecturerIds.length,
+      updatedAt: new Date()
+    }, module.id).then(() => {
+      const lecturerNames = this.lecturers
+        .filter(l => selectedLecturerIds.includes(l.id))
+        .map(l => l.name)
+        .join(', ');
+      this.presentToast(
+        selectedLecturerIds.length > 0 
+          ? `Module ${module.name} assigned to: ${lecturerNames}`
+          : `All lecturers removed from module ${module.name}`
+      );
+    }).catch((error: any) => {
+      console.error('Error updating module assignment in Firebase:', error);
+      this.presentToast('Error updating module assignment: ' + (error.message || 'Unknown error'), 'danger');
+      // Revert local changes on error
+      if (moduleIndex !== -1 && originalModule) {
+        this.modules[moduleIndex].lecturerIds = originalModule.lecturerIds || [];
+        this.modules[moduleIndex].lecturerCount = (originalModule.lecturerIds || []).length;
+      }
+    });
+  }
+
+  // Update module in Firebase directly
+  private async updateModuleInFirebase(departmentName: string, updateData: any, moduleId: number): Promise<void> {
+    try {
+      const firebaseApp = firebase.app();
+      const firestore = firebaseApp.firestore();
+      const departmentDocRef = firestore.collection('modules').doc(departmentName);
+
+      // Get the department document
+      const docSnap = await departmentDocRef.get();
+      let modulesArray: any[] = [];
+      if (!docSnap.exists) {
+        // If the department document does not exist, create it with this module
+        modulesArray = [{
+          id: moduleId,
+          ...updateData
+        }];
+        await departmentDocRef.set({ modules: modulesArray });
+        console.log('Department document created and module added in Firebase');
+        return;
+      }
+
+      const data = docSnap.data();
+      if (!data) {
+        throw new Error('Department data is undefined');
+      }
+      modulesArray = data['modules'] || [];
+      const moduleIndex = modulesArray.findIndex((m: any) => m.id === moduleId);
+      if (moduleIndex === -1) {
+        // If module not found, add it
+        modulesArray.push({
+          id: moduleId,
+          ...updateData
+        });
+      } else {
+        // Update the module object in the array
+        modulesArray[moduleIndex] = {
+          ...modulesArray[moduleIndex],
+          ...updateData
+        };
+      }
+
+      // Write the updated array back
+      await departmentDocRef.update({ modules: modulesArray });
+      console.log('Module updated successfully in Firebase');
+    } catch (error) {
+      console.error('Error updating module in Firebase:', error);
+      throw error;
+    }
+  }
+
+  // Get assigned lecturer names for display
+  getAssignedLecturerNames(module: any): string {
+    if (!module.lecturerIds || module.lecturerIds.length === 0) {
+      return 'No lecturers assigned';
+    }
+    
+    const assignedLecturers = this.lecturers.filter(lecturer => 
+      module.lecturerIds.includes(lecturer.id)
+    );
+    
+    if (assignedLecturers.length === 0) {
+      return 'Assigned lecturers not found';
+    }
+    
+    return assignedLecturers.map(l => l.name).join(', ');
   }
 
   // Submission History
@@ -1942,33 +2329,49 @@ export class HodDashPage implements OnInit, OnDestroy {
     toast.present();
   }
 
-  // Check if timetable can be submitted
-  canSubmitCurrentTimetable(): boolean {
+  // Check if timetable can be submitted - using getter to improve performance
+  get canSubmitCurrentTimetable(): boolean {
     // Check if there are any sessions
     if (!this.timetableSessions || this.timetableSessions.length === 0) {
-      console.log('Cannot submit: No sessions scheduled');
       return false;
     }
 
     // Check if there are unresolved conflicts
     if (this.departmentConflicts && this.departmentConflicts.length > 0) {
-      console.log('Cannot submit: Unresolved conflicts exist');
       return false;
     }
 
     // Check if submission status allows editing (not already submitted/approved)
-    if (this.submissionStatus.status === 'submitted') {
-      console.log('Cannot submit: Already submitted');
+    if (this.submissionStatus?.status === 'submitted' || this.submissionStatus?.status === 'approved') {
       return false;
     }
 
-    if (this.submissionStatus.status === 'approved') {
+    return true;
+  }
+
+  // Helper method to check submission status with logging (call this when needed for debugging)
+  checkSubmissionStatus(): void {
+    if (!this.timetableSessions || this.timetableSessions.length === 0) {
+      console.log('Cannot submit: No sessions scheduled');
+      return;
+    }
+
+    if (this.departmentConflicts && this.departmentConflicts.length > 0) {
+      console.log('Cannot submit: Unresolved conflicts exist');
+      return;
+    }
+
+    if (this.submissionStatus?.status === 'submitted') {
+      console.log('Cannot submit: Already submitted');
+      return;
+    }
+
+    if (this.submissionStatus?.status === 'approved') {
       console.log('Cannot submit: Already approved');
-      return false;
+      return;
     }
 
     console.log('Can submit timetable');
-    return true;
   }
 
   // Method to refresh timetable submission status
@@ -1984,11 +2387,8 @@ export class HodDashPage implements OnInit, OnDestroy {
     try {
       // Save any pending changes before logout
       if (this.hasUnsavedChanges) {
-        await this.saveTimetable();
+        await this.saveTimetableChanges();
       }
-      
-      // Stop auto-save and clean up event listeners
-      this.stopAutoSave();
       
       // Clear user authentication
       await this.authService.logout();
@@ -2029,7 +2429,6 @@ export class HodDashPage implements OnInit, OnDestroy {
     
     // Reset flags
     this.hasUnsavedChanges = false;
-    this.lastSaveTime = null;
   }
 
   // Lecturer Management
@@ -2426,7 +2825,7 @@ export class HodDashPage implements OnInit, OnDestroy {
                 moduleId: session.moduleId || 0,
                 moduleName: session.moduleName || session.module || 'Unknown Module',
                 day: session.day || 'Monday', // Preserve the original day
-                timeSlot: session.timeSlot || '08:00 - 09:00', // Preserve the original time slot
+                timeSlot: session.timeSlot || '07:45 - 08:25', // Use first time slot as default instead of invalid time
                 venueId: session.venueId || session.venue,
                 venue: session.venue || 'Unknown Venue',
                 lecturerId: session.lecturerId || 0,
@@ -2437,6 +2836,10 @@ export class HodDashPage implements OnInit, OnDestroy {
               }));
               
               console.log(`Loaded ${this.timetableSessions.length} sessions from database`);
+              console.log('Sample session positions:', this.timetableSessions.slice(0, 3).map(s => `${s.day} at ${s.timeSlot}`));
+              
+              // Remove any duplicates that might exist in database
+              this.removeDuplicateSessions();
               
               // Set flag to indicate sessions were loaded from database
               this.sessionsLoadedFromDatabase = true;
@@ -2455,8 +2858,18 @@ export class HodDashPage implements OnInit, OnDestroy {
             }
           } else {
             console.log('No current timetable found for department:', currentDept);
-            this.timetableSessions = [];
-            this.formattedTimetableSessions = [];
+            console.log('Creating initial timetable for department...');
+            
+            // Create an initial empty timetable for the department
+            this.createInitialTimetable(currentDept).then(() => {
+              console.log('Initial timetable created successfully');
+              this.timetableSessions = [];
+              this.formattedTimetableSessions = [];
+            }).catch((error: any) => {
+              console.error('Error creating initial timetable:', error);
+              this.timetableSessions = [];
+              this.formattedTimetableSessions = [];
+            });
           }
         })
         .catch((error: any) => {
@@ -2472,6 +2885,35 @@ export class HodDashPage implements OnInit, OnDestroy {
       
       // Fallback to using existing timetable service subscription
       console.log('Using existing timetable service subscription for session loading');
+    }
+  }
+
+  // Create an initial empty timetable for the department
+  private async createInitialTimetable(departmentName: string): Promise<void> {
+    try {
+      const firebaseApp = firebase.app();
+      const firestore = firebaseApp.firestore();
+      
+      const initialTimetable = {
+        department: departmentName,
+        isCurrentVersion: true,
+        status: 'draft',
+        sessions: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        submittedAt: null,
+        approvedAt: null,
+        rejectedAt: null,
+        comments: '',
+        version: 1
+      };
+      
+      await firestore.collection('timetables').add(initialTimetable);
+      console.log('Initial timetable document created for department:', departmentName);
+      
+    } catch (error: any) {
+      console.error('Error creating initial timetable:', error);
+      throw error;
     }
   }
 
@@ -2535,9 +2977,10 @@ export class HodDashPage implements OnInit, OnDestroy {
         };
         break;
       case 'submitted':
+      case 'pending':
         this.submissionStatus = {
           status: 'submitted',
-          label: 'Submitted',
+          label: 'Under Review',
           message: 'Your timetable has been submitted for review.',
           canEdit: false,
           buttonText: 'View Timetable'
@@ -2587,17 +3030,29 @@ export class HodDashPage implements OnInit, OnDestroy {
     
     // Find the submission in our history
     const submission = this.submissionHistory.find(s => s.id === submissionId);
-    if (!submission || !submission.timetableId) {
-      console.log('No timetable ID found for submission, using current sessions');
+    if (!submission) {
+      console.log('Submission not found in history, using current sessions');
       this.useCurrentSessionsForSubmission(submissionId);
       return;
     }
     
+    console.log('Found submission:', submission);
+    
+    if (!submission.timetableId) {
+      console.log('No timetableId found for submission, using current sessions');
+      this.useCurrentSessionsForSubmission(submissionId);
+      return;
+    }
+    
+    console.log('Loading timetable with ID:', submission.timetableId);
+    
     // Load the actual timetable from database using the timetableId
     this.timetableDatabaseService.getTimetableById(submission.timetableId).subscribe({
       next: (timetable) => {
-        if (timetable && timetable.sessions) {
-          console.log('Loaded timetable for submission:', timetable);
+        console.log('Retrieved timetable from database:', timetable);
+        
+        if (timetable && timetable.sessions && timetable.sessions.length > 0) {
+          console.log('Found', timetable.sessions.length, 'sessions in timetable');
           
           // Convert database sessions to grid format
           this.selectedSubmissionTimetable = timetable.sessions.map(session => {
@@ -2611,17 +3066,21 @@ export class HodDashPage implements OnInit, OnDestroy {
               'Sunday': 6
             };
 
-            // Extract start and end times from timeSlot
-            const timeSlotMatch = session.timeSlot?.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
-            let startSlot = 1;
-            let endSlot = 2;
-            
-            if (timeSlotMatch) {
-              const startTime = timeSlotMatch[1];
-              const endTime = timeSlotMatch[2];
-              startSlot = parseInt(startTime.split(':')[0]) - 8; // Convert to slot number
-              endSlot = parseInt(endTime.split(':')[0]) - 8;
-            }
+            // University time slots mapping (same as used in formatTimetableSessions)
+            const timeSlotMap: { [key: string]: number } = {
+              '07:45 - 08:25': 0,
+              '09:15 - 09:55': 1,
+              '10:15 - 10:55': 2,
+              '11:00 - 11:40': 3,
+              '11:45 - 12:25': 4,
+              '13:05 - 13:45': 5,
+              '13:50 - 14:30': 6,
+              '14:35 - 15:10': 7,
+              '15:15 - 16:00': 8
+            };
+
+            // Get slot number from time slot string, default to 0 if not found
+            const slotNumber = timeSlotMap[session.timeSlot] ?? 0;
 
             return {
               id: session.id,
@@ -2632,8 +3091,8 @@ export class HodDashPage implements OnInit, OnDestroy {
               venue: session.venue || 'Unknown Venue',
               group: session.group || 'Unknown Group',
               day: dayMap[session.day] || 0,
-              startSlot: Math.max(startSlot, 0),
-              endSlot: Math.max(endSlot, 1),
+              startSlot: slotNumber,
+              endSlot: slotNumber + 1,  // Single slot sessions
               category: session.category || this.getModuleCategory(session.moduleId),
               color: session.hasConflict ? '#eb445a' : this.getModuleColor(session.moduleId),
               departmentId: parseInt(this.departmentInfo.id) || 1,
@@ -2641,9 +3100,10 @@ export class HodDashPage implements OnInit, OnDestroy {
             } as TimetableSession;
           });
           
-          console.log('Converted submission timetable sessions:', this.selectedSubmissionTimetable);
+          console.log('Converted', this.selectedSubmissionTimetable.length, 'submission timetable sessions:', this.selectedSubmissionTimetable);
         } else {
-          console.log('No sessions found in timetable, using current sessions');
+          console.log('No sessions found in timetable or timetable is empty');
+          console.log('Timetable object:', timetable);
           this.useCurrentSessionsForSubmission(submissionId);
         }
         
@@ -2679,9 +3139,21 @@ export class HodDashPage implements OnInit, OnDestroy {
         'Sunday': 6
       };
 
-      const timeSlotParts = session.timeSlot.split(' - ');
-      const startHour = parseInt(timeSlotParts[0].split(':')[0]);
-      const endHour = parseInt(timeSlotParts[1].split(':')[0]);
+      // University time slots mapping (same as used in formatTimetableSessions)
+      const timeSlotMap: { [key: string]: number } = {
+        '07:45 - 08:25': 0,
+        '09:15 - 09:55': 1,
+        '10:15 - 10:55': 2,
+        '11:00 - 11:40': 3,
+        '11:45 - 12:25': 4,
+        '13:05 - 13:45': 5,
+        '13:50 - 14:30': 6,
+        '14:35 - 15:10': 7,
+        '15:15 - 16:00': 8
+      };
+
+      // Get slot number from time slot string, default to 0 if not found
+      const slotNumber = timeSlotMap[session.timeSlot] ?? 0;
 
       return {
         id: session.id,
@@ -2692,8 +3164,8 @@ export class HodDashPage implements OnInit, OnDestroy {
         venue: session.venue,
         group: session.group,
         day: dayMap[session.day],
-        startSlot: startHour - 8,
-        endSlot: endHour - 8,
+        startSlot: slotNumber,
+        endSlot: slotNumber + 1,  // Single slot sessions
         category: this.getModuleCategory(session.moduleId),
         color: session.hasConflict ? '#eb445a' : this.getModuleColor(session.moduleId), // Red color for conflicts
         departmentId: parseInt(this.departmentInfo.id) || 1,
@@ -2710,126 +3182,51 @@ export class HodDashPage implements OnInit, OnDestroy {
     // Show details of the session, e.g., in a modal
   }
 
-  // Auto-save functionality - only on window events
-  startAutoSave() {
-    console.log('Starting auto-save functionality for window events');
-    
-    // Listen for beforeunload event (when user tries to close/refresh page)
-    window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
-    
-    // Listen for visibilitychange event (when user switches tabs/apps)
-    document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-    
-    // Listen for pagehide event (when page is hidden)
-    window.addEventListener('pagehide', this.handlePageHide.bind(this));
-  }
-
-  stopAutoSave() {
-    console.log('Stopping auto-save functionality');
-    
-    // Remove event listeners
-    window.removeEventListener('beforeunload', this.handleBeforeUnload.bind(this));
-    document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-    window.removeEventListener('pagehide', this.handlePageHide.bind(this));
-    
-    if (this.autoSaveInterval) {
-      clearInterval(this.autoSaveInterval);
-      this.autoSaveInterval = null;
-    }
-  }
-
-  // Handle before page unload (closing/refreshing)
-  private handleBeforeUnload(event: BeforeUnloadEvent) {
-    if (this.hasUnsavedChanges) {
-      console.log('Page unload detected, saving timetable...');
-      this.autoSaveTimetable();
-      
-      // Show confirmation dialog if there are unsaved changes
-      event.preventDefault();
-      event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
-      return event.returnValue;
-    }
-  }
-
-  // Handle visibility change (switching tabs/apps)
-  private handleVisibilityChange() {
-    if (document.hidden && this.hasUnsavedChanges) {
-      console.log('Page hidden, saving timetable...');
-      this.autoSaveTimetable();
-    }
-  }
-
-  // Handle page hide event
-  private handlePageHide(event: PageTransitionEvent) {
-    if (this.hasUnsavedChanges) {
-      console.log('Page hide detected, saving timetable...');
-      this.autoSaveTimetable();
-    }
-  }
-
-  autoSaveTimetable() {
-    // Only auto-save if there are unsaved changes
-    if (!this.hasUnsavedChanges) {
-      console.log('No unsaved changes, skipping auto-save');
-      return;
-    }
-
-    console.log('Auto-saving timetable due to window event...');
-    
-    // Don't auto-save if department info is not loaded
-    if (!this.departmentInfo.name || this.departmentInfo.name === 'Loading...') {
-      console.log('Department not loaded, skipping auto-save');
-      return;
-    }
-
-    // Use our custom save method instead of timetable service
-    this.saveCurrentTimetableToDatabase().then(result => {
-      if (result.success) {
-        console.log('Event-triggered auto-save successful');
-        this.lastSaveTime = new Date();
-        this.hasUnsavedChanges = false; // Mark changes as saved
-      } else {
-        console.warn('Event-triggered auto-save failed:', result.message);
-      }
-    }).catch(error => {
-      console.error('Event-triggered auto-save error:', error);
+  // Prompt user to save changes before navigation
+  async promptToSaveChanges(): Promise<'save' | 'discard' | 'cancel'> {
+    return new Promise((resolve) => {
+      this.alertController.create({
+        header: 'Unsaved Changes',
+        message: 'You have unsaved changes to your timetable. What would you like to do?',
+        buttons: [
+          {
+            text: 'Cancel',
+            role: 'cancel',
+            handler: () => resolve('cancel')
+          },
+          {
+            text: 'Discard Changes',
+            cssClass: 'secondary',
+            handler: () => resolve('discard')
+          },
+          {
+            text: 'Save Changes',
+            cssClass: 'primary',
+            handler: () => resolve('save')
+          }
+        ],
+        backdropDismiss: false
+      }).then(alert => alert.present());
     });
   }
 
-  // Manual save functionality
-  async saveTimetable() {
-    console.log('Manually saving timetable...');
-    
+  // Save timetable changes manually
+  async saveTimetableChanges(): Promise<boolean> {
     try {
-      const result = await this.saveCurrentTimetableToDatabase();
-      if (result.success) {
-        this.presentToast('Timetable saved successfully');
-        this.lastSaveTime = new Date();
-        this.hasUnsavedChanges = false; // Mark changes as saved
-      } else {
-        this.presentToast('Failed to save timetable: ' + result.message);
-      }
-    } catch (error) {
-      console.error('Error saving timetable:', error);
-      this.presentToast('Error saving timetable');
-    }
-  }
+      console.log('Saving timetable changes...');
 
-  // Custom save method that uses our department info
-  private async saveCurrentTimetableToDatabase(): Promise<{ success: boolean; message: string }> {
-    try {
+      // Don't save if department info is not loaded
       if (!this.departmentInfo.name || this.departmentInfo.name === 'Loading...') {
-        return {
-          success: false,
-          message: 'Department information not available'
-        };
+        console.log('Department not loaded, cannot save');
+        await this.presentToast('Cannot save: Department information not available');
+        return false;
       }
 
-      // Get or create timetable
+      // Get current timetable
       let currentTimetableDoc = await this.timetableDatabaseService.getCurrentTimetable(this.departmentInfo.name).toPromise();
       
       if (!currentTimetableDoc) {
-        // Create new timetable
+        // Create new timetable if it doesn't exist
         const createResult = await this.timetableDatabaseService.createNewTimetable(
           this.departmentInfo.name,
           `${new Date().getFullYear()} Timetable`,
@@ -2838,83 +3235,88 @@ export class HodDashPage implements OnInit, OnDestroy {
         ).toPromise();
         
         if (!createResult || !createResult.success) {
-          return {
-            success: false,
-            message: createResult?.message || 'Failed to create timetable'
-          };
+          throw new Error(createResult?.message || 'Failed to create timetable');
         }
         
-        // Get the newly created timetable
         currentTimetableDoc = await this.timetableDatabaseService.getCurrentTimetable(this.departmentInfo.name).toPromise();
         
         if (!currentTimetableDoc) {
-          return {
-            success: false,
-            message: 'Failed to retrieve newly created timetable'
-          };
+          throw new Error('Failed to retrieve newly created timetable');
         }
       }
 
-      // Update with current sessions if any
+      // Save the sessions
       if (this.timetableSessions && this.timetableSessions.length > 0) {
-        const timetableSessions = this.timetableSessions.map(session => {
-          const sessionData: any = {
-            id: session.id,
-            moduleId: session.moduleId,
-            moduleName: session.moduleName,
-            lecturerId: session.lecturerId,
-            lecturer: session.lecturer,
-            venueId: session.venueId || session.venue,
-            venue: session.venue,
-            groupId: session.groupId,
-            group: session.group,
-            day: session.day,
-            timeSlot: session.timeSlot,
-            category: (session as any).category || 'Lecture',
-            color: (session as any).color || '#007bff',
-            departmentId: (session as any).departmentId || 1,
-            hasConflict: session.hasConflict || false
-          };
-
-          // Only add optional fields if they have values
-          if ((session as any).startTime) {
-            sessionData.startTime = (session as any).startTime;
-          }
-          if ((session as any).endTime) {
-            sessionData.endTime = (session as any).endTime;
-          }
-          if ((session as any).notes) {
-            sessionData.notes = (session as any).notes;
-          }
-
-          return sessionData;
-        });
+        const timetableSessions = this.timetableSessions.map(session => ({
+          id: session.id,
+          moduleId: session.moduleId,
+          moduleName: session.moduleName,
+          lecturerId: session.lecturerId,
+          lecturer: session.lecturer,
+          venueId: session.venueId || session.venue,
+          venue: session.venue,
+          groupId: session.groupId,
+          group: session.group,
+          day: session.day,
+          timeSlot: session.timeSlot,
+          category: (session as any).category || 'Lecture',
+          color: (session as any).color || '#007bff',
+          departmentId: (session as any).departmentId || 1,
+          hasConflict: session.hasConflict || false
+        }));
 
         const updateResult = await this.timetableDatabaseService.saveTimetable({
           sessions: timetableSessions,
-          status: currentTimetableDoc.status || 'draft'
+          status: 'draft'
         }, currentTimetableDoc.id).toPromise();
 
         if (!updateResult || !updateResult.success) {
-          return {
-            success: false,
-            message: updateResult?.message || 'Failed to save timetable sessions'
-          };
+          throw new Error(updateResult?.message || 'Failed to save timetable sessions');
         }
       }
 
-      return {
-        success: true,
-        message: 'Timetable saved successfully'
-      };
+      // Mark as saved
+      this.hasUnsavedChanges = false;
+      
+      await this.presentToast('Timetable saved successfully!');
+      console.log('Timetable saved successfully');
+      return true;
 
     } catch (error: any) {
-      console.error('Error in saveCurrentTimetableToDatabase:', error);
-      return {
-        success: false,
-        message: error?.message || 'Unknown error occurred'
-      };
+      console.error('Error saving timetable:', error);
+      await this.presentToast('Failed to save timetable: ' + (error?.message || 'Unknown error'));
+      return false;
     }
+  }
+
+  // Manual save method that can be called from UI
+  async manualSave() {
+    if (!this.hasUnsavedChanges) {
+      await this.presentToast('No changes to save');
+      return;
+    }
+
+    const saved = await this.saveTimetableChanges();
+    if (!saved) {
+      console.log('Save failed');
+    }
+  }
+
+  // UI Helper methods
+  getSaveStatusText(): string {
+    return this.hasUnsavedChanges ? 'Unsaved changes' : 'All changes saved';
+  }
+
+  getSaveStatusIcon(): string {
+    return this.hasUnsavedChanges ? 'warning-outline' : 'checkmark-circle-outline';
+  }
+
+  getSaveStatusColor(): string {
+    return this.hasUnsavedChanges ? 'warning' : 'success';
+  }
+
+  canSave(): boolean {
+    return this.hasUnsavedChanges && this.timetableSessions && this.timetableSessions.length > 0;
   }
 
   // Load submission history from database
@@ -2939,7 +3341,8 @@ export class HodDashPage implements OnInit, OnDestroy {
             status: submission.status || 'pending',
             conflictCount: submission.conflictCount || 0,
             hasAdminFeedback: submission.hasAdminFeedback || false,
-            adminFeedback: submission.adminFeedback || ''
+            adminFeedback: submission.adminFeedback || '',
+            timetableId: submission.timetableId || submission.id  // Include timetableId for session retrieval
           }));
           
           console.log('Transformed submission history:', this.submissionHistory);

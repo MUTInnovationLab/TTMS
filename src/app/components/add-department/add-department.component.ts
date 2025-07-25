@@ -1,13 +1,15 @@
 import { Component, Input, OnInit } from '@angular/core';
-import { ModalController, ToastController } from '@ionic/angular';
-import { FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { IonicModule, ModalController, ToastController } from '@ionic/angular';
 import { Department } from '../../interfaces/department.interface';
 
 @Component({
   selector: 'app-add-department',
+  standalone: true,
+  imports: [CommonModule, ReactiveFormsModule, IonicModule],
   templateUrl: './add-department.component.html',
-  styleUrls: ['./add-department.component.scss'],
-  standalone: false,
+  styleUrls: ['./add-department.component.scss']
 })
 export class AddDepartmentComponent implements OnInit {
   @Input() department: Department | null = null;

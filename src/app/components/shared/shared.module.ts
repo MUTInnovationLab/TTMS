@@ -6,7 +6,7 @@ import { TimetableGridModule } from '../timetable-grid/timetable-grid.module';
 import { ConflictResComponent } from '../conflict-res/conflict-res.component';
 import { VenueAvailComponent } from '../venue-avail/venue-avail.component';
 import { ReportsComponent } from '../reports/reports.component';
-import { AddDepartmentModule } from '../add-department/add-department.module';
+import { AddDepartmentComponent } from '../add-department/add-department.component';
 
 @NgModule({
   imports: [
@@ -17,7 +17,7 @@ import { AddDepartmentModule } from '../add-department/add-department.module';
     ConflictResComponent,  // Import standalone component
     VenueAvailComponent,   // Import standalone component
     ReportsComponent,      // Import standalone reports component
-    AddDepartmentModule    // Import add department module
+    AddDepartmentComponent // Import standalone add department component
   ],
   exports: [
     // Export modules and components for use in feature modules
@@ -28,7 +28,7 @@ import { AddDepartmentModule } from '../add-department/add-department.module';
     ConflictResComponent,
     VenueAvailComponent,
     ReportsComponent,      // Export reports component
-    AddDepartmentModule    // Export add department module
+    AddDepartmentComponent // Export add department component
   ]
 })
-export class SharedModule {}
+export class SharedModule { }

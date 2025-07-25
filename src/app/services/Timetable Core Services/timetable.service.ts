@@ -32,7 +32,7 @@ export interface Timetable {
   departmentId: number;
   academicYear: string;
   semester: number;
-  status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  status: 'draft' | 'pending' | 'submitted' | 'approved' | 'rejected';
   sessions: TimetableSession[];
   createdAt: Date;
   updatedAt: Date;

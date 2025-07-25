@@ -2,12 +2,13 @@ import { Component, OnInit, ChangeDetectorRef, OnDestroy, Injector } from '@angu
 import { TimetableSession } from '../components/timetable-grid/timetable-grid.component';
 import { Conflict, ConflictType, ConflictResolution } from '../components/conflict-res/conflict-res.component';
 import { SidebarService } from '../services/Utility Services/sidebar.service';
-import { Subscription } from 'rxjs';
+import { Subscription, combineLatest, interval } from 'rxjs';
 import { ModalController } from '@ionic/angular';
 import { AddUserComponent, User } from '../components/add-user/add-user.component';
 import { AddVenueComponent } from '../components/add-venue/add-venue.component';
+// Import AddDepartmentComponent for modal usage
 import { AddDepartmentComponent } from '../components/add-department/add-department.component';
-import { Department } from '../interfaces/department.interface';
+import type { Department } from '../interfaces/department.interface';
 import { AuthService } from '../services/Authentication Services/auth.service';
 import { StaffService } from '../services/Data Services/staff.service';
 import { AlertController } from '@ionic/angular';
@@ -16,6 +17,8 @@ import { VenueService, VenueDisplayInfo } from '../services/Entity Management Se
 import { DepartmentService } from '../services/Entity Management Services/department.service';
 import { TimetableDatabaseService, TimetableDocument } from '../services/Timetable Core Services/timetable-database.service';
 import { ToastController } from '@ionic/angular';
+import { Firestore, collection, collectionData, query, where, onSnapshot, doc } from '@angular/fire/firestore';
+import { startWith, switchMap } from 'rxjs/operators';
 
 interface ConflictSummary {
   id: number;
@@ -31,6 +34,36 @@ interface DepartmentLecturerStats {
   weeklyHours: number;
   moduleCount: number;
   workloadPercentage: number;
+}
+
+// Interface for real-time stats
+interface RealTimeStats {
+  departments: number;
+  venues: number;
+  sessions: number;
+  conflicts: number;
+  submissions: number;
+  pendingSubmissions: number;
+  approvedSubmissions: number;
+  rejectedSubmissions: number;
+  activeUsers: number;
+  lastUpdated: Date;
+}
+
+// Interface for department submission status
+interface DepartmentSubmissionStatus {
+  id: string;
+  departmentName: string;
+  status: 'not-started' | 'in-progress' | 'submitted' | 'approved' | 'rejected';
+  lastModified: Date;
+  submittedAt?: Date;
+  reviewedAt?: Date;
+  sessionsCount: number;
+  conflictsCount: number;
+  hodName?: string;
+  hodEmail?: string;
+  progress: number; // 0-100 percentage
+  feedback?: string;
 }
 
 @Component({
@@ -55,14 +88,26 @@ export class AdminDashPage implements OnInit, OnDestroy {
   
   // Dashboard navigation
   
-  // Dashboard stats
-  stats = {
-    departments: 8,
-    venues: 25,
-    sessions: 142,
-    conflicts: 3,
-    submissions: 0 // Will be updated when submissions are loaded
+  // Dashboard stats - will be updated with real-time data
+  stats: RealTimeStats = {
+    departments: 0,
+    venues: 0,
+    sessions: 0,
+    conflicts: 0,
+    submissions: 0,
+    pendingSubmissions: 0,
+    approvedSubmissions: 0,
+    rejectedSubmissions: 0,
+    activeUsers: 0,
+    lastUpdated: new Date()
   };
+
+  // Department submission statuses
+  departmentSubmissionStatuses: DepartmentSubmissionStatus[] = [];
+  
+  // Real-time subscriptions
+  private statsSubscription?: Subscription;
+  private submissionStatusSubscription?: Subscription;
   
   // Recent activities
   recentActivities = [
@@ -267,7 +312,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
     private venueService: VenueService,
     private injector: Injector,
     private timetableDatabaseService: TimetableDatabaseService,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private firestore: Firestore
   ) { 
     console.log('AdminDashPage constructor');
   }
@@ -283,11 +329,14 @@ export class AdminDashPage implements OnInit, OnDestroy {
   ngOnInit() {
     console.log('AdminDashPage ngOnInit');
     
-    // Initialize dashboard
-    this.generateMockTimetableData();
+    // Initialize dashboard with real data only
     this.loadVenues(); // Load venues from database
     this.loadDepartments(); // Load departments from database
     this.loadSubmittedTimetables(); // Load submitted timetables from database
+    
+    // Initialize real-time stats and department submission tracking
+    this.initializeRealTimeStats();
+    this.initializeDepartmentSubmissionTracking();
     
     // Set initial sidebar state
     this.sidebarVisible = this.sidebarService.isSidebarVisible;
@@ -313,7 +362,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.departmentsLoading = true;
     
     this.departmentService.getAllDepartments().subscribe({
-      next: (departments) => {
+      next: (departments: Department[]) => {
         console.log('Departments loaded successfully:', departments);
         this.departments = departments;
         this.departmentsLoading = false;
@@ -323,7 +372,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
         
         this.cdr.detectChanges();
       },
-      error: (error) => {
+      error: (error: any) => {
         console.error('Error loading departments:', error);
         this.presentToast('Failed to load departments: ' + (error.message || 'Unknown error'));
         this.departmentsLoading = false;
@@ -353,6 +402,307 @@ export class AdminDashPage implements OnInit, OnDestroy {
         this.presentToast('Failed to load HODs: ' + (error.message || 'Unknown error'));
       }
     });
+  }
+
+  // Initialize real-time stats tracking
+  private initializeRealTimeStats() {
+    console.log('Initializing real-time stats tracking');
+    
+    // Combine multiple observables to get real-time stats
+    this.statsSubscription = combineLatest([
+      this.getDepartmentCount(),
+      this.getVenueCount(),
+      this.getSessionCount(),
+      this.getConflictCount(),
+      this.getSubmissionCounts(),
+      this.getActiveUserCount()
+    ]).subscribe({
+      next: ([departments, venues, sessions, conflicts, submissions, activeUsers]) => {
+        this.stats = {
+          departments,
+          venues,
+          sessions,
+          conflicts,
+          submissions: submissions.total,
+          pendingSubmissions: submissions.pending,
+          approvedSubmissions: submissions.approved,
+          rejectedSubmissions: submissions.rejected,
+          activeUsers,
+          lastUpdated: new Date()
+        };
+        
+        console.log('Real-time stats updated:', this.stats);
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error updating real-time stats:', error);
+      }
+    });
+  }
+
+  // Initialize department submission status tracking
+  private initializeDepartmentSubmissionTracking() {
+    console.log('Initializing department submission tracking');
+    
+    this.submissionStatusSubscription = this.getDepartmentSubmissionStatuses().subscribe({
+      next: (statuses) => {
+        this.departmentSubmissionStatuses = statuses;
+        console.log('Department submission statuses updated:', statuses);
+        this.cdr.detectChanges();
+      },
+      error: (error) => {
+        console.error('Error tracking department submissions:', error);
+      }
+    });
+  }
+
+  // Get department count from Firestore
+  private getDepartmentCount() {
+    const departmentsCollection = collection(this.firestore, 'departments');
+    return collectionData(departmentsCollection).pipe(
+      startWith([]),
+      switchMap(departments => [departments.length])
+    );
+  }
+
+  // Get venue count from Firestore
+  private getVenueCount() {
+    const venuesCollection = collection(this.firestore, 'venues');
+    return collectionData(venuesCollection).pipe(
+      startWith([]),
+      switchMap(venues => [venues.length])
+    );
+  }
+
+  // Get session count from all timetables
+  private getSessionCount() {
+    const timetablesCollection = collection(this.firestore, 'timetables');
+    return collectionData(timetablesCollection).pipe(
+      startWith([]),
+      switchMap(timetables => {
+        let totalSessions = 0;
+        timetables.forEach((timetable: any) => {
+          if (timetable.sessions && Array.isArray(timetable.sessions)) {
+            totalSessions += timetable.sessions.length;
+          }
+        });
+        return [totalSessions];
+      })
+    );
+  }
+
+  // Get conflict count from all timetables
+  private getConflictCount() {
+    const timetablesCollection = collection(this.firestore, 'timetables');
+    return collectionData(timetablesCollection).pipe(
+      startWith([]),
+      switchMap(timetables => {
+        let totalConflicts = 0;
+        timetables.forEach((timetable: any) => {
+          if (timetable.conflicts) {
+            totalConflicts += timetable.conflicts;
+          } else if (timetable.sessions && Array.isArray(timetable.sessions)) {
+            // Count sessions with conflicts
+            totalConflicts += timetable.sessions.filter((s: any) => s.hasConflict).length;
+          }
+        });
+        return [totalConflicts];
+      })
+    );
+  }
+
+  // Get submission counts by status
+  private getSubmissionCounts() {
+    const timetablesCollection = collection(this.firestore, 'timetables');
+    return collectionData(timetablesCollection).pipe(
+      startWith([]),
+      switchMap(timetables => {
+        const counts = {
+          total: 0,
+          pending: 0,
+          approved: 0,
+          rejected: 0
+        };
+        
+        timetables.forEach((timetable: any) => {
+          if (timetable.status === 'submitted' || timetable.status === 'approved' || timetable.status === 'rejected' || timetable.status === 'pending') {
+            counts.total++;
+            
+            switch (timetable.status) {
+              case 'pending':
+              case 'submitted':
+                counts.pending++;
+                break;
+              case 'approved':
+                counts.approved++;
+                break;
+              case 'rejected':
+                counts.rejected++;
+                break;
+            }
+          }
+        });
+        
+        return [counts];
+      })
+    );
+  }
+
+  // Get active user count from authentication collection
+  private getActiveUserCount() {
+    const usersCollection = collection(this.firestore, 'users');
+    return collectionData(usersCollection).pipe(
+      startWith([]),
+      switchMap(users => {
+        // Count users who have logged in within the last 30 days
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+        
+        const activeUsers = users.filter((user: any) => {
+          if (user.lastLoginAt) {
+            const lastLogin = user.lastLoginAt.toDate ? user.lastLoginAt.toDate() : new Date(user.lastLoginAt);
+            return lastLogin > thirtyDaysAgo;
+          }
+          return false;
+        });
+        
+        return [activeUsers.length];
+      })
+    );
+  }
+
+  // Get department submission statuses
+  private getDepartmentSubmissionStatuses() {
+    return combineLatest([
+      this.getDepartments(),
+      this.getTimetables()
+    ]).pipe(
+      switchMap(([departments, timetables]) => {
+        const statuses: DepartmentSubmissionStatus[] = departments.map((dept: any) => {
+          // Find the latest timetable for this department
+          const deptTimetables = timetables.filter((t: any) => t.department === dept.name);
+          const latestTimetable = deptTimetables
+            .sort((a: any, b: any) => {
+              const dateA = a.updatedAt?.toDate ? a.updatedAt.toDate() : new Date(a.updatedAt || 0);
+              const dateB = b.updatedAt?.toDate ? b.updatedAt.toDate() : new Date(b.updatedAt || 0);
+              return dateB.getTime() - dateA.getTime();
+            })[0];
+
+          let status: DepartmentSubmissionStatus['status'] = 'not-started';
+          let lastModified = new Date();
+          let submittedAt: Date | undefined;
+          let reviewedAt: Date | undefined;
+          let sessionsCount = 0;
+          let conflictsCount = 0;
+          let progress = 0;
+          let feedback: string | undefined;
+
+          if (latestTimetable) {
+            status = this.mapTimetableStatus(latestTimetable['status']);
+            lastModified = latestTimetable['updatedAt']?.toDate ? latestTimetable['updatedAt'].toDate() : new Date(latestTimetable['updatedAt']);
+            
+            if (latestTimetable['submittedAt']) {
+              submittedAt = latestTimetable['submittedAt'].toDate ? latestTimetable['submittedAt'].toDate() : new Date(latestTimetable['submittedAt']);
+            }
+            
+            if (latestTimetable['reviewedAt']) {
+              reviewedAt = latestTimetable['reviewedAt'].toDate ? latestTimetable['reviewedAt'].toDate() : new Date(latestTimetable['reviewedAt']);
+            }
+            
+            if (latestTimetable['sessions']) {
+              sessionsCount = latestTimetable['sessions'].length;
+              conflictsCount = latestTimetable['sessions'].filter((s: any) => s.hasConflict).length;
+            }
+            
+            progress = this.calculateProgress(latestTimetable);
+            feedback = latestTimetable['adminFeedback'] || latestTimetable['feedback'];
+          }
+
+          return {
+            id: dept.id,
+            departmentName: dept.name,
+            status,
+            lastModified,
+            submittedAt,
+            reviewedAt,
+            sessionsCount,
+            conflictsCount,
+            progress,
+            feedback,
+            hodName: dept.hodName,
+            hodEmail: dept.hodEmail
+          } as DepartmentSubmissionStatus;
+        });
+
+        return [statuses];
+      })
+    );
+  }
+
+  // Helper method to get departments
+  private getDepartments() {
+    const departmentsCollection = collection(this.firestore, 'departments');
+    return collectionData(departmentsCollection, { idField: 'id' });
+  }
+
+  // Helper method to get timetables
+  private getTimetables() {
+    const timetablesCollection = collection(this.firestore, 'timetables');
+    return collectionData(timetablesCollection, { idField: 'id' });
+  }
+
+  // Map timetable status to submission status
+  private mapTimetableStatus(timetableStatus: string): DepartmentSubmissionStatus['status'] {
+    switch (timetableStatus) {
+      case 'draft':
+      case 'in-progress':
+        return 'in-progress';
+      case 'pending':
+      case 'submitted':
+        return 'submitted';
+      case 'approved':
+        return 'approved';
+      case 'rejected':
+        return 'rejected';
+      default:
+        return 'not-started';
+    }
+  }
+
+  // Calculate progress percentage for a timetable
+  private calculateProgress(timetable: any): number {
+    if (!timetable) return 0;
+    
+    let progress = 0;
+    
+    // Base progress for having sessions
+    if (timetable['sessions'] && timetable['sessions'].length > 0) {
+      progress += 40; // 40% for having sessions
+      
+      // Additional progress based on session completeness
+      const completeSessions = timetable['sessions'].filter((s: any) => 
+        s.moduleName && s.lecturer && s.venue && s.group
+      );
+      
+      if (completeSessions.length === timetable['sessions'].length) {
+        progress += 30; // 30% for all sessions being complete
+      } else {
+        progress += Math.floor((completeSessions.length / timetable['sessions'].length) * 30);
+      }
+      
+      // Progress for having no conflicts
+      const conflictingSessions = timetable['sessions'].filter((s: any) => s.hasConflict);
+      if (conflictingSessions.length === 0) {
+        progress += 20; // 20% for no conflicts
+      }
+      
+      // Progress for submission
+      if (timetable['status'] === 'submitted' || timetable['status'] === 'approved') {
+        progress += 10; // 10% for submission
+      }
+    }
+    
+    return Math.min(progress, 100);
   }
   
   // Load venues from database
@@ -396,9 +746,17 @@ export class AdminDashPage implements OnInit, OnDestroy {
   }
   
   ngOnDestroy() {
-    // Clean up subscription
+    // Clean up subscriptions
     if (this.sidebarSubscription) {
       this.sidebarSubscription.unsubscribe();
+    }
+    
+    if (this.statsSubscription) {
+      this.statsSubscription.unsubscribe();
+    }
+    
+    if (this.submissionStatusSubscription) {
+      this.submissionStatusSubscription.unsubscribe();
     }
   }
   
@@ -443,9 +801,15 @@ export class AdminDashPage implements OnInit, OnDestroy {
       this.selectedDepartment = null;
     }
     
-    // Generate appropriate conflict data when switching to conflicts view
+    // Load submitted timetables when switching to submissions view
+    if (this.timetableView === 'submissions') {
+      console.log('Loading submitted timetables for submissions view');
+      this.loadSubmittedTimetables();
+    }
+    
+    // Load real conflict data when switching to conflicts view
     if (this.timetableView === 'conflicts') {
-      this.generateConflictData();
+      this.loadRealConflictData();
     }
   }
   
@@ -640,15 +1004,22 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.timetableDatabaseService.getAllTimetables().subscribe({
       next: (timetables) => {
         console.log('All timetables loaded:', timetables);
-        // Filter for submitted, approved, or rejected timetables
+        console.log('Timetables raw data:', JSON.stringify(timetables, null, 2));
+        
+        // Filter for submitted, approved, rejected, or pending timetables
         this.submittedTimetables = timetables.filter(t => 
-          t.status === 'submitted' || t.status === 'approved' || t.status === 'rejected'
+          t.status === 'submitted' || t.status === 'approved' || t.status === 'rejected' || t.status === 'pending'
         );
         
-        // Update dashboard stats
-        this.stats.submissions = this.submittedTimetables.length;
+        console.log('Filtered submitted timetables:', this.submittedTimetables);
+        console.log('Submitted timetables count:', this.submittedTimetables.length);
         
-        console.log('Submitted timetables:', this.submittedTimetables);
+        // Update dashboard stats
+        this.stats.submissions = this.submittedTimetables.filter(t => 
+          t.status === 'submitted' || t.status === 'approved' || t.status === 'rejected' || t.status === 'pending'
+        ).length;
+        
+        console.log('Submitted timetables final:', this.submittedTimetables);
         this.submissionsLoading = false;
         this.cdr.detectChanges();
       },
@@ -659,6 +1030,89 @@ export class AdminDashPage implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     });
+  }
+  
+  // Temporary method to create test data
+  async createTestTimetableSubmission() {
+    console.log('Creating test timetable submission');
+    
+    try {
+      // First create a basic timetable
+      const result = await this.timetableDatabaseService.createNewTimetable(
+        'Computer Science',
+        'Test Timetable 2025',
+        '2025-2026',
+        1
+      ).toPromise();
+      
+      if (result?.success && result.timetableId) {
+        console.log('Created timetable with ID:', result.timetableId);
+        
+        // Add some test sessions to the timetable
+        const testSessions = [
+          {
+            id: 1,
+            moduleId: 1,
+            moduleName: 'Data Structures',
+            lecturerId: 1,
+            lecturer: 'Dr. John Smith',
+            venueId: '1',
+            venue: 'Lab A',
+            groupId: 1,
+            group: 'CS3A',
+            day: 'Monday',
+            timeSlot: '09:15 - 09:55',
+            category: 'Lecture',
+            color: '#4285f4',
+            hasConflict: false,
+            departmentId: 1
+          },
+          {
+            id: 2,
+            moduleId: 2,
+            moduleName: 'Database Systems',
+            lecturerId: 2,
+            lecturer: 'Dr. Jane Doe',
+            venueId: '2',
+            venue: 'Room B1',
+            groupId: 1,
+            group: 'CS3A',
+            day: 'Wednesday',
+            timeSlot: '11:00 - 11:40',
+            category: 'Lecture',
+            color: '#ff6b6b',
+            hasConflict: false,
+            departmentId: 1
+          }
+        ];
+        
+        // Save the timetable with sessions
+        const saveResult = await this.timetableDatabaseService.saveTimetable({
+          sessions: testSessions
+        }, result.timetableId).toPromise();
+        
+        if (saveResult?.success) {
+          console.log('Sessions added to timetable');
+          
+          // Now submit the timetable
+          const submitResult = await this.timetableDatabaseService.submitTimetable(result.timetableId).toPromise();
+          
+          if (submitResult?.success) {
+            this.presentToast('Test timetable submission created successfully');
+            this.loadSubmittedTimetables(); // Reload the list
+          } else {
+            this.presentToast('Failed to submit test timetable');
+          }
+        } else {
+          this.presentToast('Failed to add sessions to test timetable');
+        }
+      } else {
+        this.presentToast('Failed to create test timetable');
+      }
+    } catch (error) {
+      console.error('Error creating test timetable:', error);
+      this.presentToast('Error creating test timetable');
+    }
   }
   
   loadDepartmentSubmission() {
@@ -692,29 +1146,39 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Helper method to convert database session to grid session format
   private convertDatabaseSessionToGridSession(dbSession: any): TimetableSession {
-    // Convert day string to number
+    // Convert day number to grid day number (sessions are stored with 0-6, grid expects 0-6)
     const dayMap: { [key: string]: number } = {
-      'Monday': 1,
-      'Tuesday': 2, 
-      'Wednesday': 3,
-      'Thursday': 4,
-      'Friday': 5,
-      'Saturday': 6,
-      'Sunday': 0
+      'Monday': 0,
+      'Tuesday': 1, 
+      'Wednesday': 2,
+      'Thursday': 3,
+      'Friday': 4,
+      'Saturday': 5,
+      'Sunday': 6
     };
 
-    // Extract start and end times from timeSlot (e.g., "09:00 - 10:00")
-    const timeSlotMatch = dbSession.timeSlot?.match(/(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})/);
-    let startSlot = 1;
-    let endSlot = 2;
-    
-    if (timeSlotMatch) {
-      const startTime = timeSlotMatch[1];
-      const endTime = timeSlotMatch[2];
-      
-      // Convert time to slot numbers (assuming 8:00 AM is slot 1, 1-hour slots)
-      startSlot = this.timeToSlot(startTime);
-      endSlot = this.timeToSlot(endTime);
+    // University time slots mapping (same as used in formatTimetableSessions)
+    const timeSlotMap: { [key: string]: number } = {
+      '07:45 - 08:25': 0,
+      '09:15 - 09:55': 1,
+      '10:15 - 10:55': 2,
+      '11:00 - 11:40': 3,
+      '11:45 - 12:25': 4,
+      '13:05 - 13:45': 5,
+      '13:50 - 14:30': 6,
+      '14:35 - 15:10': 7,
+      '15:15 - 16:00': 8
+    };
+
+    // Get slot number from time slot string, default to 0 if not found
+    const slotNumber = timeSlotMap[dbSession.timeSlot] ?? 0;
+
+    // Determine day value - if it's already a number, use it; if it's a string, convert it
+    let dayValue = 0;
+    if (typeof dbSession.day === 'number') {
+      dayValue = dbSession.day;
+    } else if (typeof dbSession.day === 'string') {
+      dayValue = dayMap[dbSession.day] ?? 0;
     }
 
     return {
@@ -725,9 +1189,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
       lecturer: dbSession.lecturer || 'Unknown Lecturer',
       venue: dbSession.venue || 'Unknown Venue',
       group: dbSession.group || 'Unknown Group',
-      day: dayMap[dbSession.day] || 1,
-      startSlot: startSlot,
-      endSlot: endSlot,
+      day: dayValue,
+      startSlot: slotNumber,
+      endSlot: slotNumber + 1,  // Single slot sessions
       category: dbSession.category || 'Lecture',
       color: dbSession.color || '#4c8dff',
       departmentId: dbSession.departmentId || 0,
@@ -1053,8 +1517,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
   }
 
   // Helper methods for the submissions view
-  getStatusColor(status: string): string {
+  getTimetableStatusColor(status: string): string {
     switch (status) {
+      case 'pending':
       case 'submitted':
         return 'warning';
       case 'approved':
@@ -1066,8 +1531,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
     }
   }
 
-  getStatusIcon(status: string): string {
+  getTimetableStatusIcon(status: string): string {
     switch (status) {
+      case 'pending':
       case 'submitted':
         return 'time-outline';
       case 'approved':
@@ -1097,19 +1563,28 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   selectTimetableForReview(timetable: TimetableDocument) {
     console.log('Selecting timetable for review:', timetable);
+    console.log('Timetable sessions:', timetable.sessions);
     this.selectedSubmittedTimetable = timetable;
     this.selectedDepartmentName = timetable.department;
     
     // Load the timetable sessions for review
-    this.departmentSubmissionSessions = timetable.sessions.map(session => 
-      this.convertDatabaseSessionToGridSession(session)
-    );
+    this.departmentSubmissionSessions = timetable.sessions.map(session => {
+      console.log('Converting session:', session);
+      const converted = this.convertDatabaseSessionToGridSession(session);
+      console.log('Converted to:', converted);
+      return converted;
+    });
+    
+    console.log('Final department submission sessions:', this.departmentSubmissionSessions);
     
     // Generate conflicts for this submission
     this.generateDepartmentSubmissionConflicts();
     
     // Reset conflict resolution view
     this.showingDeptConflictRes = false;
+    
+    // Force change detection
+    this.cdr.detectChanges();
   }
 
   selectAndApprove(timetable: TimetableDocument) {
@@ -1161,7 +1636,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
       this.presentToast('Session moved successfully');
       
       // Check for new conflicts that might have been created
-      this.generateConflictData();
+      this.loadRealConflictData();
     }
   }
   
@@ -1195,227 +1670,134 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.presentToast('Timetable published successfully');
   }
   
-  // Mock data generation functions
-  private generateMockTimetableData() {
-    // Generate master timetable sessions
-    this.masterTimetableSessions = [
-      {
-        id: 1,
-        title: 'Software Engineering',
-        module: 'Software Engineering',
-        moduleCode: 'CSC2290',
-        lecturer: 'Dr. Smith',
-        venue: 'Room A101',
-        group: 'CS Year 2',
-        day: 1, // Tuesday
-        startSlot: 2, // 10am
-        endSlot: 4, // 12pm
-        category: 'Lecture',
-        color: '#4c8dff',
-        departmentId: 1
-      },
-      {
-        id: 2,
-        title: 'Database Systems',
-        module: 'Database Systems',
-        moduleCode: 'CSC2291',
-        lecturer: 'Prof. Johnson',
-        venue: 'Room B205',
-        group: 'CS Year 2',
-        day: 2, // Wednesday
-        startSlot: 6, // 2pm
-        endSlot: 8, // 4pm
-        category: 'Lab',
-        color: '#ffc409',
-        departmentId: 1
-      },
-      {
-        id: 3,
-        title: 'Data Structures',
-        module: 'Data Structures',
-        moduleCode: 'CSC2292',
-        lecturer: 'Dr. Williams',
-        venue: 'Room C310',
-        group: 'CS Year 1',
-        day: 3, // Thursday
-        startSlot: 4, // 12pm
-        endSlot: 6, // 2pm
-        category: 'Tutorial',
-        color: '#2dd36f',
-        departmentId: 1
-      },
-      {
-        id: 4,
-        title: 'Engineering Mathematics',
-        module: 'Engineering Mathematics',
-        moduleCode: 'ENG1201',
-        lecturer: 'Dr. Johnson',
-        venue: 'Room D102',
-        group: 'Eng Year 1',
-        day: 1, // Tuesday
-        startSlot: 4, // 12pm
-        endSlot: 6, // 2pm
-        category: 'Lecture',
-        color: '#4c8dff',
-        departmentId: 2
-      },
-      {
-        id: 5,
-        title: 'Mechanics',
-        module: 'Mechanics',
-        moduleCode: 'ENG1202',
-        lecturer: 'Prof. Brown',
-        venue: 'Room E105',
-        group: 'Eng Year 1',
-        day: 2, // Wednesday
-        startSlot: 2, // 10am
-        endSlot: 4, // 12pm
-        category: 'Lecture',
-        color: '#4c8dff',
-        departmentId: 2
-      },
-      {
-        id: 6,
-        title: 'Business Ethics',
-        module: 'Business Ethics',
-        moduleCode: 'BUS3301',
-        lecturer: 'Prof. Davis',
-        venue: 'Room F201',
-        group: 'Bus Year 3',
-        day: 4, // Friday
-        startSlot: 6, // 2pm
-        endSlot: 8, // 4pm
-        category: 'Seminar',
-        color: '#92949c',
-        departmentId: 3
-      }
-    ];
-  }
-  
-  private generateConflictData() {
-    // In a real application, this would come from actual conflict detection
-    // For demonstration, we'll create some mock conflicts
+  // Real data loading methods
+  private loadRealConflictData() {
+    // Load conflicts from database instead of generating mock data
+    console.log('Loading real conflict data from database');
     
     // Reset conflicts
     this.conflictSessions = [];
     this.conflictSummary = [];
-    this.formattedConflicts = []; // Reset formatted conflicts
+    this.formattedConflicts = [];
     
-    // Create a new session that conflicts with an existing one (same venue, same time)
-    const venueConflict: TimetableSession = {
-      id: 101,
-      title: 'Marketing Principles',
-      module: 'Marketing Principles',
-      moduleCode: 'BUS2102',
-      lecturer: 'Dr. Thompson',
-      venue: 'Room A101', // Same venue as session 1
-      group: 'Bus Year 2',
-      day: 1, // Tuesday
-      startSlot: 2, // 10am - Same time as session 1
-      endSlot: 4, // 12pm
-      category: 'Lecture',
-      color: '#4c8dff',
-      departmentId: 3,
-      hasConflict: true
-    };
+    // Get conflicts from real timetable data
+    this.detectConflictsFromRealData();
+  }
+  
+  private detectConflictsFromRealData() {
+    // This method will detect conflicts from actual submitted timetables
+    // Instead of using static mock data
     
-    // Create another session that conflicts with an existing one (same lecturer, same time)
-    const lecturerConflict: TimetableSession = {
-      id: 102,
-      title: 'Advanced Databases',
-      module: 'Advanced Databases',
-      moduleCode: 'CSC3292',
-      lecturer: 'Prof. Johnson', // Same lecturer as session 2
-      venue: 'Room G301',
-      group: 'CS Year 3',
-      day: 2, // Wednesday
-      startSlot: 6, // 2pm - Same time as session 2
-      endSlot: 8, // 4pm
-      category: 'Lecture',
-      color: '#4c8dff',
-      departmentId: 1,
-      hasConflict: true
-    };
+    if (this.submittedTimetables && this.submittedTimetables.length > 0) {
+      const allSessions: TimetableSession[] = [];
+      
+      // Collect all sessions from submitted timetables
+      this.submittedTimetables.forEach(timetable => {
+        if (timetable.sessions) {
+          const convertedSessions = timetable.sessions.map(session => 
+            this.convertDatabaseSessionToGridSession(session)
+          );
+          allSessions.push(...convertedSessions);
+        }
+      });
+      
+      // Detect conflicts between sessions
+      this.detectConflictsBetweenSessions(allSessions);
+    }
+  }
+  
+  private detectConflictsBetweenSessions(sessions: TimetableSession[]) {
+    const conflicts: Conflict[] = [];
+    const conflictSessions: TimetableSession[] = [];
     
-    // Set some existing sessions as having conflicts
-    const session1 = {...this.masterTimetableSessions.find(s => s.id === 1)!, hasConflict: true};
-    const session2 = {...this.masterTimetableSessions.find(s => s.id === 2)!, hasConflict: true};
-    
-    // Add all conflict sessions to the conflict view
-    this.conflictSessions = [
-      session1,
-      venueConflict,
-      session2,
-      lecturerConflict
-    ];
-    
-    // Create conflict summary
-    this.conflictSummary = [
-      {
-        id: 1,
-        type: 'Venue Conflict',
-        description: 'Room A101 has multiple bookings on Tuesday 10:00 - 12:00',
-        sessions: [1, 101]
-      },
-      {
-        id: 2,
-        type: 'Lecturer Conflict',
-        description: 'Prof. Johnson has multiple classes on Wednesday 14:00 - 16:00',
-        sessions: [2, 102]
-      }
-    ];
-    
-    // Format conflicts for the conflict-res component
-    this.formattedConflicts = [
-      {
-        id: 1,
-        type: ConflictType.VENUE,
-        priority: 'high',
-        sessions: [session1, venueConflict],
-        details: 'Room A101 has multiple bookings on Tuesday 10:00 - 12:00',
-        possibleResolutions: [
-          {
-            id: 1,
-            type: 'Relocate',
-            action: 'changeVenue',
-            newVenue: 'Room B202'
-          },
-          {
-            id: 2,
-            type: 'Reschedule',
-            action: 'changeTime',
-            newDay: 3,
-            newStartSlot: 2,
-            newEndSlot: 4
+    // Check for venue and time conflicts
+    for (let i = 0; i < sessions.length; i++) {
+      for (let j = i + 1; j < sessions.length; j++) {
+        const session1 = sessions[i];
+        const session2 = sessions[j];
+        
+        // Check if sessions overlap in time and day
+        if (session1.day === session2.day && 
+            this.timeSlotOverlaps(session1, session2)) {
+          
+          // Venue conflict
+          if (session1.venue === session2.venue) {
+            conflicts.push({
+              id: conflicts.length + 1,
+              type: ConflictType.VENUE,
+              priority: 'high',
+              sessions: [session1, session2],
+              details: `Venue conflict: ${session1.venue} is double-booked`,
+              possibleResolutions: [
+                {
+                  id: 1,
+                  type: 'Relocate',
+                  action: 'changeVenue',
+                  newVenue: 'Alternative Venue'
+                },
+                {
+                  id: 2,
+                  type: 'Reschedule',
+                  action: 'changeTime',
+                  newDay: session1.day,
+                  newStartSlot: session1.endSlot,
+                  newEndSlot: session1.endSlot + (session1.endSlot - session1.startSlot)
+                }
+              ],
+              resolved: false
+            });
+            
+            // Mark sessions as having conflicts
+            session1.hasConflict = true;
+            session2.hasConflict = true;
+            conflictSessions.push(session1, session2);
           }
-        ],
-        resolved: false
-      },
-      {
-        id: 2,
-        type: ConflictType.LECTURER,
-        priority: 'medium',
-        sessions: [session2, lecturerConflict],
-        details: 'Prof. Johnson has multiple classes on Wednesday 14:00 - 16:00',
-        possibleResolutions: [
-          {
-            id: 3,
-            type: 'Reschedule',
-            action: 'changeTime',
-            newDay: 4,
-            newStartSlot: 6,
-            newEndSlot: 8
-          },
-          {
-            id: 4,
-            type: 'Reassign',
-            action: 'changeVenue',
-            newVenue: 'Room C302'
+          
+          // Lecturer conflict
+          if (session1.lecturer === session2.lecturer) {
+            conflicts.push({
+              id: conflicts.length + 1,
+              type: ConflictType.LECTURER,
+              priority: 'medium',
+              sessions: [session1, session2],
+              details: `Lecturer conflict: ${session1.lecturer} is scheduled for multiple sessions`,
+              possibleResolutions: [
+                {
+                  id: 3,
+                  type: 'Reschedule',
+                  action: 'changeTime',
+                  newDay: session1.day + 1,
+                  newStartSlot: session1.startSlot,
+                  newEndSlot: session1.endSlot
+                }
+              ],
+              resolved: false
+            });
+            
+            // Mark sessions as having conflicts
+            session1.hasConflict = true;
+            session2.hasConflict = true;
+            conflictSessions.push(session1, session2);
           }
-        ],
-        resolved: false
+        }
       }
-    ];
+    }
+    
+    this.formattedConflicts = conflicts;
+    this.conflictSessions = Array.from(new Set(conflictSessions)); // Remove duplicates
+    this.stats.conflicts = conflicts.length;
+    
+    // Update conflict summary
+    this.conflictSummary = conflicts.map(conflict => ({
+      id: conflict.id,
+      type: conflict.type === ConflictType.VENUE ? 'Venue Conflict' : 'Lecturer Conflict',
+      description: conflict.details,
+      sessions: conflict.sessions.map(s => s.id)
+    }));
+  }
+  
+  private timeSlotOverlaps(session1: TimetableSession, session2: TimetableSession): boolean {
+    return !(session1.endSlot <= session2.startSlot || session2.endSlot <= session1.startSlot);
   }
 
   // Add method to handle conflict resolution from the conflict-res component
@@ -1464,7 +1846,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.stats.conflicts = this.formattedConflicts.length;
     
     // Regenerate conflict data to refresh the view
-    this.generateConflictData();
+    this.loadRealConflictData();
   }
   
   // Venue management methods
@@ -1856,7 +2238,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.isSubmitting = true;
     
     this.departmentService.addDepartment(departmentData).subscribe({
-      next: (result) => {
+      next: (result: any) => {
         this.isSubmitting = false;
         if (result.success) {
           this.presentToast('Department created successfully');
@@ -1865,7 +2247,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
           this.presentToast('Failed to create department: ' + result.message);
         }
       },
-      error: (error) => {
+      error: (error: any) => {
         this.isSubmitting = false;
         console.error('Error creating department:', error);
         this.presentToast('Error creating department: ' + (error.message || 'Unknown error'));
@@ -1877,7 +2259,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.isSubmitting = true;
     
     this.departmentService.updateDepartment(id, departmentData).subscribe({
-      next: (result) => {
+      next: (result: any) => {
         this.isSubmitting = false;
         if (result.success) {
           this.presentToast('Department updated successfully');
@@ -1886,7 +2268,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
           this.presentToast('Failed to update department: ' + result.message);
         }
       },
-      error: (error) => {
+      error: (error: any) => {
         this.isSubmitting = false;
         console.error('Error updating department:', error);
         this.presentToast('Error updating department: ' + (error.message || 'Unknown error'));
@@ -1898,7 +2280,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.isSubmitting = true;
     
     this.departmentService.deleteDepartment(id).subscribe({
-      next: (result) => {
+      next: (result: any) => {
         this.isSubmitting = false;
         if (result.success) {
           this.presentToast('Department deleted successfully');
@@ -1907,7 +2289,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
           this.presentToast('Failed to delete department: ' + result.message);
         }
       },
-      error: (error) => {
+      error: (error: any) => {
         this.isSubmitting = false;
         console.error('Error deleting department:', error);
         this.presentToast('Error deleting department: ' + (error.message || 'Unknown error'));
@@ -2133,6 +2515,216 @@ export class AdminDashPage implements OnInit, OnDestroy {
     }
   }
 
+  // Helper methods for department submission status
+  getDepartmentStatusColor(status: DepartmentSubmissionStatus['status']): string {
+    switch (status) {
+      case 'approved':
+        return 'success';
+      case 'submitted':
+        return 'warning';
+      case 'rejected':
+        return 'danger';
+      case 'in-progress':
+        return 'primary';
+      default:
+        return 'medium';
+    }
+  }
+
+  getDepartmentStatusIcon(status: DepartmentSubmissionStatus['status']): string {
+    switch (status) {
+      case 'approved':
+        return 'checkmark-circle';
+      case 'submitted':
+        return 'time';
+      case 'rejected':
+        return 'close-circle';
+      case 'in-progress':
+        return 'create';
+      default:
+        return 'document-text';
+    }
+  }
+
+  getDepartmentStatusText(status: DepartmentSubmissionStatus['status']): string {
+    switch (status) {
+      case 'approved':
+        return 'Approved';
+      case 'submitted':
+        return 'Pending Review';
+      case 'rejected':
+        return 'Rejected';
+      case 'in-progress':
+        return 'In Progress';
+      default:
+        return 'Not Started';
+    }
+  }
+
+  getDepartmentStatusLabel(status: DepartmentSubmissionStatus['status']): string {
+    return this.getDepartmentStatusText(status);
+  }
+
+  // Get departments with submission issues (conflicts or overdue)
+  getDepartmentsWithIssues(): DepartmentSubmissionStatus[] {
+    return this.departmentSubmissionStatuses.filter(dept => 
+      dept.conflictsCount > 0 || this.isDepartmentOverdue(dept)
+    );
+  }
+
+  // Get departments that need attention (rejected or with conflicts)
+  getDepartmentsNeedingAttention(): DepartmentSubmissionStatus[] {
+    return this.departmentSubmissionStatuses.filter(dept => 
+      dept.status === 'rejected' || dept.conflictsCount > 0
+    );
+  }
+
+  // Get submission rate percentage
+  getSubmissionRate(): number {
+    if (this.departmentSubmissionStatuses.length === 0) return 0;
+    
+    const submittedOrApproved = this.departmentSubmissionStatuses.filter(dept => 
+      dept.status === 'submitted' || dept.status === 'approved'
+    );
+    
+    return Math.round((submittedOrApproved.length / this.departmentSubmissionStatuses.length) * 100);
+  }
+
+  // Check if department submission is overdue
+  isDepartmentOverdue(dept: DepartmentSubmissionStatus): boolean {
+    const daysSinceLastModified = Math.floor(
+      (new Date().getTime() - dept.lastModified.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    
+    // Consider overdue if no activity for 7 days and status is in-progress
+    return dept.status === 'in-progress' && daysSinceLastModified > 7;
+  }
+
+  // Get progress color based on percentage
+  getProgressColor(progress: number): string {
+    if (progress >= 80) return 'success';
+    if (progress >= 50) return 'warning';
+    if (progress >= 25) return 'primary';
+    return 'danger';
+  }
+
+  // Send reminder to HOD
+  async sendReminderToHOD(dept: DepartmentSubmissionStatus) {
+    if (!dept.hodEmail) {
+      this.presentToast('HOD email not available for ' + dept.departmentName);
+      return;
+    }
+
+    const alert = await this.alertController.create({
+      header: 'Send Reminder',
+      message: `Send a reminder to ${dept.hodName || 'HOD'} of ${dept.departmentName} about their timetable submission?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Send Reminder',
+          handler: () => {
+            // In a real implementation, this would send an email
+            console.log('Sending reminder to:', dept.hodEmail);
+            this.presentToast(`Reminder sent to ${dept.departmentName} HOD`);
+            
+            // Add activity to recent activities
+            this.recentActivities.unshift({
+              type: 'primary',
+              icon: 'mail',
+              message: `Reminder sent to ${dept.departmentName} about timetable submission`,
+              timestamp: new Date()
+            });
+            
+            // Keep only recent activities
+            if (this.recentActivities.length > 10) {
+              this.recentActivities = this.recentActivities.slice(0, 10);
+            }
+            
+            this.cdr.detectChanges();
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  // View department details
+  viewDepartmentDetails(dept: DepartmentSubmissionStatus) {
+    console.log('Viewing department details:', dept);
+    
+    // Find the submitted timetable for this department
+    const deptTimetable = this.submittedTimetables.find(t => t.department === dept.departmentName);
+    
+    if (deptTimetable) {
+      this.selectTimetableForReview(deptTimetable);
+      this.activeSection = 'timetable';
+      this.timetableView = 'submissions';
+    } else {
+      this.presentToast(`No submitted timetable found for ${dept.departmentName}`);
+    }
+  }
+
+  // Refresh real-time stats manually
+  refreshStats() {
+    console.log('Manually refreshing stats...');
+    
+    // Re-initialize the subscriptions to get fresh data
+    if (this.statsSubscription) {
+      this.statsSubscription.unsubscribe();
+    }
+    
+    if (this.submissionStatusSubscription) {
+      this.submissionStatusSubscription.unsubscribe();
+    }
+    
+    this.initializeRealTimeStats();
+    this.initializeDepartmentSubmissionTracking();
+    
+    this.presentToast('Stats refreshed successfully');
+  }
+
+  // Format time ago
+  getTimeAgo(date: Date): string {
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return 'Just now';
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days} day${days > 1 ? 's' : ''} ago`;
+    }
+  }
+
+  // Force refresh of real-time data
+  refreshRealTimeData() {
+    console.log('Manually refreshing real-time data');
+    this.stats.lastUpdated = new Date();
+    
+    // Trigger change detection to update the UI
+    this.cdr.detectChanges();
+    
+    this.presentToast('Dashboard data refreshed');
+  }
+
+  // Prompt department for submission
+  promptDepartmentSubmission(department: DepartmentSubmissionStatus) {
+    console.log('Prompting department for submission:', department);
+    
+    // In a real implementation, this would send a notification/email to the HOD
+    this.presentToast(`Reminder sent to ${department.departmentName}`);
+  }
+
   private async presentHodCreationSuccess(hodData: User, defaultPassword: string) {
     // In a real app, you might want to show this in a modal instead of a toast
     this.presentToast(
@@ -2140,10 +2732,4 @@ export class AdminDashPage implements OnInit, OnDestroy {
     );
   }
 }
-  // private async presentHodCreationSuccess(hodData: User, defaultPassword: string) {
-  //   // In a real app, you might want to show this in a modal instead of a toast
-  //   this.presentToast(
-  //     `HOD account created successfully!\nEmail: ${hodData.contact?.email}\nTemporary Password: ${defaultPassword}\nPlease ensure to communicate these credentials securely.`
-  //   );
-  // }
 

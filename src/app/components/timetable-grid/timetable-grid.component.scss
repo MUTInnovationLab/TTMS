@@ -580,3 +580,125 @@
     }
   }
 }
+
+// Enhanced Drag and Drop Styles
+.session-block {
+  &.dragging-source {
+    opacity: 0.5;
+    transform: scale(0.95);
+    border: 2px dashed rgba(255, 255, 255, 0.8);
+    cursor: grabbing;
+  }
+
+  &.magnetic-target {
+    border: 2px solid #ffeb3b !important;
+    box-shadow: 0 0 10px rgba(255, 235, 59, 0.5) !important;
+    animation: magneticPulse 1s ease-in-out infinite alternate;
+  }
+}
+
+// Drop preview styles
+.drop-preview-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  pointer-events: none;
+
+  .preview-session {
+    width: 100%;
+    height: 100%;
+    border-radius: 8px;
+    padding: 10px;
+    border: 2px dashed rgba(255, 255, 255, 0.8);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    transition: all 0.2s ease;
+
+    &.preview-valid {
+      border-color: #4caf50;
+      background: rgba(76, 175, 80, 0.2);
+    }
+
+    &.preview-invalid {
+      border-color: #f44336;
+      background: rgba(244, 67, 54, 0.2);
+    }
+
+    .preview-title {
+      font-weight: bold;
+      font-size: 12px;
+      color: white;
+    }
+
+    .preview-status {
+      font-size: 10px;
+      color: #ffeb3b;
+      margin-top: 4px;
+    }
+  }
+}
+
+// Grid cell enhancements
+.grid-cell {
+  &.drop-preview-valid {
+    background: rgba(76, 175, 80, 0.1) !important;
+    border-color: #4caf50 !important;
+    box-shadow: inset 0 0 8px rgba(76, 175, 80, 0.3);
+  }
+
+  &.drop-preview-invalid {
+    background: rgba(244, 67, 54, 0.1) !important;
+    border-color: #f44336 !important;
+    box-shadow: inset 0 0 8px rgba(244, 67, 54, 0.3);
+  }
+
+  &.magnetic-snap {
+    background: rgba(255, 235, 59, 0.1) !important;
+    border-color: #ffeb3b !important;
+    animation: magneticGlow 0.8s ease-in-out infinite alternate;
+  }
+}
+
+// Enhanced delete zone
+.delete-zone {
+  &.drag-over {
+    transform: scale(1.1);
+    border-color: white;
+    box-shadow: 0 6px 30px rgba(244, 67, 54, 0.5);
+    animation: deleteZonePulse 0.5s ease-in-out infinite alternate;
+  }
+}
+
+// Enhanced animations
+@keyframes magneticPulse {
+  from {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 10px rgba(255, 235, 59, 0.3);
+  }
+  to {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 20px rgba(255, 235, 59, 0.6);
+  }
+}
+
+@keyframes magneticGlow {
+  from {
+    box-shadow: inset 0 0 5px rgba(255, 235, 59, 0.3);
+  }
+  to {
+    box-shadow: inset 0 0 15px rgba(255, 235, 59, 0.6);
+  }
+}
+
+@keyframes deleteZonePulse {
+  from {
+    background: linear-gradient(135deg, #ff5722, #f44336);
+  }
+  to {
+    background: linear-gradient(135deg, #ff7043, #ef5350);
+  }
+}

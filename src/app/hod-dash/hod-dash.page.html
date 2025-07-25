@@ -273,9 +273,24 @@
         <!-- Timetable Creation View -->
         <div *ngIf="timetableViewMode === 'creation'" class="timetable-creation-view">
           <div class="timetable-controls">
-            <div class="auto-save-indicator" *ngIf="lastSaveTime">
-              <ion-icon name="checkmark-circle" color="success"></ion-icon>
-              <span>Last saved: {{ lastSaveTime | date:'short' }}</span>
+            <!-- Save Controls -->
+            <div class="save-controls">
+              <div class="save-status">
+                <ion-icon [name]="getSaveStatusIcon()" [color]="getSaveStatusColor()"></ion-icon>
+                <span [style.color]="getSaveStatusColor() === 'warning' ? '#f59e0b' : '#22c55e'">
+                  {{ getSaveStatusText() }}
+                </span>
+              </div>
+              
+              <ion-button 
+                *ngIf="canSave()" 
+                fill="solid" 
+                color="primary" 
+                size="small"
+                (click)="manualSave()">
+                <ion-icon name="save-outline" slot="start"></ion-icon>
+                Save Changes
+              </ion-button>
             </div>
             
             <div class="filters-group">
@@ -297,8 +312,47 @@
               </ion-select>
             </div>
 
+            <!-- Drag & Drop Settings -->
+            <div class="drag-drop-settings">
+              <ion-item lines="none">
+                <ion-checkbox 
+                  [(ngModel)]="dragDropConfig.enableMagneticSnap"
+                  slot="start">
+                </ion-checkbox>
+                <ion-label>
+                  <h3>Magnetic Snap</h3>
+                  <p>Automatically snap sessions to nearby time slots</p>
+                </ion-label>
+              </ion-item>
+              
+              <ion-item lines="none">
+                <ion-checkbox 
+                  [(ngModel)]="dragDropConfig.enableConflictPrevention"
+                  slot="start">
+                </ion-checkbox>
+                <ion-label>
+                  <h3>Conflict Prevention</h3>
+                  <p>Prevent dropping sessions in conflicting time slots</p>
+                </ion-label>
+              </ion-item>
+              
+              <ion-item lines="none">
+                <ion-checkbox 
+                  [(ngModel)]="dragDropConfig.showDropPreview"
+                  slot="start">
+                </ion-checkbox>
+                <ion-label>
+                  <h3>Drop Preview</h3>
+                  <p>Show preview when dragging sessions</p>
+                </ion-label>
+              </ion-item>
+            </div>
+
             <div class="action-buttons">
-              <ion-button color="secondary" (click)="saveTimetable()">
+              <ion-button 
+                color="secondary" 
+                (click)="manualSave()"
+                [disabled]="!canSave()">
                 <ion-icon name="save" slot="start"></ion-icon>
                 Save Timetable
               </ion-button>
@@ -309,7 +363,7 @@
               </ion-button>
 
               <ion-button color="success" 
-                [disabled]="!canSubmitCurrentTimetable() || submissionStatus.status === 'submitted'"
+                [disabled]="!canSubmitCurrentTimetable || submissionStatus.status === 'submitted'"
                 (click)="submitTimetable()">
                 <ion-icon name="cloud-upload" slot="start"></ion-icon>
                 <span *ngIf="submissionStatus.status === 'draft' || submissionStatus.status === 'in-progress'">
@@ -329,7 +383,11 @@
           </div>
 
           <!-- Timetable Grid -->
-          <app-timetable-grid [sessions]="formattedTimetableSessions"
+          <app-timetable-grid 
+            [sessions]="formattedTimetableSessions"
+            [enableMagneticSnap]="dragDropConfig.enableMagneticSnap"
+            [enableConflictPrevention]="dragDropConfig.enableConflictPrevention"
+            [showDropPreview]="dragDropConfig.showDropPreview"
             (sessionClick)="handleSessionClick($event)" 
             (sessionDrop)="handleSessionDrop($event)"
             (sessionDelete)="handleSessionDelete($event)">

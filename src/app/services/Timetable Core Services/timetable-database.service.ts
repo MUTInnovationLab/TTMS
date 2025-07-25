@@ -16,7 +16,7 @@ export interface TimetableDocument {
   hodEmail: string;
   academicYear: string;
   semester: number;
-  status: 'draft' | 'submitted' | 'approved' | 'rejected';
+  status: 'draft' | 'pending' | 'submitted' | 'approved' | 'rejected';
   sessions: TimetableSession[];
   createdAt: any;
   updatedAt: any;
@@ -38,6 +38,7 @@ export interface TimetableSubmissionHistory {
   hasAdminFeedback: boolean;
   adminFeedback?: string;
   timetableId: string;
+  reviewedAt?: any;
 }
 
 @Injectable({
@@ -84,7 +85,9 @@ export class TimetableDatabaseService {
               // Filter and sort on client side to avoid index requirements
               const docs = snapshot.docs
                 .map(doc => ({ id: doc.id, ...doc.data() } as TimetableDocument))
-                .filter(timetable => timetable.status === 'draft' || timetable.status === 'submitted')
+                .filter(timetable => timetable.status === 'draft' || timetable.status === 'submitted' || 
+                                   timetable.status === 'pending' || timetable.status === 'approved' || 
+                                   timetable.status === 'rejected')
                 .sort((a, b) => {
                   const aDate = a.createdAt?.toDate?.() || new Date(a.createdAt);
                   const bDate = b.createdAt?.toDate?.() || new Date(b.createdAt);
@@ -356,7 +359,7 @@ export class TimetableDatabaseService {
           department: timetable.department,
           academicPeriod: `${timetable.academicYear}, Semester ${timetable.semester}`,
           submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          status: 'Pending',
+          status: 'submitted',
           conflictCount: timetable.conflictCount || 0,
           hasAdminFeedback: false,
           timetableId: timetableId
@@ -454,12 +457,23 @@ export class TimetableDatabaseService {
         
         firestore.collection(this.SUBMISSIONS_COLLECTION)
           .where('department', '==', department)
-          .orderBy('submittedAt', 'desc')
           .get()
           .then(snapshot => {
             const submissions: TimetableSubmissionHistory[] = [];
             snapshot.forEach(doc => {
-              submissions.push({ id: doc.id, ...doc.data() } as TimetableSubmissionHistory);
+              const data = doc.data();
+              submissions.push({ 
+                id: doc.id, 
+                ...data,
+                timetableId: data['timetableId'] // Ensure timetableId is included
+              } as TimetableSubmissionHistory);
+            });
+            
+            // Sort by submittedAt in JavaScript instead of Firestore to avoid index requirement
+            submissions.sort((a, b) => {
+              const dateA = a.submittedAt?.toDate ? a.submittedAt.toDate() : new Date(a.submittedAt || 0);
+              const dateB = b.submittedAt?.toDate ? b.submittedAt.toDate() : new Date(b.submittedAt || 0);
+              return dateB.getTime() - dateA.getTime(); // desc order
             });
             
             console.log('Submission history loaded:', submissions.length, 'submissions');
@@ -488,12 +502,18 @@ export class TimetableDatabaseService {
         const firestore = firebaseApp.firestore();
         
         firestore.collection(this.TIMETABLES_COLLECTION)
-          .orderBy('createdAt', 'desc')
           .get()
           .then(snapshot => {
             const timetables: TimetableDocument[] = [];
             snapshot.forEach(doc => {
               timetables.push({ id: doc.id, ...doc.data() } as TimetableDocument);
+            });
+            
+            // Sort by createdAt in descending order (client-side)
+            timetables.sort((a, b) => {
+              const aDate = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
+              const bDate = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+              return bDate.getTime() - aDate.getTime();
             });
             
             console.log('All timetables loaded:', timetables.length);
@@ -515,22 +535,140 @@ export class TimetableDatabaseService {
   approveTimetable(timetableId: string, adminFeedback?: string): Observable<{ success: boolean; message: string }> {
     console.log('Approving timetable:', timetableId);
     
-    return this.saveTimetable({
-      status: 'approved',
-      approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      adminFeedback
-    }, timetableId);
+    return from(new Promise<{ success: boolean; message: string }>((resolve, reject) => {
+      try {
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        // First update the timetable document
+        firestore.collection(this.TIMETABLES_COLLECTION)
+          .doc(timetableId)
+          .update({
+            status: 'approved',
+            approvedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            adminFeedback: adminFeedback || '',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          })
+          .then(() => {
+            console.log('Timetable approved, now updating submission history');
+            
+            // Then find and update the corresponding submission
+            return firestore.collection(this.SUBMISSIONS_COLLECTION)
+              .where('timetableId', '==', timetableId)
+              .get();
+          })
+          .then(snapshot => {
+            const updatePromises: Promise<void>[] = [];
+            
+            snapshot.forEach(doc => {
+              updatePromises.push(
+                firestore.collection(this.SUBMISSIONS_COLLECTION)
+                  .doc(doc.id)
+                  .update({
+                    status: 'approved',
+                    hasAdminFeedback: !!adminFeedback,
+                    adminFeedback: adminFeedback || '',
+                    reviewedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  })
+              );
+            });
+            
+            return Promise.all(updatePromises);
+          })
+          .then(() => {
+            console.log('Timetable and submission history approved successfully');
+            resolve({
+              success: true,
+              message: 'Timetable approved successfully'
+            });
+          })
+          .catch(error => {
+            console.error('Error approving timetable:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
+    })).pipe(
+      catchError(error => {
+        console.error('Error in approveTimetable:', error);
+        return of({
+          success: false,
+          message: `Failed to approve timetable: ${error.message}`
+        });
+      })
+    );
   }
 
   // Reject timetable (admin function)
   rejectTimetable(timetableId: string, adminFeedback: string): Observable<{ success: boolean; message: string }> {
     console.log('Rejecting timetable:', timetableId);
     
-    return this.saveTimetable({
-      status: 'rejected',
-      rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
-      adminFeedback
-    }, timetableId);
+    return from(new Promise<{ success: boolean; message: string }>((resolve, reject) => {
+      try {
+        const firebaseApp = firebase.app();
+        const firestore = firebaseApp.firestore();
+        
+        // First update the timetable document
+        firestore.collection(this.TIMETABLES_COLLECTION)
+          .doc(timetableId)
+          .update({
+            status: 'rejected',
+            rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            adminFeedback: adminFeedback,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          })
+          .then(() => {
+            console.log('Timetable rejected, now updating submission history');
+            
+            // Then find and update the corresponding submission
+            return firestore.collection(this.SUBMISSIONS_COLLECTION)
+              .where('timetableId', '==', timetableId)
+              .get();
+          })
+          .then(snapshot => {
+            const updatePromises: Promise<void>[] = [];
+            
+            snapshot.forEach(doc => {
+              updatePromises.push(
+                firestore.collection(this.SUBMISSIONS_COLLECTION)
+                  .doc(doc.id)
+                  .update({
+                    status: 'rejected',
+                    hasAdminFeedback: true,
+                    adminFeedback: adminFeedback,
+                    reviewedAt: firebase.firestore.FieldValue.serverTimestamp()
+                  })
+              );
+            });
+            
+            return Promise.all(updatePromises);
+          })
+          .then(() => {
+            console.log('Timetable and submission history rejected successfully');
+            resolve({
+              success: true,
+              message: 'Timetable rejected successfully'
+            });
+          })
+          .catch(error => {
+            console.error('Error rejecting timetable:', error);
+            reject(error);
+          });
+      } catch (error) {
+        console.error('Error accessing Firebase:', error);
+        reject(error);
+      }
+    })).pipe(
+      catchError(error => {
+        console.error('Error in rejectTimetable:', error);
+        return of({
+          success: false,
+          message: `Failed to reject timetable: ${error.message}`
+        });
+      })
+    );
   }
 
   // Auto-save functionality

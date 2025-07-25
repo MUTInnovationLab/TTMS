@@ -121,9 +121,24 @@
              [class.highlighted]="isCellHighlighted(dayIndex, slot.id)"
              [class.conflict]="isCellInConflict(dayIndex, slot.id)"
              [class.drop-target]="isDragging"
+             [class.drop-preview-valid]="previewDropZone?.day === dayIndex && previewDropZone?.slot === slot.id && previewDropZone?.valid"
+             [class.drop-preview-invalid]="previewDropZone?.day === dayIndex && previewDropZone?.slot === slot.id && !previewDropZone?.valid"
+             [class.magnetic-snap]="enableMagneticSnap && isNearMagneticZone(dayIndex, slot.id)"
              (dragover)="onDragOver($event, dayIndex, slot.id)"
              (dragleave)="onDragLeave($event)"
              (drop)="onDrop($event, dayIndex, slot.id)">
+          
+          <!-- Drop preview indicator -->
+          <div class="drop-preview-indicator" 
+               *ngIf="previewDropZone?.day === dayIndex && previewDropZone?.slot === slot.id && showDropPreview">
+            <div class="preview-session" 
+                 [style.background-color]="draggedSession?.color + '80'"
+                 [class.preview-valid]="previewDropZone?.valid"
+                 [class.preview-invalid]="!previewDropZone?.valid">
+              <span class="preview-title">{{ draggedSession?.title }}</span>
+              <span class="preview-status" *ngIf="!previewDropZone?.valid">⚠ Conflict</span>
+            </div>
+          </div>
           
           <!-- Sessions in this cell -->
           <ng-container *ngFor="let session of getSessionsForDayAndSlot(dayIndex, slot.id)">
@@ -132,7 +147,9 @@
                  [style.grid-row]="'span ' + (session.endSlot - session.startSlot)"
                  [style.background-color]="session.color"
                  [class.dragging]="draggedSession?.id === session.id"
+                 [class.dragging-source]="draggedSession?.id === session.id"
                  [class.has-conflict]="session.hasConflict"
+                 [class.magnetic-target]="enableMagneticSnap && isMagneticTarget(session, dayIndex, slot.id)"
                  draggable="true"
                  (dragstart)="onDragStart($event, session)"
                  (dragend)="onDragEnd($event)"

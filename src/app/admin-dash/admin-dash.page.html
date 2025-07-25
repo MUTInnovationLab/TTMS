@@ -100,8 +100,20 @@
     <div class="main-content" [class.sidebar-visible]="sidebarVisible">
       <!-- Dashboard Section -->
       <div *ngIf="activeSection === 'dashboard'" class="section-container">
-        <h1>Dashboard Overview</h1>
+        <div class="dashboard-header">
+          <h1>Dashboard Overview</h1>
+          <div class="dashboard-actions">
+            <ion-button fill="outline" size="small" (click)="refreshRealTimeData()">
+              <ion-icon name="refresh" slot="start"></ion-icon>
+              Refresh
+            </ion-button>
+            <div class="last-updated">
+              Last updated: {{ stats.lastUpdated | date:'short' }}
+            </div>
+          </div>
+        </div>
 
+        <!-- Enhanced Stats Grid with Real-time Data -->
         <div class="stats-grid">
           <div class="stat-card">
             <ion-icon name="business"></ion-icon>
@@ -124,13 +136,144 @@
           <div class="stat-card">
             <ion-icon name="document-text"></ion-icon>
             <h2>{{stats.submissions}}</h2>
-            <p>Submissions</p>
+            <p>Total Submissions</p>
+          </div>
+
+          <div class="stat-card pending">
+            <ion-icon name="time"></ion-icon>
+            <h2>{{stats.pendingSubmissions}}</h2>
+            <p>Pending Review</p>
+          </div>
+
+          <div class="stat-card success">
+            <ion-icon name="checkmark-circle"></ion-icon>
+            <h2>{{stats.approvedSubmissions}}</h2>
+            <p>Approved</p>
           </div>
 
           <div class="stat-card alert">
             <ion-icon name="warning"></ion-icon>
             <h2>{{stats.conflicts}}</h2>
-            <p>Conflicts</p>
+            <p>Active Conflicts</p>
+          </div>
+
+          <div class="stat-card primary">
+            <ion-icon name="people"></ion-icon>
+            <h2>{{stats.activeUsers}}</h2>
+            <p>Active Users (30d)</p>
+          </div>
+        </div>
+
+        <!-- Department Submission Status Dashboard -->
+        <div class="department-status-section">
+          <div class="section-header">
+            <h3>Department Submission Status</h3>
+            <div class="submission-stats">
+              <ion-chip color="success">
+                <ion-label>{{ getSubmissionRate() }}% Completion Rate</ion-label>
+              </ion-chip>
+            </div>
+          </div>
+
+          <div class="department-status-grid">
+            <ion-card 
+              *ngFor="let dept of departmentSubmissionStatuses" 
+              class="department-card"
+              [class]="getDepartmentStatusColor(dept.status)"
+              (click)="viewDepartmentDetails(dept)">
+              
+              <ion-card-header>
+                <div class="department-header">
+                  <div class="department-info">
+                    <ion-card-title>{{ dept.departmentName }}</ion-card-title>
+                    <ion-card-subtitle *ngIf="dept.hodName">
+                      HOD: {{ dept.hodName }}
+                    </ion-card-subtitle>
+                  </div>
+                  <div class="department-status">
+                    <ion-chip [color]="getDepartmentStatusColor(dept.status)">
+                      <ion-icon [name]="getDepartmentStatusIcon(dept.status)"></ion-icon>
+                      <ion-label>{{ getDepartmentStatusLabel(dept.status) }}</ion-label>
+                    </ion-chip>
+                  </div>
+                </div>
+              </ion-card-header>
+
+              <ion-card-content>
+                <div class="department-progress">
+                  <div class="progress-header">
+                    <span>Progress</span>
+                    <span>{{ dept.progress }}%</span>
+                  </div>
+                  <div class="progress-bar">
+                    <div class="progress-fill" [style.width.%]="dept.progress"></div>
+                  </div>
+                </div>
+
+                <div class="department-stats">
+                  <div class="stat-item">
+                    <ion-icon name="calendar"></ion-icon>
+                    <span>{{ dept.sessionsCount }} Sessions</span>
+                  </div>
+                  <div class="stat-item" *ngIf="dept.conflictsCount > 0">
+                    <ion-icon name="warning" color="danger"></ion-icon>
+                    <span>{{ dept.conflictsCount }} Conflicts</span>
+                  </div>
+                  <div class="stat-item">
+                    <ion-icon name="time"></ion-icon>
+                    <span>{{ dept.lastModified | date:'short' }}</span>
+                  </div>
+                </div>
+
+                <div class="department-actions" *ngIf="dept.status !== 'approved'">
+                  <ion-button 
+                    size="small" 
+                    fill="outline" 
+                    *ngIf="dept.status === 'not-started' || dept.status === 'in-progress'"
+                    (click)="promptDepartmentSubmission(dept); $event.stopPropagation()">
+                    <ion-icon name="paper-plane" slot="start"></ion-icon>
+                    Remind
+                  </ion-button>
+                  
+                  <ion-button 
+                    size="small" 
+                    color="success" 
+                    fill="outline"
+                    *ngIf="dept.status === 'submitted'"
+                    (click)="changeSection('timetable'); $event.stopPropagation()">
+                    <ion-icon name="checkmark" slot="start"></ion-icon>
+                    Review
+                  </ion-button>
+                </div>
+
+                <div class="feedback-section" *ngIf="dept.feedback && dept.status === 'rejected'">
+                  <p class="feedback-text">{{ dept.feedback }}</p>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </div>
+
+          <!-- Departments Needing Attention -->
+          <div class="attention-section" *ngIf="getDepartmentsNeedingAttention().length > 0">
+            <h4>
+              <ion-icon name="warning" color="danger"></ion-icon>
+              Departments Needing Attention
+            </h4>
+            <ion-list>
+              <ion-item *ngFor="let dept of getDepartmentsNeedingAttention()">
+                <ion-avatar slot="start">
+                  <ion-icon [name]="getDepartmentStatusIcon(dept.status)"></ion-icon>
+                </ion-avatar>
+                <ion-label>
+                  <h3>{{ dept.departmentName }}</h3>
+                  <p *ngIf="dept.status === 'rejected'">Submission rejected</p>
+                  <p *ngIf="dept.conflictsCount > 0">{{ dept.conflictsCount }} unresolved conflicts</p>
+                </ion-label>
+                <ion-button slot="end" fill="outline" size="small" (click)="viewDepartmentDetails(dept)">
+                  View Details
+                </ion-button>
+              </ion-item>
+            </ion-list>
           </div>
         </div>
 
@@ -232,8 +375,8 @@
                       </ion-card-subtitle>
                     </div>
                     <div class="submission-status">
-                      <ion-chip [color]="getStatusColor(timetable.status)">
-                        <ion-icon [name]="getStatusIcon(timetable.status)"></ion-icon>
+                      <ion-chip [color]="getTimetableStatusColor(timetable.status)">
+                        <ion-icon [name]="getTimetableStatusIcon(timetable.status)"></ion-icon>
                         <ion-label>{{ timetable.status | titlecase }}</ion-label>
                       </ion-chip>
                     </div>
@@ -244,6 +387,7 @@
                   <div class="submission-details">
                     <p><strong>HOD:</strong> {{ timetable.hodEmail }}</p>
                     <p><strong>Sessions:</strong> {{ timetable.sessions?.length || 0 }}</p>
+                    <p><strong>Status:</strong> {{ timetable.status | titlecase }}</p>
                     <p><strong>Submitted:</strong> {{ formatDate(timetable.submittedAt) }}</p>
                     <div *ngIf="timetable.adminFeedback" class="admin-feedback">
                       <p><strong>Admin Feedback:</strong></p>
@@ -258,7 +402,7 @@
                       View Details
                     </ion-button>
                     
-                    <div *ngIf="timetable.status === 'submitted'" class="approval-actions">
+                    <div *ngIf="timetable.status === 'submitted' || timetable.status === 'pending'" class="approval-actions">
                       <ion-button color="success" size="small" 
                         [disabled]="isSubmitting"
                         (click)="selectAndApprove(timetable)">
@@ -312,8 +456,8 @@
                     </ion-card-content>
                   </ion-card>
 
-                  <!-- Action buttons for submitted timetables -->
-                  <div *ngIf="selectedSubmittedTimetable.status === 'submitted'" class="action-buttons">
+                  <!-- Action buttons for submitted or pending timetables -->
+                  <div *ngIf="selectedSubmittedTimetable.status === 'submitted' || selectedSubmittedTimetable.status === 'pending'" class="action-buttons">
                     <ion-button color="success" 
                       [disabled]="departmentSubmissionConflicts.length > 0 || isSubmitting" 
                       (click)="approveDepartmentSubmission()">
@@ -365,6 +509,12 @@
                   <ion-icon name="document-outline" size="large" color="medium"></ion-icon>
                   <h3>No Submitted Timetables</h3>
                   <p>There are currently no timetable submissions from departments.</p>
+                  
+                  <!-- Temporary test button -->
+                  <ion-button fill="outline" (click)="createTestTimetableSubmission()">
+                    <ion-icon name="add-outline" slot="start"></ion-icon>
+                    Create Test Submission
+                  </ion-button>
                 </ion-card-content>
               </ion-card>
             </div>
