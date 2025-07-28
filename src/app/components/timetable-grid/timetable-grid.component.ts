@@ -2,6 +2,8 @@ import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitte
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
+import { Firestore, collection, getDocs } from '@angular/fire/firestore';
+import { Observable } from 'rxjs';
 
 export interface TimeSlot {
   id: number;
@@ -58,6 +60,12 @@ export class TimetableGridComponent implements OnInit, OnChanges {
   startDate: Date = new Date();
   endDate: Date = new Date(new Date().setDate(new Date().getDate() + 6));
 
+  // Filter options fetched from Firestore
+  venues: string[] = [];
+  modules: string[] = [];
+  lecturers: string[] = [];
+  groups: string[] = [];
+
   // Filters
   viewFilters = {
     venue: '',
@@ -105,10 +113,14 @@ export class TimetableGridComponent implements OnInit, OnChanges {
   previewDropZone: { day: number, slot: number, valid: boolean } | null = null;
   dragGhost: HTMLElement | null = null;
 
-  constructor(private cdr: ChangeDetectorRef) { }
+  constructor(
+    private cdr: ChangeDetectorRef,
+    private firestore: Firestore
+  ) { }
 
-  ngOnInit() {
+  async ngOnInit() {
     // No mock data generation - use only provided sessions
+    await this.fetchFilterOptions();
     this.updateSessionTracker();
     console.log('TimetableGrid initialized with', this.sessions.length, 'sessions');
   }
@@ -125,6 +137,30 @@ export class TimetableGridComponent implements OnInit, OnChanges {
       this.cdr.detectChanges();
     }
     console.log('Sessions updated:', this.sessions.length, 'unique sessions');
+  }
+
+  private async fetchFilterOptions() {
+    try {
+      // Fetch venues
+      const venueSnapshot = await getDocs(collection(this.firestore, 'venues'));
+      this.venues = venueSnapshot.docs.map(doc => doc.data()['name']).sort();
+
+      // Fetch modules
+      const moduleSnapshot = await getDocs(collection(this.firestore, 'modules'));
+      this.modules = moduleSnapshot.docs.map(doc => doc.data()['name']).sort();
+
+      // Fetch lecturers
+      const lecturerSnapshot = await getDocs(collection(this.firestore, 'lecturers'));
+      this.lecturers = lecturerSnapshot.docs.map(doc => doc.data()['name']).sort();
+
+      // Fetch groups
+      const groupSnapshot = await getDocs(collection(this.firestore, 'groups'));
+      this.groups = groupSnapshot.docs.map(doc => doc.data()['name']).sort();
+
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
   }
 
   private updateSessionTracker() {
@@ -177,8 +213,29 @@ export class TimetableGridComponent implements OnInit, OnChanges {
 
   applyFilters() {
     // Apply selected filters
+    this.cdr.detectChanges();
   }
 
+  getFilteredSessions() {
+    let filtered = [...this.sessions];
+
+    if (this.viewFilters.venue) {
+      filtered = filtered.filter(s => s.venue === this.viewFilters.venue);
+    }
+    if (this.viewFilters.lecturer) {
+      filtered = filtered.filter(s => s.lecturer === this.viewFilters.lecturer);
+    }
+    if (this.viewFilters.group) {
+      filtered = filtered.filter(s => s.group === this.viewFilters.group);
+    }
+    if (this.viewFilters.module) {
+      filtered = filtered.filter(s => s.module === this.viewFilters.module || 
+                                    s.moduleCode.includes(this.viewFilters.module));
+    }
+
+    return filtered;
+  }
+  /*
   getFilteredSessions() {
     let filtered = [...this.sessions];
     
@@ -197,7 +254,7 @@ export class TimetableGridComponent implements OnInit, OnChanges {
     }
     
     return filtered;
-  }
+  }*/
 
   getSessionsForDayAndSlot(day: number, slot: number) {
     return this.getFilteredSessions().filter(

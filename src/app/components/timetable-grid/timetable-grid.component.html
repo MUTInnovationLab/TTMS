@@ -36,9 +36,7 @@
       
       <ion-select interface="popover" placeholder="Venue" [(ngModel)]="viewFilters.venue">
         <ion-select-option value="">All Venues</ion-select-option>
-        <ion-select-option value="Room A101">Room A101</ion-select-option>
-        <ion-select-option value="Room B205">Room B205</ion-select-option>
-        <ion-select-option value="Room C310">Room C310</ion-select-option>
+        <ion-select-option *ngFor="let venue of venues" [value]="venue">{{ venue }}</ion-select-option>
       </ion-select>
       
       <ion-select interface="popover" placeholder="Lecturer" [(ngModel)]="viewFilters.lecturer">
@@ -47,7 +45,14 @@
         <ion-select-option value="Prof. Johnson">Prof. Johnson</ion-select-option>
         <ion-select-option value="Dr. Williams">Dr. Williams</ion-select-option>
       </ion-select>
-      
+
+      <ion-select interface="popover" placeholder="Module" [(ngModel)]="viewFilters.module">
+        <ion-select-option value="">All Modules</ion-select-option>
+        <ion-select-option value="Dr. Smith">Dr. Smith</ion-select-option>
+        <ion-select-option value="Prof. Johnson">Prof. Johnson</ion-select-option>
+        <ion-select-option value="Dr. Williams">Dr. Williams</ion-select-option>
+      </ion-select>
+
       <ion-select interface="popover" placeholder="Group" [(ngModel)]="viewFilters.group">
         <ion-select-option value="">All Groups</ion-select-option>
         <ion-select-option value="CS Year 1">CS Year 1</ion-select-option>
