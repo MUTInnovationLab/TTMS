@@ -1927,7 +1927,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     try {
       const firebaseApp = firebase.app();
       const firestore = firebaseApp.firestore();
-      const departmentDocRef = firestore.collection('modules').doc(departmentName);
+      const departmentDocRef = firestore.collection('module').doc(departmentName);
 
       // Get the department document
       const docSnap = await departmentDocRef.get();
