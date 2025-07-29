@@ -417,7 +417,7 @@ export class AuthService {
             this.router.navigate(['/admin-dash']);
             break;
           case 'hod':
-            this.router.navigate(['/admin-dash']); // Redirect HOD to admin-dash instead of hod-dash
+            this.router.navigate(['/hod-dash']); // Redirect HOD to hod-dash as requested
             break;
           case 'lecturer':
             this.router.navigate(['/lecturer-dash']);
