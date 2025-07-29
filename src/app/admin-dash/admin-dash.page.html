@@ -602,7 +602,7 @@
               </ion-avatar>
               <ion-label>
                 <h2>{{user.title}} {{user.name}}</h2>
-                <p>{{user.email}}</p>
+                <p>{{user.contact?.email}}</p>
                 <p>Department: {{user.department}}</p>
               </ion-label>
               <ion-badge slot="end" color="primary">{{user.role || 'HOD'}}</ion-badge>

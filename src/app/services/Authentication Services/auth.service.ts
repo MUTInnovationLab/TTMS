@@ -144,7 +144,7 @@ export class AuthService {
               firestore.collection(this.USER_ROLES_COLLECTION).doc(uid).set({
                 email,
                 role,
-                isFirstLogin: true,
+                isFirstLogin: false,
                 createdAt: new Date()
               })
               .then(() => {
@@ -417,7 +417,7 @@ export class AuthService {
             this.router.navigate(['/admin-dash']);
             break;
           case 'hod':
-            this.router.navigate(['/hod-dash']);
+            this.router.navigate(['/admin-dash']); // Redirect HOD to admin-dash instead of hod-dash
             break;
           case 'lecturer':
             this.router.navigate(['/lecturer-dash']);

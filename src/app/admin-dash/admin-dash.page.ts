@@ -151,35 +151,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
   notifyUsers: boolean = true;
   
   // User management
-  users = [
-    { 
-      id: 1, 
-      title: 'DR',
-      name: 'John Smith', 
-      email: 'john.smith@example.com', 
-      role: 'HOD', 
-      department: 'COMPUTER SCIENCE',
-      avatar: 'assets/avatar1.png' 
-    },
-    { 
-      id: 2, 
-      title: 'MS',
-      name: 'Jane Doe', 
-      email: 'jane.doe@example.com', 
-      role: 'HOD', 
-      department: 'ELECTRICAL ENGINEERING',
-      avatar: 'assets/avatar2.png' 
-    },
-    { 
-      id: 3, 
-      title: 'PROF',
-      name: 'Robert Johnson', 
-      email: 'robert.j@example.com', 
-      role: 'HOD', 
-      department: 'MATHEMATICS',
-      avatar: 'assets/avatar3.png' 
-    }
-  ];
+  users: User[] = [];
   
   // Department management
   departments: Department[] = [];
@@ -333,11 +305,11 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.loadVenues(); // Load venues from database
     this.loadDepartments(); // Load departments from database
     this.loadSubmittedTimetables(); // Load submitted timetables from database
-    
+
     // Initialize real-time stats and department submission tracking
     this.initializeRealTimeStats();
     this.initializeDepartmentSubmissionTracking();
-    
+
     // Set initial sidebar state
     this.sidebarVisible = this.sidebarService.isSidebarVisible;
     console.log('Initial sidebar state:', this.sidebarVisible);
@@ -351,9 +323,12 @@ export class AdminDashPage implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     );
-    
-    // Load Heads of Department from Firebase
+
+    // Always load HODs on init so the table is populated on first load
     this.loadHODs();
+
+    // Use changeSection to trigger loading for the initial active section
+    this.changeSection(this.activeSection);
   }
 
   // Load departments from database
@@ -382,20 +357,19 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Load HODs from Firebase
   loadHODs() {
-    console.log('Loading HODs from Firebase');
+    console.log('Loading HODs from Staff collection');
     this.staffService.getAllHODs().subscribe({
       next: (hods) => {
-        console.log('HODs loaded successfully:', hods);
-        // Transform the data to match our display format
+        console.log('Loaded HODs:', hods);
         this.users = hods.map(hod => ({
-          id: Number(hod.id),
+          id: String(hod.id),
           title: hod.title || '',
           name: hod.name || '',
-          email: hod.contact?.email || '',
+          contact: { email: hod.contact?.email || '' },
           role: hod.role || 'HOD',
-          department: hod.department || '',
-          avatar: hod.profile || 'assets/default-avatar.png'
+          department: hod.department || ''
         }));
+        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Error loading HODs:', error);
@@ -787,6 +761,10 @@ export class AdminDashPage implements OnInit, OnDestroy {
   // Navigation
   changeSection(section: string) {
     this.activeSection = section;
+    if (section === 'users') {
+      // Always reload HODs when switching to User Management
+      this.loadHODs();
+    }
     if (window.innerWidth < 768) { // Hide sidebar on mobile after selection
       this.sidebarService.hideSidebar();
     }
@@ -2079,10 +2057,10 @@ export class AdminDashPage implements OnInit, OnDestroy {
     const index = this.users.findIndex(u => u.id === userData.id);
     if (index !== -1) {
       this.users[index] = {
-        id: Number(updatedData.id), // Convert string id to number
+        id: String(updatedData.id), // Convert id to string to match User interface
         title: updatedData.title,
         name: updatedData.name,
-        email: updatedData.contact.email, // Use email from contact object
+        contact: updatedData.contact, // Use contact object instead of email property
         role: updatedData.role,
         department: updatedData.department,
         avatar: this.users[index].avatar || 'assets/default-avatar.png'
@@ -2118,8 +2096,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
         }
         
         // 1. Create the authentication account with a secure password
-        const defaultPassword = this.authService.generateDefaultPassword();
-        console.log('Generated default password:', defaultPassword);
+        const defaultPassword = 'def@Pass#01';
+        console.log('Using fixed default password:', defaultPassword);
         
         this.authService.createUserAccount(hodData.contact.email, 'HOD', defaultPassword).subscribe({
           next: authResult => {
@@ -2313,6 +2291,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
       componentProps: {
         venue: venueData,
         isEditMode: !!venueData
+     
       },
       cssClass: 'add-venue-modal'
     });

@@ -40,6 +40,7 @@ export interface User {
   tags?: string[];
   createdAt?: Date;
   updatedAt?: Date;
+  avatar?: string;
 }
 
 @Component({
