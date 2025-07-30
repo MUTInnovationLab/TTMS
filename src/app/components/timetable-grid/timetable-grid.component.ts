@@ -5,6 +5,18 @@ import { FormsModule } from '@angular/forms';
 import { Firestore, collection, getDocs } from '@angular/fire/firestore';
 import { Observable } from 'rxjs';
 
+// Define Module and ModulesDocument interfaces for Firestore data
+interface Module {
+  name: string;
+  code?: string;
+  [key: string]: any;
+}
+
+interface ModulesDocument {
+  modules: Module[];
+  [key: string]: any;
+}
+
 export interface TimeSlot {
   id: number;
   start: string;
@@ -145,9 +157,16 @@ export class TimetableGridComponent implements OnInit, OnChanges {
       const venueSnapshot = await getDocs(collection(this.firestore, 'venues'));
       this.venues = venueSnapshot.docs.map(doc => doc.data()['name']).sort();
 
-      // Fetch modules
-      const moduleSnapshot = await getDocs(collection(this.firestore, 'modules'));
-      this.modules = moduleSnapshot.docs.map(doc => doc.data()['name']).sort();
+      // Fetch modules (handle array of module objects)
+      const moduleSnapshot = await getDocs(collection(this.firestore, 'module'));
+      this.modules = moduleSnapshot.docs
+        .flatMap((doc): Module[] => {
+          const data = doc.data() as ModulesDocument;
+          return data.modules || [];
+        })
+        .map((module: Module) => module.name)
+        .filter((item): item is string => !!item)
+        .sort() || ['All Modules']
 
       // Fetch lecturers
       const lecturerSnapshot = await getDocs(collection(this.firestore, 'lecturers'));
@@ -235,26 +254,6 @@ export class TimetableGridComponent implements OnInit, OnChanges {
 
     return filtered;
   }
-  /*
-  getFilteredSessions() {
-    let filtered = [...this.sessions];
-    
-    if (this.viewFilters.venue) {
-      filtered = filtered.filter(s => s.venue.includes(this.viewFilters.venue));
-    }
-    if (this.viewFilters.lecturer) {
-      filtered = filtered.filter(s => s.lecturer.includes(this.viewFilters.lecturer));
-    }
-    if (this.viewFilters.group) {
-      filtered = filtered.filter(s => s.group.includes(this.viewFilters.group));
-    }
-    if (this.viewFilters.module) {
-      filtered = filtered.filter(s => s.module.includes(this.viewFilters.module) || 
-                                     s.moduleCode.includes(this.viewFilters.module));
-    }
-    
-    return filtered;
-  }*/
 
   getSessionsForDayAndSlot(day: number, slot: number) {
     return this.getFilteredSessions().filter(
