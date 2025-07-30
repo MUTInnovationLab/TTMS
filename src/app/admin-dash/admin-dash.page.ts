@@ -17,7 +17,7 @@ import { VenueService, VenueDisplayInfo } from '../services/Entity Management Se
 import { DepartmentService } from '../services/Entity Management Services/department.service';
 import { TimetableDatabaseService, TimetableDocument } from '../services/Timetable Core Services/timetable-database.service';
 import { ToastController } from '@ionic/angular';
-import { Firestore, collection, collectionData, query, where, onSnapshot, doc } from '@angular/fire/firestore';
+import { AngularFirestore, AngularFirestoreCollection } from '@angular/fire/compat/firestore';
 import { startWith, switchMap } from 'rxjs/operators';
 
 interface ConflictSummary {
@@ -271,7 +271,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Add isSubmitting property if it doesn't exist
   isSubmitting: boolean = false;
-  private _departmentService?: DepartmentService;
+  // Removed lazy getter for DepartmentService to fix circular dependency
+
+  private departmentsCollection: AngularFirestoreCollection<Department>;
 
   constructor(
     private alertController: AlertController,
@@ -282,20 +284,13 @@ export class AdminDashPage implements OnInit, OnDestroy {
     private authService: AuthService,
     private staffService: StaffService,
     private venueService: VenueService,
-    private injector: Injector,
+    private departmentService: DepartmentService,
     private timetableDatabaseService: TimetableDatabaseService,
     private toastController: ToastController,
-    private firestore: Firestore
+    private afs: AngularFirestore
   ) { 
     console.log('AdminDashPage constructor');
-  }
-
-  // Lazy getter for DepartmentService
-  private get departmentService(): DepartmentService {
-    if (!this._departmentService) {
-      this._departmentService = this.injector.get(DepartmentService);
-    }
-    return this._departmentService;
+    this.departmentsCollection = this.afs.collection<Department>('departments');
   }
 
   ngOnInit() {
@@ -432,8 +427,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get department count from Firestore
   private getDepartmentCount() {
-    const departmentsCollection = collection(this.firestore, 'departments');
-    return collectionData(departmentsCollection).pipe(
+    return this.afs.collection('departments').valueChanges().pipe(
       startWith([]),
       switchMap(departments => [departments.length])
     );
@@ -441,8 +435,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get venue count from Firestore
   private getVenueCount() {
-    const venuesCollection = collection(this.firestore, 'venues');
-    return collectionData(venuesCollection).pipe(
+    return this.afs.collection('venues').valueChanges().pipe(
       startWith([]),
       switchMap(venues => [venues.length])
     );
@@ -450,8 +443,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get session count from all timetables
   private getSessionCount() {
-    const timetablesCollection = collection(this.firestore, 'timetables');
-    return collectionData(timetablesCollection).pipe(
+    return this.afs.collection('timetables').valueChanges().pipe(
       startWith([]),
       switchMap(timetables => {
         let totalSessions = 0;
@@ -467,8 +459,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get conflict count from all timetables
   private getConflictCount() {
-    const timetablesCollection = collection(this.firestore, 'timetables');
-    return collectionData(timetablesCollection).pipe(
+    return this.afs.collection('timetables').valueChanges().pipe(
       startWith([]),
       switchMap(timetables => {
         let totalConflicts = 0;
@@ -487,8 +478,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get submission counts by status
   private getSubmissionCounts() {
-    const timetablesCollection = collection(this.firestore, 'timetables');
-    return collectionData(timetablesCollection).pipe(
+    return this.afs.collection('timetables').valueChanges().pipe(
       startWith([]),
       switchMap(timetables => {
         const counts = {
@@ -524,8 +514,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get active user count from authentication collection
   private getActiveUserCount() {
-    const usersCollection = collection(this.firestore, 'users');
-    return collectionData(usersCollection).pipe(
+    return this.afs.collection('users').valueChanges().pipe(
       startWith([]),
       switchMap(users => {
         // Count users who have logged in within the last 30 days
@@ -580,7 +569,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
             }
             
             if (latestTimetable['reviewedAt']) {
-              reviewedAt = latestTimetable['reviewedAt'].toDate ? latestTimetable['reviewedAt'].toDate() : new Date(latestTimetable['reviewedAt']);
+              reviewedAt = latestTimetable['reviewedAt']?.toDate ? latestTimetable['reviewedAt'].toDate() : new Date(latestTimetable['reviewedAt']);
             }
             
             if (latestTimetable['sessions']) {
@@ -615,14 +604,12 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Helper method to get departments
   private getDepartments() {
-    const departmentsCollection = collection(this.firestore, 'departments');
-    return collectionData(departmentsCollection, { idField: 'id' });
+    return this.afs.collection<Department>('departments').valueChanges({ idField: 'id' });
   }
 
   // Helper method to get timetables
   private getTimetables() {
-    const timetablesCollection = collection(this.firestore, 'timetables');
-    return collectionData(timetablesCollection, { idField: 'id' });
+    return this.afs.collection<TimetableDocument>('timetables').valueChanges({ idField: 'id' });
   }
 
   // Map timetable status to submission status

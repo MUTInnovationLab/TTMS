@@ -1,179 +1,54 @@
 <ion-header>
   <ion-toolbar>
-    <ion-title>{{ isEditMode ? 'Edit Department' : 'Add New Department' }}</ion-title>
+    <ion-title>{{ department ? 'Edit Department' : 'Add Department' }}</ion-title>
     <ion-buttons slot="end">
-      <ion-button fill="clear" (click)="cancel()">
+      <ion-button (click)="cancel()">
         <ion-icon name="close"></ion-icon>
       </ion-button>
     </ion-buttons>
   </ion-toolbar>
 </ion-header>
 
-<ion-content class="ion-padding">
-  <form [formGroup]="departmentForm" (ngSubmit)="onSubmit()">
-    
-    <!-- Basic Information -->
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title>Basic Information</ion-card-title>
-      </ion-card-header>
-      <ion-card-content>
-        
-        <!-- Department Name -->
-        <ion-item>
-          <ion-label position="stacked">Department Name *</ion-label>
-          <ion-input 
-            type="text" 
-            formControlName="name" 
-            placeholder="e.g., Computer Science"
-            [class.ion-invalid]="isFieldInvalid('name')"
-            errorText="{{ getFieldError('name') }}">
-          </ion-input>
-        </ion-item>
-        
-        <!-- Department Code -->
-        <ion-item>
-          <ion-label position="stacked">Department Code *</ion-label>
-          <ion-input 
-            type="text" 
-            formControlName="code" 
-            placeholder="e.g., CS"
-            [class.ion-invalid]="isFieldInvalid('code')"
-            errorText="{{ getFieldError('code') }}">
-          </ion-input>
-          <ion-note slot="helper">Use uppercase letters and numbers only</ion-note>
-        </ion-item>
-        
-        <!-- Description -->
-        <ion-item>
-          <ion-label position="stacked">Description *</ion-label>
-          <ion-textarea 
-            formControlName="description" 
-            placeholder="Brief description of the department"
-            rows="3"
-            [class.ion-invalid]="isFieldInvalid('description')"
-            errorText="{{ getFieldError('description') }}">
-          </ion-textarea>
-        </ion-item>
-        
-        <!-- Status -->
-        <ion-item>
-          <ion-label position="stacked">Status *</ion-label>
-          <ion-select formControlName="status" interface="popover">
-            <ion-select-option value="active">Active</ion-select-option>
-            <ion-select-option value="inactive">Inactive</ion-select-option>
-          </ion-select>
-        </ion-item>
+<ion-content>
+  <form [formGroup]="departmentForm" (ngSubmit)="submitForm()">
+    <ion-list>
+      <ion-item>
+        <ion-label position="floating">Department Name</ion-label>
+        <ion-input formControlName="name" type="text" required></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="departmentForm.get('name')?.touched && departmentForm.get('name')?.invalid">
+        Department name is required.
+      </ion-note>
 
-      </ion-card-content>
-    </ion-card>
+      <ion-item>
+        <ion-label position="floating">Department Code</ion-label>
+        <ion-input formControlName="code" type="text" required></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="departmentForm.get('code')?.touched && departmentForm.get('code')?.invalid">
+        Department code is required.
+      </ion-note>
 
-    <!-- Contact Information -->
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title>Contact Information</ion-card-title>
-      </ion-card-header>
-      <ion-card-content>
-        
-        <!-- Location -->
-        <ion-item>
-          <ion-label position="stacked">Location *</ion-label>
-          <ion-input 
-            type="text" 
-            formControlName="location" 
-            placeholder="e.g., Building A, Floor 2"
-            [class.ion-invalid]="isFieldInvalid('location')"
-            errorText="{{ getFieldError('location') }}">
-          </ion-input>
-        </ion-item>
-        
-        <!-- Phone -->
-        <ion-item>
-          <ion-label position="stacked">Phone *</ion-label>
-          <ion-input 
-            type="tel" 
-            formControlName="phone" 
-            placeholder="e.g., +27 12 345 6789"
-            [class.ion-invalid]="isFieldInvalid('phone')"
-            errorText="{{ getFieldError('phone') }}">
-          </ion-input>
-        </ion-item>
-        
-        <!-- Email -->
-        <ion-item>
-          <ion-label position="stacked">Email *</ion-label>
-          <ion-input 
-            type="email" 
-            formControlName="email" 
-            placeholder="e.g., cs@university.edu"
-            [class.ion-invalid]="isFieldInvalid('email')"
-            errorText="{{ getFieldError('email') }}">
-          </ion-input>
-        </ion-item>
+      <ion-item>
+        <ion-label position="floating">Location</ion-label>
+        <ion-input formControlName="location" type="text" required></ion-input>
+      </ion-item>
+      <ion-note color="danger" *ngIf="departmentForm.get('location')?.touched && departmentForm.get('location')?.invalid">
+        Location is required.
+      </ion-note>
 
-      </ion-card-content>
-    </ion-card>
+      <ion-item>
+        <ion-label position="floating">Head of Department (HOD) Name</ion-label>
+        <ion-input formControlName="hodName" type="text"></ion-input>
+      </ion-item>
+    </ion-list>
 
-    <!-- Additional Information -->
-    <ion-card>
-      <ion-card-header>
-        <ion-card-title>Additional Information</ion-card-title>
-      </ion-card-header>
-      <ion-card-content>
-        
-        <!-- Budget -->
-        <ion-item>
-          <ion-label position="stacked">Annual Budget (Optional)</ion-label>
-          <ion-input 
-            type="number" 
-            formControlName="budget" 
-            placeholder="0"
-            min="0">
-          </ion-input>
-          <ion-note slot="helper">Budget in local currency</ion-note>
-        </ion-item>
-        
-        <!-- Established Year -->
-        <ion-item>
-          <ion-label position="stacked">Established Year *</ion-label>
-          <ion-input 
-            type="number" 
-            formControlName="establishedYear" 
-            [min]="1900"
-            [max]="currentYear"
-            [class.ion-invalid]="isFieldInvalid('establishedYear')"
-            errorText="{{ getFieldError('establishedYear') }}">
-          </ion-input>
-        </ion-item>
-
-      </ion-card-content>
-    </ion-card>
-
-    <!-- Form Actions -->
-    <div class="form-actions">
-      <ion-button 
-        expand="block" 
-        type="submit" 
-        [disabled]="isSubmitting || departmentForm.invalid"
-        class="submit-button">
-        <ion-spinner name="crescent" *ngIf="isSubmitting"></ion-spinner>
-        <span *ngIf="!isSubmitting">
-          {{ isEditMode ? 'Update Department' : 'Create Department' }}
-        </span>
-        <span *ngIf="isSubmitting">
-          {{ isEditMode ? 'Updating...' : 'Creating...' }}
-        </span>
-      </ion-button>
-      
-      <ion-button 
-        expand="block" 
-        fill="outline" 
-        color="medium" 
-        (click)="cancel()"
-        [disabled]="isSubmitting">
-        Cancel
-      </ion-button>
-    </div>
-
+    <ion-footer>
+      <ion-toolbar>
+        <ion-buttons slot="end">
+          <ion-button type="button" fill="outline" (click)="cancel()">Cancel</ion-button>
+          <ion-button type="submit" [disabled]="departmentForm.invalid">{{ department ? 'Update' : 'Add' }}</ion-button>
+        </ion-buttons>
+      </ion-toolbar>
+    </ion-footer>
   </form>
 </ion-content>
