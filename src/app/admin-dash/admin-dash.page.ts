@@ -2047,6 +2047,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
         this.handleExistingUserUpdate(userData, data);
       } else {
         // Adding new HOD
+        // Prevent navigation by only reloading HOD list and closing modal
         this.handleNewHodCreation(data);
       }
     }
@@ -2086,20 +2087,34 @@ export class AdminDashPage implements OnInit, OnDestroy {
     // Show loading state
     this.isSubmitting = true;
     
+    // Add safeguard to prevent navigation after adding a new user
+    const originalNavigate = this.router.navigate;
+    this.router.navigate = (...args: any[]) => {
+      console.log('Navigation prevented during new HOD creation:', args);
+      return Promise.resolve(false);
+    };
+    
     // First check if email already exists
     this.authService.checkEmailExists(hodData.contact.email).subscribe({
       next: exists => {
         if (exists) {
           this.presentToast(`Email ${hodData.contact.email} is already in use. Please use a different email.`);
           this.isSubmitting = false;
+      
+          // Restore original navigation
+          this.router.navigate = originalNavigate;
           return;
         }
         
         // 1. Create the authentication account with a secure password
         const defaultPassword = 'def@Pass#01';
         console.log('Using fixed default password:', defaultPassword);
+
+        // Assume admin credentials are stored securely in environment or service
+        const adminEmail = 'admin@example.com'; // TODO: Replace with actual admin email retrieval
+        const adminPassword = 'adminPassword123'; // TODO: Replace with actual admin password retrieval
         
-        this.authService.createUserAccount(hodData.contact.email, 'HOD', defaultPassword).subscribe({
+        this.authService.createUserAccount(hodData.contact.email, 'HOD', defaultPassword, adminEmail, adminPassword).subscribe({
           next: authResult => {
             if (authResult.success) {
               console.log('Auth account created successfully, now creating staff record');
@@ -2120,23 +2135,35 @@ export class AdminDashPage implements OnInit, OnDestroy {
                     this.presentToast(`Error creating staff record: ${staffResult.message}`);
                   }
                   this.isSubmitting = false;
+                  
+                  // Restore original navigation
+                  this.router.navigate = originalNavigate;
                 },
                 error: error => {
                   console.error('Error in staff service:', error);
                   this.presentToast('Error adding staff record: ' + (error.message || 'Unknown error'));
                   this.isSubmitting = false;
+                  
+                  // Restore original navigation
+                  this.router.navigate = originalNavigate;
                 }
               });
             } else {
               console.error('Auth creation failed:', authResult.message);
               this.presentToast(`Auth account error: ${authResult.message}`);
               this.isSubmitting = false;
+              
+              // Restore original navigation
+              this.router.navigate = originalNavigate;
             }
           },
           error: error => {
             console.error('Error in auth service:', error);
             this.presentToast('Error creating authentication account: ' + (error.message || 'Unknown error'));
             this.isSubmitting = false;
+            
+            // Restore original navigation
+            this.router.navigate = originalNavigate;
           }
         });
       },
@@ -2144,6 +2171,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
         console.error('Error checking email existence:', error);
         this.presentToast('Error checking if email exists: ' + (error.message || 'Unknown error'));
         this.isSubmitting = false;
+        
+        // Restore original navigation
+        this.router.navigate = originalNavigate;
       }
     });
   }

@@ -117,7 +117,7 @@ export class AuthService {
   }
   
   // Create a new authentication account for a staff member
-  createUserAccount(email: string, role: string, defaultPassword: string = 'TTMS@123'): Observable<{ success: boolean, message: string, account?: AuthAccount }> {
+  createUserAccount(email: string, role: string, defaultPassword: string = 'TTMS@123', adminEmail?: string, adminPassword?: string): Observable<{ success: boolean, message: string, account?: AuthAccount }> {
     console.log('Creating Firebase auth account for:', email, 'with role:', role);
     
     // Create the user with Firebase Authentication
@@ -160,7 +160,7 @@ export class AuthService {
               reject(error);
             }
           })).pipe(
-            map(() => {
+            switchMap(() => {
               const newAccount: AuthAccount = {
                 email,
                 password: defaultPassword,
@@ -168,11 +168,12 @@ export class AuthService {
                 uid,
                 isFirstLogin: true
               };
-              return {
+              // Do not sign back in as admin or new user to prevent navigation
+              return of({
                 success: true,
-                message: 'Account created successfully',
+                message: 'Account created successfully without sign-in',
                 account: newAccount
-              };
+              });
             })
           );
         }),
