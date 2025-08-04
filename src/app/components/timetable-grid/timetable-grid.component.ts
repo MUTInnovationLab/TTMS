@@ -16,6 +16,18 @@ interface ModulesDocument {
   modules: Module[];
   [key: string]: any;
 }
+
+// Define Lecturer and StaffDocument interfaces for Firestore data
+interface Lecturer {
+  name: string;
+  [key: string]: any;
+}
+
+interface StaffDocument {
+  lecturers: Lecturer[];
+  [key: string]: any;
+}
+
 import { AlertController, ToastController, ModalController } from '@ionic/angular';
 import { AcademicCalendarUploadComponent, AcademicCalendarData } from '../academic-calendar-upload/academic-calendar-upload.component';
 
@@ -232,8 +244,15 @@ export class TimetableGridComponent implements OnInit, OnChanges {
         .sort() || ['All Modules']
 
       // Fetch lecturers
-      const lecturerSnapshot = await getDocs(collection(this.firestore, 'lecturers'));
-      this.lecturers = lecturerSnapshot.docs.map(doc => doc.data()['name']).sort();
+      const lecturerSnapshot = await getDocs(collection(this.firestore, 'staff'));
+      this.lecturers = lecturerSnapshot.docs
+        .flatMap((doc): Lecturer[] => {
+          const data = doc.data() as StaffDocument;
+          return data.lecturers || [];
+        })
+        .map((lecturer: Lecturer) => lecturer.name)
+        .filter((item): item is string => !!item)
+        .sort() || ['All Lecturers'];
 
       // Fetch groups
       const groupSnapshot = await getDocs(collection(this.firestore, 'groups'));

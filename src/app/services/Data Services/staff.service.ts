@@ -567,6 +567,7 @@ export class StaffService {
   }
 
   getModulesByDepartment(department: string): Observable<Module[]> {
+    console.log('Fetching modules for department:', department);
     return from(new Promise<Module[]>((resolve, reject) => {
       try {
         const firebaseApp = firebase.app();
@@ -578,6 +579,7 @@ export class StaffService {
             if (doc.exists) {
               const data = doc.data() as any;
               const modules = data.modules || [];
+              console.log('Raw modules data:', modules);
               
               // Map the modules array to Module format
               const mappedModules: Module[] = modules.map((module: any) => ({
@@ -597,6 +599,7 @@ export class StaffService {
                 updatedAt: module.updatedAt ? module.updatedAt.toDate() : new Date()
               }));
               
+              console.log('Mapped modules:', mappedModules);
               resolve(mappedModules);
             } else {
               console.log('No module document found for department:', department);

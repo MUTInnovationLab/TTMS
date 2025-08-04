@@ -1884,22 +1884,37 @@ export class HodDashPage implements OnInit, OnDestroy {
   }
 
     loadDepartmentModules() {
-      this.moduleService.getDepartmentModules().subscribe({
-        next: (modules) => {
-          console.log('Department modules loaded:', modules);
-          // Attach module.id as firebaseId for update
-          this.modules = modules.map(module => ({
-            ...module,
-            firebaseId: module.id // Use module.id as Firestore doc ID
-          }));
-          console.log('Mapped modules for display:', this.modules);
-          this.departmentStats.modules = this.modules.length;
-        },
-        error: (error) => {
-          console.error('Error loading department modules:', error);
-          this.presentToast('Error loading modules: ' + (error.message || 'Unknown error'));
-        }
-      });
+      const currentUser$ = this.authService.getCurrentUser();
+      if (currentUser$) {
+        currentUser$.subscribe({
+          next: (user) => {
+            const department = user.department;
+            console.log('Loading modules for department:', department);
+            this.moduleService.getDepartmentModules().subscribe({
+              next: (modules) => {
+                console.log('Department modules loaded:', modules);
+                this.modules = modules.map(module => ({
+                  ...module,
+                  firebaseId: module.id
+                }));
+                console.log('Mapped modules for display:', this.modules);
+                this.departmentStats.modules = this.modules.length;
+              },
+              error: (error) => {
+                console.error('Error loading department modules:', error);
+                this.presentToast('Error loading modules: ' + (error.message || 'Unknown error'));
+              }
+            });
+          },
+          error: (error) => {
+            console.error('Error getting current user:', error);
+            this.presentToast('Error loading user data: ' + (error.message || 'Unknown error'));
+          }
+        });
+      } else {
+        console.warn('No current user observable available');
+        this.presentToast('Unable to load modules: No user data available');
+      }
     }
 
 
