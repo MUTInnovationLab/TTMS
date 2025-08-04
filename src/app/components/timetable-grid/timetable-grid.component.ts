@@ -2,6 +2,20 @@ import { Component, OnInit, OnChanges, SimpleChanges, Input, Output, EventEmitte
 import { CommonModule } from '@angular/common';
 import { IonicModule } from '@ionic/angular';
 import { FormsModule } from '@angular/forms';
+import { Firestore, collection, getDocs } from '@angular/fire/firestore';
+import { Observable } from 'rxjs';
+
+// Define Module and ModulesDocument interfaces for Firestore data
+interface Module {
+  name: string;
+  code?: string;
+  [key: string]: any;
+}
+
+interface ModulesDocument {
+  modules: Module[];
+  [key: string]: any;
+}
 import { AlertController, ToastController, ModalController } from '@ionic/angular';
 import { AcademicCalendarUploadComponent, AcademicCalendarData } from '../academic-calendar-upload/academic-calendar-upload.component';
 
@@ -81,6 +95,12 @@ export class TimetableGridComponent implements OnInit, OnChanges {
   startDate: Date = new Date();
   endDate: Date = new Date(new Date().setDate(new Date().getDate() + 6));
 
+  // Filter options fetched from Firestore
+  venues: string[] = [];
+  modules: string[] = [];
+  lecturers: string[] = [];
+  groups: string[] = [];
+
   // Filters
   viewFilters = {
     venue: '',
@@ -153,17 +173,21 @@ export class TimetableGridComponent implements OnInit, OnChanges {
   dragGhost: HTMLElement | null = null;
 
   constructor(
+    
     private cdr: ChangeDetectorRef,
+    private firestore: Firestore
+  ,
     private alertController: AlertController,
     private toastController: ToastController,
     private modalController: ModalController
   ) { }
 
-  ngOnInit() {
+  async ngOnInit() {
     // Initialize academic week configuration
     this.initializeAcademicWeeks();
     
     // No mock data generation - use only provided sessions
+    await this.fetchFilterOptions();
     this.updateSessionTracker();
     this.filterSessionsByWeek();
     console.log('TimetableGrid initialized with', this.sessions.length, 'sessions');
@@ -188,6 +212,37 @@ export class TimetableGridComponent implements OnInit, OnChanges {
     }
     
     console.log('Sessions updated:', this.sessions.length, 'unique sessions');
+  }
+
+  private async fetchFilterOptions() {
+    try {
+      // Fetch venues
+      const venueSnapshot = await getDocs(collection(this.firestore, 'venues'));
+      this.venues = venueSnapshot.docs.map(doc => doc.data()['name']).sort();
+
+      // Fetch modules (handle array of module objects)
+      const moduleSnapshot = await getDocs(collection(this.firestore, 'module'));
+      this.modules = moduleSnapshot.docs
+        .flatMap((doc): Module[] => {
+          const data = doc.data() as ModulesDocument;
+          return data.modules || [];
+        })
+        .map((module: Module) => module.name)
+        .filter((item): item is string => !!item)
+        .sort() || ['All Modules']
+
+      // Fetch lecturers
+      const lecturerSnapshot = await getDocs(collection(this.firestore, 'lecturers'));
+      this.lecturers = lecturerSnapshot.docs.map(doc => doc.data()['name']).sort();
+
+      // Fetch groups
+      const groupSnapshot = await getDocs(collection(this.firestore, 'groups'));
+      this.groups = groupSnapshot.docs.map(doc => doc.data()['name']).sort();
+
+      this.cdr.detectChanges();
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
   }
 
   private updateSessionTracker() {
@@ -240,26 +295,27 @@ export class TimetableGridComponent implements OnInit, OnChanges {
 
   applyFilters() {
     // Apply selected filters
+    this.cdr.detectChanges();
   }
 
   getFilteredSessions() {
     // Start with week-filtered sessions instead of all sessions
     let filtered = [...this.filteredSessions];
-    
+
     if (this.viewFilters.venue) {
-      filtered = filtered.filter(s => s.venue.includes(this.viewFilters.venue));
+      filtered = filtered.filter(s => s.venue === this.viewFilters.venue);
     }
     if (this.viewFilters.lecturer) {
-      filtered = filtered.filter(s => s.lecturer.includes(this.viewFilters.lecturer));
+      filtered = filtered.filter(s => s.lecturer === this.viewFilters.lecturer);
     }
     if (this.viewFilters.group) {
-      filtered = filtered.filter(s => s.group.includes(this.viewFilters.group));
+      filtered = filtered.filter(s => s.group === this.viewFilters.group);
     }
     if (this.viewFilters.module) {
-      filtered = filtered.filter(s => s.module.includes(this.viewFilters.module) || 
-                                     s.moduleCode.includes(this.viewFilters.module));
+      filtered = filtered.filter(s => s.module === this.viewFilters.module || 
+                                    s.moduleCode.includes(this.viewFilters.module));
     }
-    
+
     return filtered;
   }
 

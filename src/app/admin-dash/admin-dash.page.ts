@@ -19,7 +19,7 @@ import { VenueService, VenueDisplayInfo } from '../services/Entity Management Se
 import { DepartmentService } from '../services/Entity Management Services/department.service';
 import { TimetableDatabaseService, TimetableDocument } from '../services/Timetable Core Services/timetable-database.service';
 import { ToastController } from '@ionic/angular';
-import { Firestore, collection, collectionData, query, where, onSnapshot, doc } from '@angular/fire/firestore';
+import { AngularFirestore, AngularFirestoreCollection } from '@angular/fire/compat/firestore';
 import { startWith, switchMap } from 'rxjs/operators';
 
 interface ConflictSummary {
@@ -153,35 +153,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
   notifyUsers: boolean = true;
   
   // User management
-  users = [
-    { 
-      id: 1, 
-      title: 'DR',
-      name: 'John Smith', 
-      email: 'john.smith@example.com', 
-      role: 'HOD', 
-      department: 'COMPUTER SCIENCE',
-      avatar: 'assets/avatar1.png' 
-    },
-    { 
-      id: 2, 
-      title: 'MS',
-      name: 'Jane Doe', 
-      email: 'jane.doe@example.com', 
-      role: 'HOD', 
-      department: 'ELECTRICAL ENGINEERING',
-      avatar: 'assets/avatar2.png' 
-    },
-    { 
-      id: 3, 
-      title: 'PROF',
-      name: 'Robert Johnson', 
-      email: 'robert.j@example.com', 
-      role: 'HOD', 
-      department: 'MATHEMATICS',
-      avatar: 'assets/avatar3.png' 
-    }
-  ];
+  users: User[] = [];
   
   // Department management
   departments: Department[] = [];
@@ -301,7 +273,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Add isSubmitting property if it doesn't exist
   isSubmitting: boolean = false;
-  private _departmentService?: DepartmentService;
+  // Removed lazy getter for DepartmentService to fix circular dependency
+
+  private departmentsCollection: AngularFirestoreCollection<Department>;
 
   // Calendar configuration properties
   currentCalendarData: AcademicCalendarData | null = null;
@@ -316,20 +290,13 @@ export class AdminDashPage implements OnInit, OnDestroy {
     private authService: AuthService,
     private staffService: StaffService,
     private venueService: VenueService,
-    private injector: Injector,
+    private departmentService: DepartmentService,
     private timetableDatabaseService: TimetableDatabaseService,
     private toastController: ToastController,
-    private firestore: Firestore
+    private afs: AngularFirestore
   ) { 
     console.log('AdminDashPage constructor');
-  }
-
-  // Lazy getter for DepartmentService
-  private get departmentService(): DepartmentService {
-    if (!this._departmentService) {
-      this._departmentService = this.injector.get(DepartmentService);
-    }
-    return this._departmentService;
+    this.departmentsCollection = this.afs.collection<Department>('departments');
   }
 
   ngOnInit() {
@@ -339,11 +306,11 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.loadVenues(); // Load venues from database
     this.loadDepartments(); // Load departments from database
     this.loadSubmittedTimetables(); // Load submitted timetables from database
-    
+
     // Initialize real-time stats and department submission tracking
     this.initializeRealTimeStats();
     this.initializeDepartmentSubmissionTracking();
-    
+
     // Set initial sidebar state
     this.sidebarVisible = this.sidebarService.isSidebarVisible;
     console.log('Initial sidebar state:', this.sidebarVisible);
@@ -357,9 +324,12 @@ export class AdminDashPage implements OnInit, OnDestroy {
         this.cdr.detectChanges();
       }
     );
-    
-    // Load Heads of Department from Firebase
+
+    // Always load HODs on init so the table is populated on first load
     this.loadHODs();
+
+    // Use changeSection to trigger loading for the initial active section
+    this.changeSection(this.activeSection);
   }
 
   // Load departments from database
@@ -388,20 +358,19 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Load HODs from Firebase
   loadHODs() {
-    console.log('Loading HODs from Firebase');
+    console.log('Loading HODs from Staff collection');
     this.staffService.getAllHODs().subscribe({
       next: (hods) => {
-        console.log('HODs loaded successfully:', hods);
-        // Transform the data to match our display format
+        console.log('Loaded HODs:', hods);
         this.users = hods.map(hod => ({
-          id: Number(hod.id),
+          id: String(hod.id),
           title: hod.title || '',
           name: hod.name || '',
-          email: hod.contact?.email || '',
+          contact: { email: hod.contact?.email || '' },
           role: hod.role || 'HOD',
-          department: hod.department || '',
-          avatar: hod.profile || 'assets/default-avatar.png'
+          department: hod.department || ''
         }));
+        this.cdr.detectChanges();
       },
       error: (error) => {
         console.error('Error loading HODs:', error);
@@ -464,8 +433,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get department count from Firestore
   private getDepartmentCount() {
-    const departmentsCollection = collection(this.firestore, 'departments');
-    return collectionData(departmentsCollection).pipe(
+    return this.afs.collection('departments').valueChanges().pipe(
       startWith([]),
       switchMap(departments => [departments.length])
     );
@@ -473,8 +441,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get venue count from Firestore
   private getVenueCount() {
-    const venuesCollection = collection(this.firestore, 'venues');
-    return collectionData(venuesCollection).pipe(
+    return this.afs.collection('venues').valueChanges().pipe(
       startWith([]),
       switchMap(venues => [venues.length])
     );
@@ -482,8 +449,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get session count from all timetables
   private getSessionCount() {
-    const timetablesCollection = collection(this.firestore, 'timetables');
-    return collectionData(timetablesCollection).pipe(
+    return this.afs.collection('timetables').valueChanges().pipe(
       startWith([]),
       switchMap(timetables => {
         let totalSessions = 0;
@@ -499,8 +465,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get conflict count from all timetables
   private getConflictCount() {
-    const timetablesCollection = collection(this.firestore, 'timetables');
-    return collectionData(timetablesCollection).pipe(
+    return this.afs.collection('timetables').valueChanges().pipe(
       startWith([]),
       switchMap(timetables => {
         let totalConflicts = 0;
@@ -519,8 +484,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get submission counts by status
   private getSubmissionCounts() {
-    const timetablesCollection = collection(this.firestore, 'timetables');
-    return collectionData(timetablesCollection).pipe(
+    return this.afs.collection('timetables').valueChanges().pipe(
       startWith([]),
       switchMap(timetables => {
         const counts = {
@@ -556,8 +520,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get active user count from authentication collection
   private getActiveUserCount() {
-    const usersCollection = collection(this.firestore, 'users');
-    return collectionData(usersCollection).pipe(
+    return this.afs.collection('users').valueChanges().pipe(
       startWith([]),
       switchMap(users => {
         // Count users who have logged in within the last 30 days
@@ -612,7 +575,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
             }
             
             if (latestTimetable['reviewedAt']) {
-              reviewedAt = latestTimetable['reviewedAt'].toDate ? latestTimetable['reviewedAt'].toDate() : new Date(latestTimetable['reviewedAt']);
+              reviewedAt = latestTimetable['reviewedAt']?.toDate ? latestTimetable['reviewedAt'].toDate() : new Date(latestTimetable['reviewedAt']);
             }
             
             if (latestTimetable['sessions']) {
@@ -647,14 +610,12 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Helper method to get departments
   private getDepartments() {
-    const departmentsCollection = collection(this.firestore, 'departments');
-    return collectionData(departmentsCollection, { idField: 'id' });
+    return this.afs.collection<Department>('departments').valueChanges({ idField: 'id' });
   }
 
   // Helper method to get timetables
   private getTimetables() {
-    const timetablesCollection = collection(this.firestore, 'timetables');
-    return collectionData(timetablesCollection, { idField: 'id' });
+    return this.afs.collection<TimetableDocument>('timetables').valueChanges({ idField: 'id' });
   }
 
   // Map timetable status to submission status
@@ -793,6 +754,10 @@ export class AdminDashPage implements OnInit, OnDestroy {
   // Navigation
   changeSection(section: string) {
     this.activeSection = section;
+    if (section === 'users') {
+      // Always reload HODs when switching to User Management
+      this.loadHODs();
+    }
     if (window.innerWidth < 768) { // Hide sidebar on mobile after selection
       this.sidebarService.hideSidebar();
     }
@@ -2075,6 +2040,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
         this.handleExistingUserUpdate(userData, data);
       } else {
         // Adding new HOD
+        // Prevent navigation by only reloading HOD list and closing modal
         this.handleNewHodCreation(data);
       }
     }
@@ -2085,10 +2051,10 @@ export class AdminDashPage implements OnInit, OnDestroy {
     const index = this.users.findIndex(u => u.id === userData.id);
     if (index !== -1) {
       this.users[index] = {
-        id: Number(updatedData.id), // Convert string id to number
+        id: String(updatedData.id), // Convert id to string to match User interface
         title: updatedData.title,
         name: updatedData.name,
-        email: updatedData.contact.email, // Use email from contact object
+        contact: updatedData.contact, // Use contact object instead of email property
         role: updatedData.role,
         department: updatedData.department,
         avatar: this.users[index].avatar || 'assets/default-avatar.png'
@@ -2114,20 +2080,34 @@ export class AdminDashPage implements OnInit, OnDestroy {
     // Show loading state
     this.isSubmitting = true;
     
+    // Add safeguard to prevent navigation after adding a new user
+    const originalNavigate = this.router.navigate;
+    this.router.navigate = (...args: any[]) => {
+      console.log('Navigation prevented during new HOD creation:', args);
+      return Promise.resolve(false);
+    };
+    
     // First check if email already exists
     this.authService.checkEmailExists(hodData.contact.email).subscribe({
       next: exists => {
         if (exists) {
           this.presentToast(`Email ${hodData.contact.email} is already in use. Please use a different email.`);
           this.isSubmitting = false;
+      
+          // Restore original navigation
+          this.router.navigate = originalNavigate;
           return;
         }
         
         // 1. Create the authentication account with a secure password
-        const defaultPassword = this.authService.generateDefaultPassword();
-        console.log('Generated default password:', defaultPassword);
+        const defaultPassword = 'def@Pass#01';
+        console.log('Using fixed default password:', defaultPassword);
+
+        // Assume admin credentials are stored securely in environment or service
+        const adminEmail = 'admin@example.com'; // TODO: Replace with actual admin email retrieval
+        const adminPassword = 'adminPassword123'; // TODO: Replace with actual admin password retrieval
         
-        this.authService.createUserAccount(hodData.contact.email, 'HOD', defaultPassword).subscribe({
+        this.authService.createUserAccount(hodData.contact.email, 'HOD', defaultPassword, adminEmail, adminPassword).subscribe({
           next: authResult => {
             if (authResult.success) {
               console.log('Auth account created successfully, now creating staff record');
@@ -2148,23 +2128,35 @@ export class AdminDashPage implements OnInit, OnDestroy {
                     this.presentToast(`Error creating staff record: ${staffResult.message}`);
                   }
                   this.isSubmitting = false;
+                  
+                  // Restore original navigation
+                  this.router.navigate = originalNavigate;
                 },
                 error: error => {
                   console.error('Error in staff service:', error);
                   this.presentToast('Error adding staff record: ' + (error.message || 'Unknown error'));
                   this.isSubmitting = false;
+                  
+                  // Restore original navigation
+                  this.router.navigate = originalNavigate;
                 }
               });
             } else {
               console.error('Auth creation failed:', authResult.message);
               this.presentToast(`Auth account error: ${authResult.message}`);
               this.isSubmitting = false;
+              
+              // Restore original navigation
+              this.router.navigate = originalNavigate;
             }
           },
           error: error => {
             console.error('Error in auth service:', error);
             this.presentToast('Error creating authentication account: ' + (error.message || 'Unknown error'));
             this.isSubmitting = false;
+            
+            // Restore original navigation
+            this.router.navigate = originalNavigate;
           }
         });
       },
@@ -2172,6 +2164,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
         console.error('Error checking email existence:', error);
         this.presentToast('Error checking if email exists: ' + (error.message || 'Unknown error'));
         this.isSubmitting = false;
+        
+        // Restore original navigation
+        this.router.navigate = originalNavigate;
       }
     });
   }
@@ -2319,6 +2314,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
       componentProps: {
         venue: venueData,
         isEditMode: !!venueData
+     
       },
       cssClass: 'add-venue-modal'
     });

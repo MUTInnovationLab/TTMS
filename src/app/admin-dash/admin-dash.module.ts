@@ -28,10 +28,7 @@ import { environment } from '../../environments/environment';
   ],
   declarations: [AdminDashPage],
   providers: [
-    SidebarService,
-    // Add Firebase v9+ providers for this module
-    provideFirebaseApp(() => initializeApp(environment.firebaseConfig)),
-    provideFirestore(() => getFirestore())
+    SidebarService
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA] // Needed for any custom elements
 })

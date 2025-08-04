@@ -23,7 +23,9 @@ export interface TimetableDocument {
   submittedAt?: any;
   approvedAt?: any;
   rejectedAt?: any;
+  reviewedAt?: any;
   adminFeedback?: string;
+  feedback?: string;
   conflictCount?: number;
   version?: number;
 }

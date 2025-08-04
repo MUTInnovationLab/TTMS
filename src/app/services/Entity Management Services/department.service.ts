@@ -1,8 +1,7 @@
 import { Injectable } from '@angular/core';
-import { Observable, BehaviorSubject } from 'rxjs';
-import { map, tap } from 'rxjs/operators';
-import { Firestore, collection, doc, addDoc, updateDoc, deleteDoc, getDocs, query, orderBy, where } from '@angular/fire/firestore';
-import { collectionData, docData } from '@angular/fire/firestore';
+import { Observable, BehaviorSubject, from, combineLatest, of } from 'rxjs';
+import { map, tap, switchMap, catchError } from 'rxjs/operators';
+import { AngularFirestore, AngularFirestoreCollection, AngularFirestoreDocument } from '@angular/fire/compat/firestore';
 import { Department } from '../../interfaces/department.interface';
 
 @Injectable({
@@ -13,103 +12,91 @@ export class DepartmentService {
   public departments$ = this.departmentsSubject.asObservable();
   
   private readonly collectionName = 'departments';
+  private departmentsCollection: AngularFirestoreCollection<Department>;
 
-  constructor(private firestore: Firestore) {}
+  constructor(private afs: AngularFirestore) {
+    this.departmentsCollection = this.afs.collection<Department>(this.collectionName);
+  }
 
   // Get all departments
   getAllDepartments(): Observable<Department[]> {
-    const departmentsCollection = collection(this.firestore, this.collectionName);
-    const departmentsQuery = query(departmentsCollection, orderBy('name'));
-    
-    return collectionData(departmentsQuery, { idField: 'id' }).pipe(
-      map(departments => departments.map(dept => ({
-        ...dept,
-        createdAt: (dept as any)['createdAt']?.toDate ? (dept as any)['createdAt'].toDate() : new Date((dept as any)['createdAt']),
-        updatedAt: (dept as any)['updatedAt']?.toDate ? (dept as any)['updatedAt'].toDate() : new Date((dept as any)['updatedAt'])
-      } as Department))),
-      tap(departments => this.departmentsSubject.next(departments))
-    );
+    return from(this.departmentsCollection.ref.orderBy('name').get().then(snapshot => {
+      const departments = snapshot.docs.map(doc => {
+        const data = doc.data() as Department;
+        return {
+          ...data,
+          id: doc.id,
+          createdAt: data.createdAt ? (data.createdAt as any).toDate ? (data.createdAt as any).toDate() : new Date(data.createdAt) : new Date(),
+          updatedAt: data.updatedAt ? (data.updatedAt as any).toDate ? (data.updatedAt as any).toDate() : new Date(data.updatedAt) : new Date()
+        };
+      });
+      this.departmentsSubject.next(departments);
+      return departments;
+    }));
   }
 
   // Get department by ID
   getDepartmentById(id: string): Observable<Department | null> {
-    const departmentDoc = doc(this.firestore, this.collectionName, id);
-    return docData(departmentDoc, { idField: 'id' }).pipe(
+    const departmentDoc: AngularFirestoreDocument<Department> = this.departmentsCollection.doc(id);
+    return departmentDoc.valueChanges().pipe(
       map(dept => dept ? {
         ...dept,
-        createdAt: (dept as any)['createdAt']?.toDate ? (dept as any)['createdAt'].toDate() : new Date((dept as any)['createdAt']),
-        updatedAt: (dept as any)['updatedAt']?.toDate ? (dept as any)['updatedAt'].toDate() : new Date((dept as any)['updatedAt'])
-      } as Department : null)
+        id,
+        createdAt: dept.createdAt ? (dept.createdAt as any).toDate ? (dept.createdAt as any).toDate() : new Date(dept.createdAt) : new Date(),
+        updatedAt: dept.updatedAt ? (dept.updatedAt as any).toDate ? (dept.updatedAt as any).toDate() : new Date(dept.updatedAt) : new Date()
+      } : null)
     );
   }
 
   // Add new department
   addDepartment(department: Department): Observable<{ success: boolean; message: string; id?: string }> {
-    return new Observable(observer => {
-      const departmentsCollection = collection(this.firestore, this.collectionName);
-      
-      // Check if department with same name or code already exists
-      this.checkDepartmentExists(department.name, department.code).subscribe({
-        next: (exists) => {
-          if (exists.nameExists) {
-            observer.next({ success: false, message: 'Department with this name already exists' });
-            observer.complete();
-            return;
-          }
-          
-          if (exists.codeExists) {
-            observer.next({ success: false, message: 'Department with this code already exists' });
-            observer.complete();
-            return;
-          }
-
-          // Add the department
-          const departmentData = {
-            ...department,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            moduleCount: 0,
-            lecturerCount: 0,
-            studentCount: 0
-          };
-
-          addDoc(departmentsCollection, departmentData).then(docRef => {
-            observer.next({ success: true, message: 'Department added successfully', id: docRef.id });
-            observer.complete();
-            
-            // Refresh the departments list
-            this.getAllDepartments().subscribe();
-          }).catch(error => {
-            console.error('Error adding department:', error);
-            observer.next({ success: false, message: 'Failed to add department: ' + error.message });
-            observer.complete();
-          });
-        },
-        error: (error) => {
-          console.error('Error checking department existence:', error);
-          observer.next({ success: false, message: 'Failed to validate department: ' + error.message });
-          observer.complete();
+    return this.checkDepartmentExists(department.name, department.code).pipe(
+      switchMap(exists => {
+        if (exists.nameExists) {
+          return of({ success: false, message: 'Department with this name already exists' });
         }
-      });
-    });
+        if (exists.codeExists) {
+          return of({ success: false, message: 'Department with this code already exists' });
+        }
+        const departmentData = {
+          ...department,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          moduleCount: 0,
+          lecturerCount: 0,
+          studentCount: 0
+        };
+        return from(this.departmentsCollection.add(departmentData)).pipe(
+          map(docRef => {
+            this.getAllDepartments();
+            return { success: true, message: 'Department added successfully', id: docRef.id };
+          }),
+          catchError(error => {
+            console.error('Error adding department:', error);
+            return of({ success: false, message: 'Failed to add department: ' + error.message });
+          })
+        );
+      }),
+      catchError(error => {
+        console.error('Error checking department existence:', error);
+        return of({ success: false, message: 'Failed to validate department: ' + error.message });
+      })
+    );
   }
 
   // Update department
   updateDepartment(id: string, department: Partial<Department>): Observable<{ success: boolean; message: string }> {
     return new Observable(observer => {
-      const departmentDoc = doc(this.firestore, this.collectionName, id);
-      
+      const departmentDoc: AngularFirestoreDocument<Department> = this.departmentsCollection.doc(id);
       const updateData = {
         ...department,
         updatedAt: new Date()
       };
 
-      updateDoc(departmentDoc, updateData).then(() => {
+      departmentDoc.update(updateData).then(() => {
         observer.next({ success: true, message: 'Department updated successfully' });
         observer.complete();
-        
-        // Refresh the departments list
-        this.getAllDepartments().subscribe();
+        this.getAllDepartments();
       }).catch(error => {
         console.error('Error updating department:', error);
         observer.next({ success: false, message: 'Failed to update department: ' + error.message });
@@ -121,14 +108,11 @@ export class DepartmentService {
   // Delete department
   deleteDepartment(id: string): Observable<{ success: boolean; message: string }> {
     return new Observable(observer => {
-      const departmentDoc = doc(this.firestore, this.collectionName, id);
-      
-      deleteDoc(departmentDoc).then(() => {
+      const departmentDoc: AngularFirestoreDocument<Department> = this.departmentsCollection.doc(id);
+      departmentDoc.delete().then(() => {
         observer.next({ success: true, message: 'Department deleted successfully' });
         observer.complete();
-        
-        // Refresh the departments list
-        this.getAllDepartments().subscribe();
+        this.getAllDepartments();
       }).catch(error => {
         console.error('Error deleting department:', error);
         observer.next({ success: false, message: 'Failed to delete department: ' + error.message });
@@ -139,39 +123,24 @@ export class DepartmentService {
 
   // Check if department exists by name or code
   private checkDepartmentExists(name: string, code: string): Observable<{ nameExists: boolean; codeExists: boolean }> {
-    return new Observable(observer => {
-      const departmentsCollection = collection(this.firestore, this.collectionName);
-      
-      Promise.all([
-        getDocs(query(departmentsCollection, where('name', '==', name))),
-        getDocs(query(departmentsCollection, where('code', '==', code.toUpperCase())))
-      ]).then(([nameSnapshot, codeSnapshot]) => {
-        observer.next({
-          nameExists: !nameSnapshot.empty,
-          codeExists: !codeSnapshot.empty
-        });
-        observer.complete();
-      }).catch(error => {
-        console.error('Error checking department existence:', error);
-        observer.error(error);
-      });
-    });
+    const nameQuery$ = this.departmentsCollection.ref.where('name', '==', name).get().then(snapshot => snapshot.docs.length > 0);
+    const codeQuery$ = this.departmentsCollection.ref.where('code', '==', code.toUpperCase()).get().then(snapshot => snapshot.docs.length > 0);
+
+    return from(Promise.all([nameQuery$, codeQuery$])).pipe(
+      map(([nameExists, codeExists]) => ({
+        nameExists,
+        codeExists
+      }))
+    );
   }
 
   // Get active departments only
   getActiveDepartments(): Observable<Department[]> {
-    const departmentsCollection = collection(this.firestore, this.collectionName);
-    const activeDepartmentsQuery = query(
-      departmentsCollection, 
-      where('status', '==', 'active'),
-      orderBy('name')
-    );
-    
-    return collectionData(activeDepartmentsQuery, { idField: 'id' }).pipe(
+    return this.afs.collection<Department>(this.collectionName, ref => ref.where('status', '==', 'active').orderBy('name')).valueChanges({ idField: 'id' }).pipe(
       map(departments => departments.map(dept => ({
         ...dept,
-        createdAt: (dept as any)['createdAt']?.toDate ? (dept as any)['createdAt'].toDate() : new Date((dept as any)['createdAt']),
-        updatedAt: (dept as any)['updatedAt']?.toDate ? (dept as any)['updatedAt'].toDate() : new Date((dept as any)['updatedAt'])
+        createdAt: dept.createdAt ? (dept.createdAt as any).toDate ? (dept.createdAt as any).toDate() : new Date(dept.createdAt) : new Date(),
+        updatedAt: dept.updatedAt ? (dept.updatedAt as any).toDate ? (dept.updatedAt as any).toDate() : new Date(dept.updatedAt) : new Date()
       } as Department)))
     );
   }
@@ -179,14 +148,13 @@ export class DepartmentService {
   // Update department statistics
   updateDepartmentStats(id: string, stats: { moduleCount?: number; lecturerCount?: number; studentCount?: number }): Observable<{ success: boolean; message: string }> {
     return new Observable(observer => {
-      const departmentDoc = doc(this.firestore, this.collectionName, id);
-      
+      const departmentDoc: AngularFirestoreDocument<Department> = this.departmentsCollection.doc(id);
       const updateData = {
         ...stats,
         updatedAt: new Date()
       };
 
-      updateDoc(departmentDoc, updateData).then(() => {
+      departmentDoc.update(updateData).then(() => {
         observer.next({ success: true, message: 'Department statistics updated successfully' });
         observer.complete();
       }).catch(error => {
