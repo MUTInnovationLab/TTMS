@@ -276,6 +276,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
   // Removed lazy getter for DepartmentService to fix circular dependency
 
   private departmentsCollection: AngularFirestoreCollection<Department>;
+  private venuesCollection: AngularFirestoreCollection<any>;
+  private timetablesCollection: AngularFirestoreCollection<TimetableDocument>;
+  private usersCollection: AngularFirestoreCollection<any>;
 
   // Calendar configuration properties
   currentCalendarData: AcademicCalendarData | null = null;
@@ -297,6 +300,9 @@ export class AdminDashPage implements OnInit, OnDestroy {
   ) { 
     console.log('AdminDashPage constructor');
     this.departmentsCollection = this.afs.collection<Department>('departments');
+    this.venuesCollection = this.afs.collection('venues');
+    this.timetablesCollection = this.afs.collection<TimetableDocument>('timetables');
+    this.usersCollection = this.afs.collection('users');
   }
 
   ngOnInit() {
@@ -433,7 +439,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get department count from Firestore
   private getDepartmentCount() {
-    return this.afs.collection('departments').valueChanges().pipe(
+    return this.departmentsCollection.valueChanges().pipe(
       startWith([]),
       switchMap(departments => [departments.length])
     );
@@ -441,7 +447,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get venue count from Firestore
   private getVenueCount() {
-    return this.afs.collection('venues').valueChanges().pipe(
+    return this.venuesCollection.valueChanges().pipe(
       startWith([]),
       switchMap(venues => [venues.length])
     );
@@ -449,7 +455,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get session count from all timetables
   private getSessionCount() {
-    return this.afs.collection('timetables').valueChanges().pipe(
+    return this.timetablesCollection.valueChanges().pipe(
       startWith([]),
       switchMap(timetables => {
         let totalSessions = 0;
@@ -465,7 +471,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get conflict count from all timetables
   private getConflictCount() {
-    return this.afs.collection('timetables').valueChanges().pipe(
+    return this.timetablesCollection.valueChanges().pipe(
       startWith([]),
       switchMap(timetables => {
         let totalConflicts = 0;
@@ -484,7 +490,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get submission counts by status
   private getSubmissionCounts() {
-    return this.afs.collection('timetables').valueChanges().pipe(
+    return this.timetablesCollection.valueChanges().pipe(
       startWith([]),
       switchMap(timetables => {
         const counts = {
@@ -520,7 +526,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Get active user count from authentication collection
   private getActiveUserCount() {
-    return this.afs.collection('users').valueChanges().pipe(
+    return this.usersCollection.valueChanges().pipe(
       startWith([]),
       switchMap(users => {
         // Count users who have logged in within the last 30 days
@@ -610,12 +616,12 @@ export class AdminDashPage implements OnInit, OnDestroy {
 
   // Helper method to get departments
   private getDepartments() {
-    return this.afs.collection<Department>('departments').valueChanges({ idField: 'id' });
+    return this.departmentsCollection.valueChanges({ idField: 'id' });
   }
 
   // Helper method to get timetables
   private getTimetables() {
-    return this.afs.collection<TimetableDocument>('timetables').valueChanges({ idField: 'id' });
+    return this.timetablesCollection.valueChanges({ idField: 'id' });
   }
 
   // Map timetable status to submission status
