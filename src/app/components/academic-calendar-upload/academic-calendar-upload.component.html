@@ -1,0 +1,311 @@
+<div class="calendar-upload-container">
+  <!-- Header -->
+  <ion-header>
+    <ion-toolbar>
+      <ion-title>Upload Academic Calendar</ion-title>
+      <ion-buttons slot="end">
+        <ion-button fill="clear" (click)="cancel()">
+          <ion-icon name="close" slot="icon-only"></ion-icon>
+        </ion-button>
+      </ion-buttons>
+    </ion-toolbar>
+  </ion-header>
+
+  <ion-content class="ion-padding">
+    <!-- Step Indicator -->
+    <div class="step-indicator">
+      <div class="step" [class.active]="uploadStep === 'upload'" [class.completed]="uploadStep !== 'upload'">
+        <div class="step-number">1</div>
+        <div class="step-label">Upload</div>
+      </div>
+      <div class="step-connector" [class.completed]="uploadStep !== 'upload'"></div>
+      <div class="step" [class.active]="uploadStep === 'preview'" [class.completed]="uploadStep === 'configure'">
+        <div class="step-number">2</div>
+        <div class="step-label">Preview</div>
+      </div>
+      <div class="step-connector" [class.completed]="uploadStep === 'configure'"></div>
+      <div class="step" [class.active]="uploadStep === 'configure'">
+        <div class="step-number">3</div>
+        <div class="step-label">Configure</div>
+      </div>
+    </div>
+
+    <!-- Upload Step -->
+    <div *ngIf="uploadStep === 'upload'" class="upload-step">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Select Academic Calendar File</ion-card-title>
+          <ion-card-subtitle>Upload your institutional academic calendar to automatically configure timetable weeks</ion-card-subtitle>
+        </ion-card-header>
+
+        <ion-card-content>
+          <!-- Supported Formats -->
+          <div class="supported-formats">
+            <h4>Supported Formats & Templates</h4>
+            <p class="formats-intro">Choose the format that best suits your calendar data source. Download the template to see the exact structure required.</p>
+            <div class="format-grid">
+              <div class="format-card" *ngFor="let format of supportedFormats">
+                <div class="format-header">
+                  <ion-icon name="document-outline"></ion-icon>
+                  <span class="format-name">.{{format.format.toUpperCase()}}</span>
+                </div>
+                <p class="format-description">{{format.description}}</p>
+                <div class="format-example">
+                  <strong>Example:</strong>
+                  <code>{{format.example}}</code>
+                </div>
+                <div class="format-actions">
+                  <ion-button size="small" fill="outline" (click)="downloadSampleFile(format.format)">
+                    <ion-icon name="download" slot="start"></ion-icon>
+                    Download Template
+                  </ion-button>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Template Usage Guide -->
+            <div class="template-guide">
+              <h5>Template Usage Guidelines</h5>
+              <ul>
+                <li><strong>TXT Format:</strong> Best for manual entry, follows MUT calendar structure with month headers and week blocks</li>
+                <li><strong>CSV Format:</strong> Ideal for Excel/spreadsheet users, easily editable in any spreadsheet application</li>
+                <li><strong>JSON Format:</strong> Perfect for developers or systems integration, provides complete calendar structure</li>
+              </ul>
+              <p><strong>Required Fields:</strong> Date, Week Number, Event Description, Event Type (academic/exam/break/holiday)</p>
+              <p><strong>Optional Fields:</strong> Special events, graduation ceremonies, exam periods, semester definitions</p>
+            </div>
+          </div>
+
+          <!-- File Upload Area -->
+          <div class="file-upload-area" [class.has-file]="selectedFile">
+            <input type="file" 
+                   #fileInput 
+                   (change)="onFileSelected($event)" 
+                   accept=".txt,.csv,.json"
+                   style="display: none;">
+            
+            <div class="upload-zone" (click)="fileInput.click()">
+              <ion-icon name="cloud-upload-outline" size="large"></ion-icon>
+              <h3>Drop your calendar file here or click to browse</h3>
+              <p>Maximum file size: 5MB</p>
+            </div>
+
+            <!-- Selected File Info -->
+            <div *ngIf="selectedFile" class="selected-file-info">
+              <ion-icon name="document" color="primary"></ion-icon>
+              <div class="file-details">
+                <h4>{{selectedFile.name}}</h4>
+                <p>{{selectedFile.size | number}} bytes • {{selectedFile.type || 'Unknown type'}}</p>
+              </div>
+              <ion-button fill="clear" color="danger" (click)="selectedFile = null">
+                <ion-icon name="close" slot="icon-only"></ion-icon>
+              </ion-button>
+            </div>
+          </div>
+
+          <!-- Configuration Options -->
+          <div class="config-options" *ngIf="selectedFile">
+            <h4>Configuration Options</h4>
+            <ion-grid>
+              <ion-row>
+                <ion-col size="12" size-md="6">
+                  <ion-item>
+                    <ion-label position="stacked">Academic Year</ion-label>
+                    <ion-input type="number" 
+                               [(ngModel)]="calendarConfig.academicYear" 
+                               min="2020" 
+                               max="2030"></ion-input>
+                  </ion-item>
+                </ion-col>
+                <ion-col size="12" size-md="6">
+                  <ion-item>
+                    <ion-label position="stacked">Time Zone</ion-label>
+                    <ion-select [(ngModel)]="calendarConfig.timeZone">
+                      <ion-select-option value="Africa/Johannesburg">South Africa (SAST)</ion-select-option>
+                      <ion-select-option value="UTC">UTC</ion-select-option>
+                      <ion-select-option value="America/New_York">Eastern Time</ion-select-option>
+                      <ion-select-option value="Europe/London">GMT</ion-select-option>
+                    </ion-select>
+                  </ion-item>
+                </ion-col>
+              </ion-row>
+              <ion-row>
+                <ion-col size="12" size-md="6">
+                  <ion-item>
+                    <ion-label>Week Starts On</ion-label>
+                    <ion-select [(ngModel)]="calendarConfig.weekStartsOn">
+                      <ion-select-option value="monday">Monday</ion-select-option>
+                      <ion-select-option value="sunday">Sunday</ion-select-option>
+                    </ion-select>
+                  </ion-item>
+                </ion-col>
+                <ion-col size="12" size-md="6">
+                  <ion-item>
+                    <ion-label>Include Weekends</ion-label>
+                    <ion-toggle [(ngModel)]="calendarConfig.includeWeekends"></ion-toggle>
+                  </ion-item>
+                </ion-col>
+              </ion-row>
+            </ion-grid>
+          </div>
+
+          <!-- Error Messages -->
+          <div *ngIf="errors.length > 0" class="error-messages">
+            <ion-item color="danger" *ngFor="let error of errors">
+              <ion-icon name="alert-circle" slot="start"></ion-icon>
+              <ion-label>{{error}}</ion-label>
+            </ion-item>
+          </div>
+
+          <!-- Upload Progress -->
+          <div *ngIf="isUploading" class="upload-progress">
+            <ion-progress-bar [value]="uploadProgress / 100"></ion-progress-bar>
+            <p>Processing calendar... {{uploadProgress}}%</p>
+          </div>
+
+          <!-- Upload Button -->
+          <div class="upload-actions">
+            <ion-button expand="block" 
+                        color="primary" 
+                        (click)="uploadCalendar()" 
+                        [disabled]="!selectedFile || isUploading">
+              <ion-icon name="cloud-upload" slot="start"></ion-icon>
+              {{isUploading ? 'Processing...' : 'Upload & Parse Calendar'}}
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Preview Step -->
+    <div *ngIf="uploadStep === 'preview'" class="preview-step">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Calendar Preview</ion-card-title>
+          <ion-card-subtitle>Review the parsed calendar data before applying</ion-card-subtitle>
+        </ion-card-header>
+
+        <ion-card-content>
+          <!-- Warnings -->
+          <div *ngIf="warnings.length > 0" class="warning-messages">
+            <ion-item color="warning" *ngFor="let warning of warnings">
+              <ion-icon name="warning" slot="start"></ion-icon>
+              <ion-label>{{warning}}</ion-label>
+            </ion-item>
+          </div>
+
+          <!-- Preview Data -->
+          <div class="preview-data">
+            <div class="preview-section" *ngFor="let section of previewData">
+              <h4>{{section.category}}</h4>
+              <ion-grid class="preview-grid">
+                <ion-row *ngFor="let item of section.items">
+                  <ion-col size="6">
+                    <strong>{{item.label}}</strong>
+                  </ion-col>
+                  <ion-col size="6">
+                    {{item.value}}
+                  </ion-col>
+                </ion-row>
+              </ion-grid>
+            </div>
+          </div>
+
+          <!-- Sample Weeks Preview -->
+          <div class="sample-weeks" *ngIf="parsedCalendar">
+            <h4>Sample Weeks</h4>
+            <div class="weeks-grid">
+              <div class="week-card" *ngFor="let week of parsedCalendar.weeks.slice(0, 6)">
+                <div class="week-header">
+                  <span class="week-number">Week {{week.weekNumber}}</span>
+                  <ion-chip [color]="getWeekTypeColor(week.type)" size="small">
+                    {{week.type}}
+                  </ion-chip>
+                </div>
+                <div class="week-dates">
+                  {{week.startDate | date:'shortDate'}} - {{week.endDate | date:'shortDate'}}
+                </div>
+                <div class="week-label">{{week.label}}</div>
+                <div class="week-events" *ngIf="week.events.length > 0">
+                  <ion-chip size="small" color="medium">
+                    {{week.events.length}} event(s)
+                  </ion-chip>
+                </div>
+              </div>
+            </div>
+            <p class="preview-note" *ngIf="parsedCalendar.weeks.length > 6">
+              ...and {{parsedCalendar.weeks.length - 6}} more weeks
+            </p>
+          </div>
+
+          <!-- Actions -->
+          <div class="preview-actions">
+            <ion-button fill="outline" (click)="backToUpload()">
+              <ion-icon name="arrow-back" slot="start"></ion-icon>
+              Back to Upload
+            </ion-button>
+            <ion-button color="primary" (click)="proceedToConfiguration()">
+              Continue to Configuration
+              <ion-icon name="arrow-forward" slot="end"></ion-icon>
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Configure Step -->
+    <div *ngIf="uploadStep === 'configure'" class="configure-step">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Final Configuration</ion-card-title>
+          <ion-card-subtitle>Customize calendar settings before applying</ion-card-subtitle>
+        </ion-card-header>
+
+        <ion-card-content>
+          <!-- Configuration Summary -->
+          <div class="config-summary" *ngIf="parsedCalendar">
+            <h4>Calendar Summary</h4>
+            <ion-grid>
+              <ion-row>
+                <ion-col size="6">Academic Year:</ion-col>
+                <ion-col size="6"><strong>{{parsedCalendar.academicYear}}</strong></ion-col>
+              </ion-row>
+              <ion-row>
+                <ion-col size="6">University Opens:</ion-col>
+                <ion-col size="6"><strong>{{parsedCalendar.universityOpenDate | date:'fullDate'}}</strong></ion-col>
+              </ion-row>
+              <ion-row>
+                <ion-col size="6">University Closes:</ion-col>
+                <ion-col size="6"><strong>{{parsedCalendar.universityCloseDate | date:'fullDate'}}</strong></ion-col>
+              </ion-row>
+              <ion-row>
+                <ion-col size="6">Total Weeks:</ion-col>
+                <ion-col size="6"><strong>{{parsedCalendar.weeks.length}}</strong></ion-col>
+              </ion-row>
+              <ion-row>
+                <ion-col size="6">Academic Weeks:</ion-col>
+                <ion-col size="6"><strong>{{academicWeeksCount}}</strong></ion-col>
+              </ion-row>
+              <ion-row>
+                <ion-col size="6">Exam Periods:</ion-col>
+                <ion-col size="6"><strong>{{parsedCalendar.examPeriods.length}}</strong></ion-col>
+              </ion-row>
+            </ion-grid>
+          </div>
+
+          <!-- Final Actions -->
+          <div class="final-actions">
+            <ion-button fill="outline" (click)="backToPreview()">
+              <ion-icon name="arrow-back" slot="start"></ion-icon>
+              Back to Preview
+            </ion-button>
+            <ion-button color="success" (click)="applyCalendar()">
+              <ion-icon name="checkmark-circle" slot="start"></ion-icon>
+              Apply Calendar Configuration
+            </ion-button>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+  </ion-content>
+</div>

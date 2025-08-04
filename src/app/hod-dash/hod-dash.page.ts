@@ -1,5 +1,5 @@
 import { Component, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
-import { TimetableSession, SessionDropEvent } from '../components/timetable-grid/timetable-grid.component';
+import { TimetableSession, SessionDropEvent, WeekChangeEvent } from '../components/timetable-grid/timetable-grid.component';
 import { ModalController } from '@ionic/angular';
 import { Venue } from '../components/venue-avail/venue-avail.component';
 import { Conflict, ConflictResolution, ConflictType } from '../components/conflict-res/conflict-res.component';
@@ -165,6 +165,22 @@ export class HodDashPage implements OnInit, OnDestroy {
     enableConflictPrevention: true,
     showDropPreview: true
   };
+  
+  // Academic Week Configuration - MUT Academic Calendar 2025
+  academicWeekConfig = {
+    academicStartWeek: 2, // University opens Monday, 06 January 2025 (Week 2)
+    academicEndWeek: 50, // University closes Friday, 12 December 2025 (Week 50)
+    currentWeek: 0, // Will be set in ngOnInit
+    totalWeeks: 52, // Total weeks in the year
+    semesterBreakWeeks: [14, 26, 27, 28], // March recess (Week 14), Mid-year break (Weeks 26-28)
+    examWeeks: [21, 22, 23, 24, 25, 41, 42, 43, 45, 46, 47, 48, 49], // First semester exams (21-25), Annual exams (41-43), Second semester exams (45-49)
+    customWeekLabels: new Map<number, string>() // Custom labels for specific weeks
+  };
+  
+  // Week selection and display
+  selectedWeek: number = 0; // Will be set in ngOnInit
+  weekViewMode: 'current' | 'selected' | 'range' = 'current';
+  
   private sessionsLoadedFromDatabase: boolean = false; // Track if sessions were loaded from database
   private venuesLoaded: boolean = false; // Track if venues are loaded
   private departmentLoaded: boolean = false; // Track if department info is loaded
@@ -183,6 +199,35 @@ export class HodDashPage implements OnInit, OnDestroy {
       console.warn(`Removed ${this.timetableSessions.length - uniqueSessions.length} duplicate sessions`);
       this.timetableSessions = uniqueSessions;
     }
+  }
+
+  // Academic Week Utility Methods
+  getCurrentWeekNumber(): number {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const diff = now.getTime() - start.getTime();
+    const oneWeek = 1000 * 60 * 60 * 24 * 7;
+    return Math.ceil(diff / oneWeek);
+  }
+
+  getWeekStartDate(weekNumber: number, year: number = new Date().getFullYear()): Date {
+    const firstDay = new Date(year, 0, 1);
+    const daysToAdd = (weekNumber - 1) * 7;
+    const weekStart = new Date(firstDay.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+    
+    // Adjust to Monday (start of week)
+    const dayOfWeek = weekStart.getDay();
+    const daysToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
+    weekStart.setDate(weekStart.getDate() + daysToMonday);
+    
+    return weekStart;
+  }
+
+  getWeekEndDate(weekNumber: number, year: number = new Date().getFullYear()): Date {
+    const weekStart = this.getWeekStartDate(weekNumber, year);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6); // Friday (end of academic week)
+    return weekEnd;
   }
 
   constructor(
@@ -207,6 +252,10 @@ export class HodDashPage implements OnInit, OnDestroy {
 
   ngOnInit() {
     console.log('HodDashPage ngOnInit');
+
+    // Initialize academic week configuration
+    this.academicWeekConfig.currentWeek = this.getCurrentWeekNumber();
+    this.selectedWeek = this.academicWeekConfig.currentWeek;
 
     // Add beforeunload listener to warn about unsaved changes
     window.addEventListener('beforeunload', this.handleBeforeUnload.bind(this));
@@ -1590,6 +1639,13 @@ export class HodDashPage implements OnInit, OnDestroy {
         this.presentToast('Error deleting session: ' + (error.message || 'Unknown error'));
       }
     });
+  }
+
+  // Handle week change from timetable grid
+  handleWeekChange(event: WeekChangeEvent) {
+    console.log('Week changed:', event);
+    this.selectedWeek = event.weekNumber;
+    // Optionally filter sessions or perform other actions based on week change
   }
 
   // New method to get lecturer names from IDs

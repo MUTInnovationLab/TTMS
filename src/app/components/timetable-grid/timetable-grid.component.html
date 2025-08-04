@@ -12,6 +12,342 @@
 
   <!-- Control Panel -->
   <div class="control-panel">
+    <!-- Academic Week Section - Enhanced Visual Representation -->
+    <div class="panel-section academic-calendar" *ngIf="showWeekControls">
+      <div class="calendar-header">
+        <h3>MUT Academic Calendar 2025</h3>
+        <div class="calendar-actions">
+          <ion-button fill="clear" size="small" color="secondary" (click)="openCalendarUpload()" title="Upload Academic Calendar">
+            <ion-icon name="cloud-upload-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+          <ion-button fill="clear" size="small" color="medium" (click)="showAcademicWeekConfigModal()" title="Configure Academic Week">
+            <ion-icon name="settings-outline" slot="icon-only"></ion-icon>
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Current Phase Card -->
+      <div class="current-phase-card">
+        <div class="phase-indicator" [style.background-color]="getCurrentPhase().color">
+          <ion-icon [name]="getCurrentPhase().name.includes('Exam') ? 'document-text' : getCurrentPhase().name.includes('Break') ? 'cafe' : 'school'"></ion-icon>
+        </div>
+        <div class="phase-details">
+          <h4>{{getCurrentPhase().name}}</h4>
+          <p>{{getCurrentPhase().description}}</p>
+          <div class="phase-meta">
+            <div class="current-week-badge">
+              <ion-chip color="primary" size="small">
+                <ion-icon name="location" slot="start"></ion-icon>
+                <ion-label>Week {{academicWeekConfig.currentWeek}}</ion-label>
+              </ion-chip>
+            </div>
+            <div class="progress-stats">
+              <span class="progress-label">Academic Progress</span>
+              <span class="progress-value">{{getAcademicProgress()}}% Complete</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Semester Timeline -->
+      <div class="semester-timeline">
+        <div class="timeline-header">
+          <h5>Academic Year Timeline</h5>
+          <span class="total-weeks">52 weeks total</span>
+        </div>
+        
+        <div class="timeline-track">
+          <div class="semester-segments">
+            <div *ngFor="let segment of getSemesterSegments()" 
+                 class="semester-segment"
+                 [class.current-segment]="academicWeekConfig.currentWeek >= segment.start && academicWeekConfig.currentWeek <= segment.end"
+                 [style.background-color]="segment.color"
+                 [style.width.%]="((segment.end - segment.start + 1) / 52) * 100"
+                 [title]="segment.label + ' (Weeks ' + segment.start + '-' + segment.end + ')'">
+              <span class="segment-label" *ngIf="segment.end - segment.start >= 3">{{segment.label}}</span>
+            </div>
+          </div>
+          
+          <!-- Current Week Indicator -->
+          <div class="current-week-pointer" 
+               [style.left.%]="getWeekPosition(academicWeekConfig.currentWeek)">
+            <div class="pointer-line"></div>
+            <div class="pointer-dot"></div>
+            <div class="week-tooltip">Week {{academicWeekConfig.currentWeek}}</div>
+          </div>
+        </div>
+
+        <!-- Timeline Scale -->
+        <div class="timeline-scale">
+          <div class="scale-marker" *ngFor="let month of ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; let i = index"
+               [style.left.%]="(i / 12) * 100">
+            <span>{{month}}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upcoming Milestones -->
+      <div class="upcoming-milestones" *ngIf="getUpcomingMilestones().length > 0">
+        <h5>Upcoming Milestones</h5>
+        <div class="milestone-list">
+          <div class="milestone-item" *ngFor="let milestone of getUpcomingMilestones()">
+            <div class="milestone-icon">
+              <ion-icon name="flag" [style.color]="getWeekTypeColor(milestone.week)"></ion-icon>
+            </div>
+            <div class="milestone-details">
+              <span class="milestone-title">{{milestone.label}}</span>
+              <span class="milestone-timing">Week {{milestone.week}} • {{milestone.daysAway}} days away</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Week Navigation -->
+      <div class="week-navigation">
+        <div class="week-selector">
+          <ion-button fill="clear" size="small" (click)="navigateToPreviousWeek()" [disabled]="selectedWeek <= 1">
+            <ion-icon name="chevron-back" slot="icon-only"></ion-icon>
+          </ion-button>
+          
+          <ion-select placeholder="Select Week" [(ngModel)]="selectedWeek" (ionChange)="navigateToWeek($event.detail.value)" interface="popover">
+            <ion-select-option *ngFor="let week of [].constructor(academicWeekConfig.totalWeeks); let i = index" 
+                               [value]="i + 1"
+                               [class]="'week-option-' + getWeekTypeColor(i + 1).replace('#', '')">
+              {{getWeekLabel(i + 1)}}
+            </ion-select-option>
+          </ion-select>
+          
+          <ion-button fill="clear" size="small" (click)="navigateToNextWeek()" [disabled]="selectedWeek >= academicWeekConfig.totalWeeks">
+            <ion-icon name="chevron-forward" slot="icon-only"></ion-icon>
+          </ion-button>
+        </div>
+        
+        <div class="week-actions">
+          <ion-button fill="outline" size="small" color="primary" (click)="navigateToCurrentWeek()" 
+                      [disabled]="selectedWeek === academicWeekConfig.currentWeek">
+            <ion-icon name="today" slot="start"></ion-icon>
+            Current
+          </ion-button>
+          
+          <ion-button fill="clear" size="small" color="medium" (click)="addCustomWeekLabel()">
+            <ion-icon name="pricetag-outline" slot="start"></ion-icon>
+            Label
+          </ion-button>
+        </div>
+      </div>
+
+      <!-- Alternative Visual Representations -->
+      <div class="alternative-views">
+        <ion-segment [(ngModel)]="calendarViewMode" (ionChange)="onCalendarViewChange($event)">
+          <ion-segment-button value="timeline">
+            <ion-icon name="analytics-outline"></ion-icon>
+            <ion-label>Timeline</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="grid">
+            <ion-icon name="grid-outline"></ion-icon>
+            <ion-label>Grid</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="radial">
+            <ion-icon name="radio-button-on-outline"></ion-icon>
+            <ion-label>Radial</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="gantt">
+            <ion-icon name="bar-chart-outline"></ion-icon>
+            <ion-label>Gantt</ion-label>
+          </ion-segment-button>
+          <ion-segment-button value="heatmap">
+            <ion-icon name="apps-outline"></ion-icon>
+            <ion-label>Heatmap</ion-label>
+          </ion-segment-button>
+        </ion-segment>
+
+        <!-- Grid Calendar View -->
+        <div class="calendar-grid-view" *ngIf="calendarViewMode === 'grid'">
+          <div class="grid-calendar">
+            <!-- Month headers -->
+            <div class="month-headers">
+              <div class="month-header" *ngFor="let month of ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; let i = index">
+                {{month}}
+              </div>
+            </div>
+            
+            <!-- Day of week headers -->
+            <div class="day-headers">
+              <div class="day-header" *ngFor="let day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']">
+                {{day}}
+              </div>
+            </div>
+            
+            <!-- Calendar grid with all days -->
+            <div class="calendar-grid-body">
+              <div class="calendar-week" *ngFor="let week of getEnhancedCalendarGrid(); let weekIndex = index">
+                <div class="week-number-indicator">
+                  <span class="week-label">W{{weekIndex + 1}}</span>
+                </div>
+                <div class="calendar-day" *ngFor="let day of week"
+                     [class.current-week]="day.isCurrentWeek"
+                     [class.academic-week]="day.isAcademicWeek"
+                     [class.exam-week]="day.isExamWeek"
+                     [class.break-week]="day.isBreakWeek"
+                     [class.selected-week]="day.week === selectedWeek"
+                     [style.background-color]="day.color"
+                     (click)="navigateToWeek(day.week)"
+                     [title]="day.fullLabel">
+                  <div class="day-content">
+                    <span class="day-number">{{day.dayOfMonth}}</span>
+                    <span class="week-type-indicator" *ngIf="day.typeIndicator">{{day.typeIndicator}}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+            <!-- Calendar legend -->
+            <div class="calendar-legend">
+              <div class="legend-item">
+                <span class="legend-color" style="background-color: #4c8dff;"></span>
+                <span>Semester 1</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color" style="background-color: #2dd36f;"></span>
+                <span>Semester 2</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color" style="background-color: #eb445a;"></span>
+                <span>Exams</span>
+              </div>
+              <div class="legend-item">
+                <span class="legend-color" style="background-color: #ffc409;"></span>
+                <span>Breaks</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Radial Calendar View -->
+        <div class="radial-calendar-view" *ngIf="calendarViewMode === 'radial'">
+          <div class="radial-container">
+            <svg width="300" height="300" viewBox="0 0 300 300">
+              <!-- Radial grid lines -->
+              <g class="grid-lines">
+                <circle cx="150" cy="150" r="60" fill="none" stroke="#e0e0e0" stroke-width="1"></circle>
+                <circle cx="150" cy="150" r="80" fill="none" stroke="#e0e0e0" stroke-width="1"></circle>
+                <circle cx="150" cy="150" r="100" fill="none" stroke="#e0e0e0" stroke-width="1"></circle>
+              </g>
+              
+              <!-- Week markers -->
+              <g class="week-markers">
+                <g *ngFor="let week of getRadialCalendar()" 
+                   [attr.transform]="'rotate(' + week.angle + ' 150 150)'">
+                  <circle [attr.cx]="150" [attr.cy]="150 - week.radius" 
+                          r="4" [attr.fill]="week.color"
+                          [class.current-week]="week.week === academicWeekConfig.currentWeek"
+                          (click)="navigateToWeek(week.week)"
+                          [title]="getWeekLabel(week.week)">
+                  </circle>
+                  <text [attr.x]="150" [attr.y]="150 - week.radius + 15" 
+                        text-anchor="middle" font-size="8" fill="#666"
+                        *ngIf="week.week % 4 === 0">{{week.week}}</text>
+                </g>
+              </g>
+              
+              <!-- Current week indicator -->
+              <g class="current-indicator">
+                <circle cx="150" cy="150" r="6" fill="#ff6b35" stroke="white" stroke-width="2"></circle>
+                <text x="150" y="155" text-anchor="middle" font-size="10" fill="white" font-weight="bold">NOW</text>
+              </g>
+            </svg>
+          </div>
+        </div>
+
+        <!-- Gantt Chart View -->
+        <div class="gantt-chart-view" *ngIf="calendarViewMode === 'gantt'">
+          <div class="gantt-chart">
+            <div class="gantt-header">
+              <div class="gantt-labels">Activity</div>
+              <div class="gantt-timeline">
+                <div class="month-labels">
+                  <span *ngFor="let month of ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']">{{month}}</span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="gantt-body">
+              <div class="gantt-row" *ngFor="let item of getGanttChart()">
+                <div class="gantt-label">
+                  <ion-icon [name]="item.type === 'exams' ? 'document-text' : item.type === 'break' ? 'cafe' : 'school'"></ion-icon>
+                  <span>{{item.name}}</span>
+                </div>
+                <div class="gantt-bar-container">
+                  <div class="gantt-bar" 
+                       [style.background-color]="item.color"
+                       [style.left.%]="((item.start - 1) / 52) * 100"
+                       [style.width.%]="((item.end - item.start + 1) / 52) * 100"
+                       [class.current-period]="academicWeekConfig.currentWeek >= item.start && academicWeekConfig.currentWeek <= item.end">
+                    <span class="bar-label">Weeks {{item.start}}-{{item.end}}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Heatmap Calendar View -->
+        <div class="heatmap-calendar-view" *ngIf="calendarViewMode === 'heatmap'">
+          <div class="heatmap-calendar">
+            <div class="heatmap-header">
+              <div class="day-labels">
+                <span *ngFor="let day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']">{{day}}</span>
+              </div>
+            </div>
+            <div class="heatmap-body">
+              <div class="heatmap-row" *ngFor="let row of getCalendarHeatmap(); let rowIndex = index">
+                <div class="heatmap-cell" *ngFor="let cell of row"
+                     [style.background-color]="cell.color"
+                     [style.opacity]="cell.value / 4"
+                     [class.current-week]="cell.week === academicWeekConfig.currentWeek"
+                     (click)="navigateToWeek(cell.week)"
+                     [title]="cell.date | date:'shortDate'">
+                </div>
+              </div>
+            </div>
+            <div class="heatmap-legend">
+              <span>Less</span>
+              <div class="legend-scale">
+                <div class="legend-box" style="opacity: 0.2"></div>
+                <div class="legend-box" style="opacity: 0.4"></div>
+                <div class="legend-box" style="opacity: 0.6"></div>
+                <div class="legend-box" style="opacity: 0.8"></div>
+                <div class="legend-box" style="opacity: 1.0"></div>
+              </div>
+              <span>More</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Selected Week Info (only show if different from current) -->
+      <div class="selected-week-info" *ngIf="selectedWeek !== academicWeekConfig.currentWeek">
+        <ion-card class="week-info-card">
+          <ion-card-content>
+            <div class="week-details">
+              <div class="week-badge" [style.background-color]="getWeekTypeColor(selectedWeek)">
+                <ion-icon [name]="isAcademicWeek(selectedWeek) ? 'school' : academicWeekConfig.examWeeks.includes(selectedWeek) ? 'document-text' : 'cafe'"></ion-icon>
+              </div>
+              <div class="week-info">
+                <h4>{{getWeekLabel(selectedWeek)}}</h4>
+                <p>{{getWeekStartDate(selectedWeek) | date:'mediumDate'}} - {{getWeekEndDate(selectedWeek) | date:'mediumDate'}}</p>
+                <div class="week-meta">
+                  <ion-chip [color]="isAcademicWeek(selectedWeek) ? 'primary' : 'medium'" size="small">
+                    <ion-label>{{isAcademicWeek(selectedWeek) ? 'Academic Week' : 'Non-Academic'}}</ion-label>
+                  </ion-chip>
+                </div>
+              </div>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </div>
+    </div>
+
     <div class="panel-section">
       <h3>Timetable View</h3>
       <div class="date-range">
@@ -93,11 +429,22 @@
         <li>Drag sessions to the delete zone to remove them</li>
         <li>Click on sessions to view details</li>
       </ul>
+      
+      <!-- Session Count Info -->
+      <div class="session-count-info" *ngIf="showWeekControls">
+        <ion-chip color="primary">
+          <ion-label>{{filteredSessions.length}} / {{sessions.length}} sessions</ion-label>
+        </ion-chip>
+        <ion-chip [color]="isAcademicWeek(selectedWeek) ? 'success' : 'medium'">
+          <ion-icon [name]="isAcademicWeek(selectedWeek) ? 'school' : 'calendar'" slot="start"></ion-icon>
+          <ion-label>{{getWeekLabel(selectedWeek)}}</ion-label>
+        </ion-chip>
+      </div>
     </div>
   </div>
   
   <!-- Timetable Grid -->
-  <div class="timetable-grid" [class]="viewMode + '-view'">
+  <div class="timetable-grid" [class]="viewMode + '-view'">>
     <!-- Header - Days -->
     <div class="grid-header">
       <div class="time-column-header"></div>

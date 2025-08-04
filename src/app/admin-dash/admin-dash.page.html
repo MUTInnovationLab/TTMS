@@ -51,6 +51,11 @@
           <ion-label>Timetable Management</ion-label>
         </ion-item>
 
+        <ion-item button [class.active]="activeSection === 'calendar'" (click)="changeSection('calendar')">
+          <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
+          <ion-label>Calendar Configuration</ion-label>
+        </ion-item>
+
         <ion-item button [class.active]="activeSection === 'departments'" (click)="changeSection('departments')">
           <ion-icon name="business-outline" slot="start"></ion-icon>
           <ion-label>Department Management</ion-label>
@@ -572,6 +577,172 @@
             <app-timetable-grid [sessions]="masterTimetableSessions" (sessionClick)="handleSessionClick($event)">
             </app-timetable-grid>
           </div>
+        </div>
+      </div>
+
+      <!-- Calendar Configuration Section -->
+      <div *ngIf="activeSection === 'calendar'" class="section-container">
+        <h1>Academic Calendar Configuration</h1>
+        
+        <div class="calendar-config-content">
+          <!-- Current Calendar Status Card -->
+          <ion-card class="current-status-card">
+            <ion-card-header>
+              <ion-card-title>
+                <ion-icon name="calendar-outline" slot="start"></ion-icon>
+                Current Calendar Status
+              </ion-card-title>
+              <ion-card-subtitle>
+                Overview of your active academic calendar configuration
+              </ion-card-subtitle>
+            </ion-card-header>
+            
+            <ion-card-content>
+              <div class="status-grid">
+                <div class="status-item">
+                  <ion-icon name="school-outline" color="primary"></ion-icon>
+                  <div class="status-details">
+                    <h4>Academic Year</h4>
+                    <p class="status-value">{{ getCurrentCalendarYear() }}</p>
+                  </div>
+                </div>
+                
+                <div class="status-item">
+                  <ion-icon name="calendar-number-outline" color="success"></ion-icon>
+                  <div class="status-details">
+                    <h4>Active Weeks</h4>
+                    <p class="status-value">{{ getActiveWeeksCount() }}</p>
+                  </div>
+                </div>
+                
+                <div class="status-item">
+                  <ion-icon name="bookmarks-outline" color="warning"></ion-icon>
+                  <div class="status-details">
+                    <h4>Academic Periods</h4>
+                    <p class="status-value">{{ getAcademicPeriodsCount() }}</p>
+                  </div>
+                </div>
+                
+                <div class="status-item">
+                  <ion-icon name="document-text-outline" color="danger"></ion-icon>
+                  <div class="status-details">
+                    <h4>Exam Periods</h4>
+                    <p class="status-value">{{ getExamPeriodsCount() }}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="calendar-actions">
+                <ion-button 
+                  fill="outline" 
+                  color="medium" 
+                  (click)="exportCurrentCalendar()"
+                  [disabled]="!hasActiveCalendar()">
+                  <ion-icon name="download-outline" slot="start"></ion-icon>
+                  Export Calendar
+                </ion-button>
+                
+                <ion-button 
+                  fill="clear" 
+                  color="danger" 
+                  (click)="resetCalendarConfig()"
+                  [disabled]="!hasActiveCalendar()">
+                  <ion-icon name="refresh-outline" slot="start"></ion-icon>
+                  Reset to Default
+                </ion-button>
+              </div>
+            </ion-card-content>
+          </ion-card>
+
+          <!-- Upload New Calendar Card -->
+          <ion-card class="upload-card">
+            <ion-card-header>
+              <ion-card-title>
+                <ion-icon name="cloud-upload-outline" slot="start"></ion-icon>
+                Upload New Academic Calendar
+              </ion-card-title>
+              <ion-card-subtitle>
+                Replace the current calendar configuration with a new institutional calendar
+              </ion-card-subtitle>
+            </ion-card-header>
+            
+            <ion-card-content>
+              <div class="upload-controls">
+                <ion-button 
+                  expand="block" 
+                  fill="solid" 
+                  color="primary"
+                  (click)="openCalendarUploadModal()"
+                  class="upload-btn">
+                  <ion-icon name="cloud-upload" slot="start"></ion-icon>
+                  Upload Academic Calendar
+                </ion-button>
+                
+                <p class="upload-description">
+                  Click to open the calendar upload interface where you can:
+                </p>
+                <ul class="upload-features">
+                  <li>Download templates in TXT, CSV, or JSON format</li>
+                  <li>Upload your institutional calendar</li>
+                  <li>Preview and validate calendar data</li>
+                  <li>Configure academic year settings</li>
+                </ul>
+              </div>
+            </ion-card-content>
+          </ion-card>
+
+          <!-- Calendar Management Tools -->
+          <ion-card class="management-tools-card">
+            <ion-card-header>
+              <ion-card-title>
+                <ion-icon name="settings-outline" slot="start"></ion-icon>
+                Calendar Management Tools
+              </ion-card-title>
+              <ion-card-subtitle>
+                Additional tools for managing your academic calendar
+              </ion-card-subtitle>
+            </ion-card-header>
+            
+            <ion-card-content>
+              <div class="tools-grid">
+                <ion-button 
+                  fill="outline" 
+                  expand="block"
+                  (click)="viewCalendarDetails()"
+                  [disabled]="!hasActiveCalendar()">
+                  <ion-icon name="eye-outline" slot="start"></ion-icon>
+                  View Calendar Details
+                </ion-button>
+                
+                <ion-button 
+                  fill="outline" 
+                  expand="block"
+                  (click)="validateCalendarData()"
+                  [disabled]="!hasActiveCalendar()">
+                  <ion-icon name="checkmark-circle-outline" slot="start"></ion-icon>
+                  Validate Calendar Data
+                </ion-button>
+                
+                <ion-button 
+                  fill="outline" 
+                  expand="block"
+                  (click)="previewCalendarChanges()"
+                  [disabled]="!hasActiveCalendar()">
+                  <ion-icon name="preview-outline" slot="start"></ion-icon>
+                  Preview Changes
+                </ion-button>
+                
+                <ion-button 
+                  fill="outline" 
+                  expand="block"
+                  (click)="generateCalendarReport()"
+                  [disabled]="!hasActiveCalendar()">
+                  <ion-icon name="document-outline" slot="start"></ion-icon>
+                  Generate Report
+                </ion-button>
+              </div>
+            </ion-card-content>
+          </ion-card>
         </div>
       </div>
 

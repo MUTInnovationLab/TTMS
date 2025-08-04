@@ -1168,3 +1168,267 @@ ion-list.backup-list {
     }
   }
 }
+
+// Calendar Configuration Styles
+.calendar-config-content {
+  .upload-section {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    border: 2px dashed #dee2e6;
+    transition: all 0.3s ease;
+
+    &:hover {
+      border-color: var(--ion-color-primary);
+      background: #f0f7ff;
+    }
+  }
+
+  .current-config-info {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+
+    .config-item {
+      display: flex;
+      align-items: center;
+      padding: 16px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 4px solid var(--ion-color-primary);
+
+      ion-icon {
+        font-size: 24px;
+        color: var(--ion-color-primary);
+        margin-right: 12px;
+        min-width: 24px;
+      }
+
+      .config-details {
+        h4 {
+          margin: 0 0 4px 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--ion-color-dark);
+        }
+
+        p {
+          margin: 0;
+          color: var(--ion-color-medium);
+          font-size: 13px;
+        }
+      }
+    }
+  }
+
+  .config-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-start;
+
+    @media (max-width: 768px) {
+      flex-direction: column;
+
+      ion-button {
+        width: 100%;
+      }
+    }
+  }
+}
+
+// Enhanced Calendar Configuration Styles
+.calendar-config-content {
+  .current-status-card {
+    margin-bottom: 24px;
+    
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+      margin-bottom: 24px;
+      
+      .status-item {
+        display: flex;
+        align-items: center;
+        padding: 16px;
+        background: var(--ion-color-light);
+        border-radius: 12px;
+        border-left: 4px solid var(--ion-color-primary);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        
+        ion-icon {
+          font-size: 28px;
+          margin-right: 16px;
+          min-width: 28px;
+        }
+        
+        .status-details {
+          h4 {
+            margin: 0 0 4px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--ion-color-dark);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+          
+          .status-value {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--ion-color-primary);
+          }
+        }
+      }
+    }
+    
+    .calendar-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-start;
+      
+      @media (max-width: 768px) {
+        flex-direction: column;
+        
+        ion-button {
+          width: 100%;
+        }
+      }
+    }
+  }
+  
+  .upload-card {
+    margin-bottom: 24px;
+    
+    .upload-controls {
+      text-align: center;
+      
+      .upload-btn {
+        height: 48px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        transition: all 0.3s ease;
+        margin-bottom: 16px;
+        
+        &:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 6px 20px rgba(var(--ion-color-primary-rgb), 0.3);
+        }
+        
+        ion-icon {
+          font-size: 20px;
+        }
+      }
+      
+      .upload-description {
+        margin: 16px 0 8px 0;
+        color: var(--ion-color-medium);
+        font-size: 14px;
+      }
+      
+      .upload-features {
+        text-align: left;
+        margin: 0;
+        padding-left: 20px;
+        
+        li {
+          margin: 4px 0;
+          color: var(--ion-color-dark);
+          font-size: 13px;
+        }
+      }
+    }
+  }
+  
+  .management-tools-card {
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      
+      ion-button {
+        height: 48px;
+        font-weight: 500;
+        transition: all 0.2s ease;
+        
+        &:not([disabled]):hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        
+        &[disabled] {
+          opacity: 0.5;
+        }
+        
+        ion-icon {
+          font-size: 18px;
+        }
+      }
+    }
+  }
+}
+
+// Calendar animations
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+// Calendar upload modal styling
+.calendar-upload-modal {
+  --width: 100%;
+  --height: 100%;
+  --border-radius: 0;
+  --box-shadow: none;
+  
+  .modal-wrapper {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    border-radius: 0;
+  }
+  
+  ion-content {
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+  }
+}
+
+// Responsive adjustments for calendar section
+@media (max-width: 768px) {
+  .calendar-config-content {
+    .status-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+    
+    .tools-grid {
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+  }
+}

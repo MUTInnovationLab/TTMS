@@ -1,4 +1,5 @@
 import { Component, OnInit, ChangeDetectorRef, OnDestroy, Injector } from '@angular/core';
+import { trigger, state, style, transition, animate } from '@angular/animations';
 import { TimetableSession } from '../components/timetable-grid/timetable-grid.component';
 import { Conflict, ConflictType, ConflictResolution } from '../components/conflict-res/conflict-res.component';
 import { SidebarService } from '../services/Utility Services/sidebar.service';
@@ -8,6 +9,7 @@ import { AddUserComponent, User } from '../components/add-user/add-user.componen
 import { AddVenueComponent } from '../components/add-venue/add-venue.component';
 // Import AddDepartmentComponent for modal usage
 import { AddDepartmentComponent } from '../components/add-department/add-department.component';
+import { AcademicCalendarUploadComponent, AcademicCalendarData } from '../components/academic-calendar-upload/academic-calendar-upload.component';
 import type { Department } from '../interfaces/department.interface';
 import { AuthService } from '../services/Authentication Services/auth.service';
 import { StaffService } from '../services/Data Services/staff.service';
@@ -301,6 +303,10 @@ export class AdminDashPage implements OnInit, OnDestroy {
   isSubmitting: boolean = false;
   private _departmentService?: DepartmentService;
 
+  // Calendar configuration properties
+  currentCalendarData: AcademicCalendarData | null = null;
+
+  // Remove unused animations and properties
   constructor(
     private alertController: AlertController,
     private router: Router,
@@ -2730,6 +2736,318 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.presentToast(
       `HOD account created successfully!\nEmail: ${hodData.contact?.email}\nTemporary Password: ${defaultPassword}\nPlease ensure to communicate these credentials securely.`
     );
+  }
+
+  // Calendar management methods
+  getCurrentCalendarYear(): string {
+    const savedCalendar = localStorage.getItem('academicCalendarConfig');
+    if (savedCalendar) {
+      const calendarData = JSON.parse(savedCalendar);
+      return `${calendarData.academicYear} (${calendarData.weeks?.length || 52} weeks)`;
+    }
+    return '2025 (52 weeks)'; // Default MUT calendar
+  }
+
+  getActiveWeeksCount(): string {
+    const savedCalendar = localStorage.getItem('academicCalendarConfig');
+    if (savedCalendar) {
+      const calendarData = JSON.parse(savedCalendar);
+      const academicWeeks = calendarData.weeks?.filter((week: any) => week.type === 'academic') || [];
+      return `${academicWeeks.length} academic weeks`;
+    }
+    return '44 academic weeks'; // Default MUT calendar
+  }
+
+  getAcademicPeriodsCount(): string {
+    const savedCalendar = localStorage.getItem('academicCalendarConfig');
+    if (savedCalendar) {
+      const calendarData = JSON.parse(savedCalendar);
+      const semesters = calendarData.semesters?.length || 0;
+      const terms = calendarData.semesters?.reduce((total: number, semester: any) => {
+        return total + (semester.terms?.length || 0);
+      }, 0) || 0;
+      return `${semesters} Semesters, ${terms} Terms`;
+    }
+    return '2 Semesters, 4 Terms'; // Default MUT calendar
+  }
+
+  getExamPeriodsCount(): string {
+    const savedCalendar = localStorage.getItem('academicCalendarConfig');
+    if (savedCalendar) {
+      const calendarData = JSON.parse(savedCalendar);
+      return `${calendarData.examPeriods?.length || 0} exam periods`;
+    }
+    return '3 exam periods'; // Default MUT calendar
+  }
+
+  hasActiveCalendar(): boolean {
+    const savedCalendar = localStorage.getItem('academicCalendarConfig');
+    return savedCalendar !== null;
+  }
+
+  viewCalendarDetails() {
+    const savedCalendar = localStorage.getItem('academicCalendarConfig');
+    if (savedCalendar) {
+      const calendarData = JSON.parse(savedCalendar);
+      console.log('Calendar Details:', calendarData);
+      
+      // Create a formatted details string
+      const details = [
+        `Academic Year: ${calendarData.academicYear}`,
+        `University Open: ${new Date(calendarData.universityOpenDate).toDateString()}`,
+        `University Close: ${new Date(calendarData.universityCloseDate).toDateString()}`,
+        `Total Weeks: ${calendarData.weeks?.length || 0}`,
+        `Semesters: ${calendarData.semesters?.length || 0}`,
+        `Exam Periods: ${calendarData.examPeriods?.length || 0}`,
+        `Special Events: ${calendarData.specialEvents?.length || 0}`
+      ].join('\n');
+
+      this.showAlert('Calendar Details', details);
+    } else {
+      this.presentToast('No custom calendar configuration found. Using default MUT calendar.');
+    }
+  }
+
+  async validateCalendarData() {
+    const savedCalendar = localStorage.getItem('academicCalendarConfig');
+    if (savedCalendar) {
+      const calendarData = JSON.parse(savedCalendar);
+      const validationResults = this.performCalendarValidation(calendarData);
+      
+      const message = validationResults.isValid 
+        ? 'Calendar data validation passed successfully!' 
+        : `Validation failed:\n${validationResults.errors.join('\n')}`;
+      
+      await this.showAlert('Calendar Validation', message);
+    } else {
+      this.presentToast('No calendar data to validate.');
+    }
+  }
+
+  private performCalendarValidation(calendarData: any): { isValid: boolean; errors: string[] } {
+    const errors: string[] = [];
+
+    // Check basic structure
+    if (!calendarData.academicYear) errors.push('Missing academic year');
+    if (!calendarData.weeks || !Array.isArray(calendarData.weeks)) errors.push('Missing or invalid weeks array');
+    if (!calendarData.semesters || !Array.isArray(calendarData.semesters)) errors.push('Missing or invalid semesters array');
+
+    // Check date validity
+    if (calendarData.universityOpenDate && isNaN(Date.parse(calendarData.universityOpenDate))) {
+      errors.push('Invalid university open date');
+    }
+    if (calendarData.universityCloseDate && isNaN(Date.parse(calendarData.universityCloseDate))) {
+      errors.push('Invalid university close date');
+    }
+
+    // Check week sequencing
+    if (calendarData.weeks && Array.isArray(calendarData.weeks)) {
+      for (let i = 0; i < calendarData.weeks.length - 1; i++) {
+        const currentWeek = calendarData.weeks[i];
+        const nextWeek = calendarData.weeks[i + 1];
+        
+        if (currentWeek.weekNumber && nextWeek.weekNumber && 
+            currentWeek.weekNumber >= nextWeek.weekNumber) {
+          errors.push(`Week sequencing issue: Week ${currentWeek.weekNumber} followed by Week ${nextWeek.weekNumber}`);
+        }
+      }
+    }
+
+    return { isValid: errors.length === 0, errors };
+  }
+
+  previewCalendarChanges() {
+    // This would show a preview of how the calendar changes affect the timetable
+    this.presentToast('Calendar preview functionality will be available in the next update.');
+  }
+
+  generateCalendarReport() {
+    const savedCalendar = localStorage.getItem('academicCalendarConfig');
+    if (savedCalendar) {
+      const calendarData = JSON.parse(savedCalendar);
+      
+      // Generate a comprehensive report
+      const report = this.createCalendarReport(calendarData);
+      
+      // Create and download the report
+      const dataStr = report;
+      const dataBlob = new Blob([dataStr], { type: 'text/plain' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = `calendar-report-${new Date().getFullYear()}.txt`;
+      link.click();
+      
+      this.presentToast('Calendar report generated and downloaded successfully');
+    } else {
+      this.presentToast('No calendar data available for report generation.');
+    }
+  }
+
+  private createCalendarReport(calendarData: any): string {
+    const lines: string[] = [];
+    lines.push('ACADEMIC CALENDAR REPORT');
+    lines.push('========================');
+    lines.push('');
+    lines.push(`Generated: ${new Date().toLocaleString()}`);
+    lines.push(`Academic Year: ${calendarData.academicYear}`);
+    lines.push('');
+    
+    // Basic statistics
+    lines.push('CALENDAR STATISTICS');
+    lines.push('-------------------');
+    lines.push(`Total Weeks: ${calendarData.weeks?.length || 0}`);
+    lines.push(`Academic Weeks: ${calendarData.weeks?.filter((w: any) => w.type === 'academic').length || 0}`);
+    lines.push(`Exam Weeks: ${calendarData.weeks?.filter((w: any) => w.type === 'exam').length || 0}`);
+    lines.push(`Break Weeks: ${calendarData.weeks?.filter((w: any) => w.type === 'break').length || 0}`);
+    lines.push(`Semesters: ${calendarData.semesters?.length || 0}`);
+    lines.push(`Exam Periods: ${calendarData.examPeriods?.length || 0}`);
+    lines.push(`Special Events: ${calendarData.specialEvents?.length || 0}`);
+    lines.push('');
+
+    // Semester breakdown
+    if (calendarData.semesters && Array.isArray(calendarData.semesters)) {
+      lines.push('SEMESTER BREAKDOWN');
+      lines.push('------------------');
+      calendarData.semesters.forEach((semester: any, index: number) => {
+        lines.push(`${semester.name}: ${new Date(semester.startDate).toDateString()} - ${new Date(semester.endDate).toDateString()}`);
+        if (semester.terms && Array.isArray(semester.terms)) {
+          semester.terms.forEach((term: any) => {
+            lines.push(`  - ${term.name}: ${new Date(term.startDate).toDateString()} - ${new Date(term.endDate).toDateString()}`);
+          });
+        }
+      });
+      lines.push('');
+    }
+
+    // Exam periods
+    if (calendarData.examPeriods && Array.isArray(calendarData.examPeriods)) {
+      lines.push('EXAM PERIODS');
+      lines.push('------------');
+      calendarData.examPeriods.forEach((exam: any) => {
+        lines.push(`${exam.name} (${exam.type}): ${new Date(exam.startDate).toDateString()} - ${new Date(exam.endDate).toDateString()}`);
+      });
+      lines.push('');
+    }
+
+    // Special events
+    if (calendarData.specialEvents && Array.isArray(calendarData.specialEvents)) {
+      lines.push('SPECIAL EVENTS');
+      lines.push('--------------');
+      calendarData.specialEvents.forEach((event: any) => {
+        lines.push(`${event.name} (${event.type}): ${new Date(event.date).toDateString()}`);
+        if (event.description) {
+          lines.push(`  Description: ${event.description}`);
+        }
+      });
+    }
+
+    return lines.join('\n');
+  }
+
+  private async showAlert(header: string, message: string) {
+    const alert = await this.alertController.create({
+      header,
+      message,
+      buttons: ['OK']
+    });
+    await alert.present();
+  }
+
+  async openCalendarUploadModal() {
+    const modal = await this.modalController.create({
+      component: AcademicCalendarUploadComponent,
+      cssClass: 'calendar-upload-modal',
+      showBackdrop: true,
+      backdropDismiss: false,
+      presentingElement: undefined, // This ensures full screen modal
+      canDismiss: false // Prevents accidental dismissal
+    });
+
+    modal.onDidDismiss().then((result) => {
+      if (result.data && result.data.calendarData) {
+        this.handleCalendarUpload(result.data.calendarData);
+      }
+    });
+
+    await modal.present();
+  }
+
+  handleCalendarUpload(event: any) {
+    // Extract the calendar data from the event
+    const calendarData = event as AcademicCalendarData;
+    console.log('Calendar uploaded:', calendarData);
+    
+    // Store the calendar data (in a real app, this would be saved to the database)
+    localStorage.setItem('academicCalendarConfig', JSON.stringify(calendarData));
+    this.currentCalendarData = calendarData;
+    
+    // Update any timetable components with the new calendar
+    this.broadcastCalendarUpdate(calendarData);
+    
+    // Show success message
+    this.presentToast('Academic calendar uploaded and configured successfully!');
+    
+    // Trigger change detection to update the UI
+    this.cdr.detectChanges();
+  }
+
+  handleCalendarModalClose() {
+    console.log('Calendar upload modal closed');
+  }
+
+  exportCurrentCalendar() {
+    const savedCalendar = localStorage.getItem('academicCalendarConfig');
+    
+    if (savedCalendar) {
+      const calendarData = JSON.parse(savedCalendar);
+      const dataStr = JSON.stringify(calendarData, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = `academic-calendar-${new Date().getFullYear()}.json`;
+      link.click();
+      
+      this.presentToast('Calendar configuration exported successfully');
+    } else {
+      this.presentToast('No calendar configuration found to export');
+    }
+  }
+
+  async resetCalendarConfig() {
+    const alert = await this.alertController.create({
+      header: 'Reset Calendar Configuration',
+      message: 'Are you sure you want to reset the calendar configuration to default? This action cannot be undone.',
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel'
+        },
+        {
+          text: 'Reset',
+          role: 'destructive',
+          handler: () => {
+            localStorage.removeItem('academicCalendarConfig');
+            this.presentToast('Calendar configuration reset to default');
+            
+            // Broadcast the reset to any listening components
+            this.broadcastCalendarUpdate(null);
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  private broadcastCalendarUpdate(calendarData: AcademicCalendarData | null) {
+    // In a real application, you might use a service to broadcast this update
+    // For now, we'll just trigger a custom event
+    const event = new CustomEvent('calendar-config-updated', {
+      detail: { calendarData }
+    });
+    window.dispatchEvent(event);
   }
 }
 

@@ -14,39 +14,411 @@
 // Control Panel Styles
 .control-panel {
   background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  margin-bottom: 25px;
+  border: 1px solid #e9ecef;
   
   @media (min-width: 992px) {
-    width: 320px;
-    margin-right: 15px;
+    width: 350px;
+    margin-right: 20px;
     margin-bottom: 0;
     height: calc(100vh - 150px);
     overflow-y: auto;
+    
+    &::-webkit-scrollbar {
+      width: 6px;
+    }
+    
+    &::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 3px;
+    }
+    
+    &::-webkit-scrollbar-thumb {
+      background: #c1c1c1;
+      border-radius: 3px;
+      
+      &:hover {
+        background: #a8a8a8;
+      }
+    }
   }
   
   h3 {
     margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     color: var(--ion-color-dark);
-    font-size: 18px;
+    font-size: 20px;
+    font-weight: 600;
   }
   
   h4 {
     margin-top: 0;
+    margin-bottom: 12px;
+    color: var(--ion-color-dark);
+    font-size: 16px;
+    font-weight: 500;
+  }
+  
+  h5 {
+    margin-top: 0;
     margin-bottom: 10px;
     color: var(--ion-color-dark);
     font-size: 14px;
+    font-weight: 500;
   }
   
   .panel-section {
-    margin-bottom: 15px;
+    margin-bottom: 25px;
     
     &:last-child {
       margin-bottom: 0;
     }
+
+    // Enhanced Academic Calendar Styles
+    &.academic-calendar {
+      .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+        
+        h3 {
+          margin: 0;
+          color: var(--ion-color-primary);
+          font-weight: 600;
+        }
+        
+        .calendar-actions {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+          
+          ion-button {
+            --padding-start: 8px;
+            --padding-end: 8px;
+            --min-height: 32px;
+            
+            &[color="secondary"] {
+              --color: var(--ion-color-secondary);
+              
+              &:hover {
+                --color: var(--ion-color-secondary-shade);
+              }
+            }
+          }
+        }
+      }
+
+      .current-phase-card {
+        display: flex;
+        align-items: center;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 25px;
+        border: 1px solid #e0e0e0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+        .phase-indicator {
+          width: 50px;
+          height: 50px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-right: 15px;
+          box-shadow: 0 3px 12px rgba(0, 0, 0, 0.15);
+          flex-shrink: 0;
+          
+          ion-icon {
+            font-size: 24px;
+            color: white;
+          }
+        }
+
+        .phase-details {
+          flex: 1;
+          
+          h4 {
+            margin: 0 0 5px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--ion-color-dark);
+          }
+          
+          p {
+            margin: 0 0 12px 0;
+            font-size: 13px;
+            color: var(--ion-color-medium);
+            line-height: 1.4;
+          }
+
+          .phase-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            
+            .current-week-badge {
+              align-self: flex-start;
+            }
+            
+            .progress-stats {
+              display: flex;
+              flex-direction: column;
+              gap: 2px;
+              
+              .progress-label {
+                font-size: 11px;
+                color: var(--ion-color-medium);
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+              }
+              
+              .progress-value {
+                font-size: 14px;
+                font-weight: 600;
+                color: var(--ion-color-dark);
+              }
+            }
+          }
+        }
+      }
+
+      .semester-timeline {
+        margin-bottom: 20px;
+
+        .timeline-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 12px;
+
+          h5 {
+            margin: 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--ion-color-dark);
+          }
+
+          .total-weeks {
+            font-size: 11px;
+            color: var(--ion-color-medium);
+          }
+        }
+
+        .timeline-track {
+          position: relative;
+          height: 40px;
+          background: #f0f0f0;
+          border-radius: 6px;
+          overflow: hidden;
+          margin-bottom: 8px;
+
+          .semester-segments {
+            display: flex;
+            height: 100%;
+
+            .semester-segment {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              position: relative;
+              transition: all 0.3s ease;
+              border-right: 1px solid rgba(255, 255, 255, 0.3);
+
+              &.current-segment {
+                box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.8);
+                transform: scale(1.02);
+                z-index: 2;
+              }
+
+              .segment-label {
+                font-size: 9px;
+                font-weight: 600;
+                color: white;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                padding: 0 4px;
+              }
+
+              &:hover {
+                transform: scale(1.05);
+                z-index: 3;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+              }
+            }
+          }
+
+          .current-week-pointer {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            z-index: 4;
+            
+            .pointer-line {
+              width: 2px;
+              height: 100%;
+              background: var(--ion-color-primary);
+              box-shadow: 0 0 4px rgba(76, 141, 255, 0.5);
+            }
+
+            .pointer-dot {
+              position: absolute;
+              top: -4px;
+              left: -3px;
+              width: 8px;
+              height: 8px;
+              border-radius: 50%;
+              background: var(--ion-color-primary);
+              border: 2px solid white;
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            }
+
+            .week-tooltip {
+              position: absolute;
+              top: -25px;
+              left: 50%;
+              transform: translateX(-50%);
+              background: var(--ion-color-dark);
+              color: white;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 10px;
+              white-space: nowrap;
+              opacity: 0;
+              transition: opacity 0.3s ease;
+            }
+
+            &:hover .week-tooltip {
+              opacity: 1;
+            }
+          }
+        }
+
+        .timeline-scale {
+          display: flex;
+          justify-content: space-between;
+          position: relative;
+          height: 20px;
+
+          .scale-marker {
+            position: absolute;
+            display: flex;
+            align-items: center;
+            font-size: 10px;
+            color: var(--ion-color-medium);
+            transform: translateX(-50%);
+            
+            span {
+              writing-mode: horizontal-tb;
+            }
+          }
+        }
+      }
+
+      .upcoming-milestones {
+        margin-bottom: 20px;
+
+        h5 {
+          margin: 0 0 12px 0;
+          font-size: 14px;
+          font-weight: 600;
+          color: var(--ion-color-dark);
+        }
+
+        .milestone-list {
+          .milestone-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #f0f0f0;
+
+            &:last-child {
+              border-bottom: none;
+            }
+
+            .milestone-icon {
+              margin-right: 12px;
+              
+              ion-icon {
+                font-size: 16px;
+              }
+            }
+
+            .milestone-details {
+              flex: 1;
+              
+              .milestone-title {
+                display: block;
+                font-size: 13px;
+                font-weight: 500;
+                color: var(--ion-color-dark);
+                margin-bottom: 2px;
+              }
+
+              .milestone-timing {
+                display: block;
+                font-size: 11px;
+                color: var(--ion-color-medium);
+              }
+            }
+          }
+        }
+      }
+
+      .week-info-card {
+        margin: 0;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+        .week-details {
+          display: flex;
+          align-items: center;
+
+          .week-badge {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+
+            ion-icon {
+              font-size: 20px;
+              color: white;
+            }
+          }
+
+          .week-info {
+            flex: 1;
+
+            h4 {
+              margin: 0 0 4px 0;
+              font-size: 14px;
+              font-weight: 600;
+            }
+
+            p {
+              margin: 0 0 8px 0;
+              font-size: 12px;
+              color: var(--ion-color-medium);
+            }
+
+            .week-meta {
+              display: flex;
+              gap: 8px;
+            }
+          }
+        }
+      }
+    }
+  }
     
     h3, h4 {
       margin-top: 0;
@@ -84,21 +456,18 @@
       }
     }
   }
-  
+
+  // Filter controls (reusing admin dashboard style)
   .filter-controls {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 20px;
+    
     ion-searchbar, ion-select, ion-button {
       margin-bottom: 10px;
     }
-  }
-}
-
-// Filter controls (reusing admin dashboard style)
-.filter-controls {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 20px;
   
   ion-searchbar {
     flex: 1;
@@ -700,5 +1069,710 @@
   }
   to {
     background: linear-gradient(135deg, #ff7043, #ef5350);
+  }
+}
+
+// Academic Week Styles
+.week-progress-container {
+  margin-bottom: 16px;
+
+  .week-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+
+    .current-week-label {
+      font-weight: 600;
+      color: var(--ion-color-dark);
+      font-size: 0.9em;
+    }
+
+    .academic-progress {
+      font-size: 0.8em;
+      color: var(--ion-color-medium);
+    }
+  }
+
+  .week-progress-bar {
+    .progress-track {
+      position: relative;
+      height: 6px;
+      background: var(--ion-color-light-shade);
+      border-radius: 3px;
+      overflow: hidden;
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--ion-color-success), var(--ion-color-primary));
+        transition: width 0.3s ease;
+        border-radius: 3px;
+      }
+
+      .current-week-indicator {
+        position: absolute;
+        top: -5px;
+        transform: translateX(-50%);
+        z-index: 2;
+
+        .week-marker {
+          background: white;
+          border: 2px solid var(--ion-color-primary);
+          border-radius: 50%;
+          width: 16px;
+          height: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+
+          ion-icon {
+            font-size: 10px;
+          }
+        }
+      }
+    }
+
+    .week-labels {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      font-size: 0.7em;
+      color: var(--ion-color-medium);
+
+      .start-label, .end-label {
+        font-weight: 500;
+      }
+    }
+  }
+}
+
+.week-navigation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  .week-selector {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+
+    ion-select {
+      flex: 1;
+      min-height: 32px;
+      
+      &::part(container) {
+        border: 1px solid var(--ion-color-light-shade);
+        border-radius: 6px;
+        font-size: 0.85em;
+      }
+    }
+
+    ion-button {
+      --height: 32px;
+      --padding-start: 8px;
+      --padding-end: 8px;
+      margin: 0;
+    }
+  }
+
+  .week-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    ion-button {
+      --height: 32px;
+      margin: 0;
+      
+      &[size="small"] {
+        font-size: 0.8em;
+      }
+    }
+  }
+}
+
+.selected-week-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: var(--ion-color-light);
+  border-radius: 6px;
+  margin-bottom: 12px;
+
+  ion-chip {
+    margin: 0;
+    font-size: 0.8em;
+    height: 24px;
+  }
+
+  .week-date-range {
+    font-size: 0.75em;
+    color: var(--ion-color-medium);
+    font-weight: 500;
+  }
+}
+
+.session-count-info {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 8px;
+
+  ion-chip {
+    font-size: 0.75em;
+    height: 24px;
+    margin: 0;
+  }
+}
+
+// Mobile adjustments for week controls
+@media (max-width: 768px) {
+  .week-navigation {
+    .week-selector {
+      flex-direction: column;
+      gap: 6px;
+
+      ion-select {
+        order: 2;
+      }
+
+      ion-button {
+        order: 1;
+      }
+    }
+
+    .week-actions {
+      flex-direction: column;
+      gap: 6px;
+      align-items: stretch;
+
+      ion-button {
+        width: 100%;
+      }
+    }
+  }
+
+  .selected-week-info {
+    align-items: center;
+    text-align: center;
+  }
+}
+
+// Enhanced Animations
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes slideIn {
+  from { 
+    opacity: 0; 
+    transform: translateY(-10px); 
+  }
+  to { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+// Animation classes
+.current-phase-card {
+  animation: slideIn 0.5s ease-out;
+}
+
+.milestone-item {
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(76, 141, 255, 0.05);
+    transform: translateX(4px);
+  }
+}
+
+.current-segment {
+  animation: pulse 2s infinite;
+}
+
+// Enhanced Progress Circle Animation
+.progress-circle {
+  circle {
+    transition: stroke-dashoffset 0.5s ease-in-out;
+  }
+}
+
+// Responsive Design Enhancements
+@media (max-width: 768px) {
+  .academic-calendar {
+    .current-phase-card {
+      flex-direction: column;
+      text-align: center;
+      
+      .phase-indicator {
+        margin-right: 0;
+        margin-bottom: 12px;
+      }
+      
+      .progress-circle {
+        margin-top: 12px;
+      }
+    }
+    
+    .semester-timeline {
+      .timeline-track {
+        height: 32px;
+        
+        .semester-segment .segment-label {
+          font-size: 8px;
+        }
+      }
+    }
+    
+    .upcoming-milestones {
+      .milestone-item {
+        .milestone-icon {
+          margin-right: 8px;
+        }
+      }
+    }
+  }
+}
+
+// Alternative Calendar Views Styles
+.alternative-views {
+  margin-top: 25px;
+
+  ion-segment {
+    margin-bottom: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    
+    ion-segment-button {
+      --color: #6c757d;
+      --color-checked: #3880ff;
+      --indicator-color: #3880ff;
+      
+      ion-icon {
+        font-size: 16px;
+        margin-bottom: 2px;
+      }
+      
+      ion-label {
+        font-size: 11px;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.3px;
+      }
+    }
+  }
+
+  // Grid Calendar View
+  .calendar-grid-view {
+    .grid-calendar {
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: white;
+      
+      .month-headers {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 12px 0;
+        
+        .month-header {
+          text-align: center;
+          font-size: 12px;
+          font-weight: 600;
+          color: white;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+      }
+      
+      .day-headers {
+        display: grid;
+        grid-template-columns: 40px repeat(7, 1fr);
+        background: #f8f9fa;
+        border-bottom: 1px solid #e0e0e0;
+        padding: 8px 0;
+        
+        .day-header {
+          text-align: center;
+          font-size: 11px;
+          font-weight: 600;
+          color: #6c757d;
+          text-transform: uppercase;
+          letter-spacing: 0.3px;
+          
+          &:first-child {
+            grid-column: 1;
+          }
+        }
+      }
+      
+      .calendar-grid-body {
+        .calendar-week {
+          display: grid;
+          grid-template-columns: 40px repeat(7, 1fr);
+          border-bottom: 1px solid #f0f0f0;
+          
+          &:last-child {
+            border-bottom: none;
+          }
+          
+          .week-number-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+            border-right: 1px solid #e0e0e0;
+            padding: 8px 4px;
+            
+            .week-label {
+              font-size: 10px;
+              font-weight: 600;
+              color: #6c757d;
+              writing-mode: vertical-rl;
+              text-orientation: mixed;
+            }
+          }
+          
+          .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-right: 1px solid #f0f0f0;
+            position: relative;
+            min-height: 40px;
+            
+            &:last-child {
+              border-right: none;
+            }
+            
+            &:hover {
+              transform: scale(1.05);
+              z-index: 2;
+              box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            }
+            
+            &.current-week {
+              border: 2px solid #ff6b35;
+              box-shadow: 0 0 15px rgba(255, 107, 53, 0.4);
+              z-index: 3;
+            }
+            
+            &.selected-week {
+              border: 2px solid #3880ff;
+              box-shadow: 0 0 10px rgba(56, 128, 255, 0.3);
+            }
+            
+            &.academic-week {
+              opacity: 1;
+            }
+            
+            &.exam-week {
+              background: linear-gradient(135deg, #eb445a, #dc3545) !important;
+              color: white;
+              font-weight: 600;
+            }
+            
+            &.break-week {
+              background: linear-gradient(135deg, #ffc409, #fd7e14) !important;
+              color: white;
+              font-weight: 600;
+            }
+            
+            .day-content {
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              gap: 2px;
+              
+              .day-number {
+                font-size: 12px;
+                font-weight: 500;
+                line-height: 1;
+              }
+              
+              .week-type-indicator {
+                font-size: 8px;
+                font-weight: bold;
+                padding: 1px 3px;
+                border-radius: 2px;
+                background: rgba(255, 255, 255, 0.8);
+                color: #333;
+                line-height: 1;
+              }
+            }
+          }
+        }
+      }
+      
+      .calendar-legend {
+        display: flex;
+        justify-content: center;
+        gap: 15px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-top: 1px solid #e0e0e0;
+        
+        .legend-item {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 11px;
+          
+          .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+          }
+          
+          span {
+            color: #6c757d;
+            font-weight: 500;
+          }
+        }
+      }
+    }
+  }
+
+  // Radial Calendar View
+  .radial-calendar-view {
+    .radial-container {
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+      
+      svg {
+        max-width: 100%;
+        height: auto;
+        
+        .week-markers circle {
+          cursor: pointer;
+          transition: all 0.2s ease;
+          
+          &:hover {
+            r: 6;
+            stroke: white;
+            stroke-width: 2;
+          }
+          
+          &.current-week {
+            r: 6;
+            stroke: #ff6b35;
+            stroke-width: 3;
+          }
+        }
+        
+        .current-indicator {
+          animation: pulse 2s infinite;
+        }
+      }
+    }
+  }
+
+  // Gantt Chart View
+  .gantt-chart-view {
+    .gantt-chart {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+      
+      .gantt-header {
+        display: flex;
+        background: #f5f7f9;
+        border-bottom: 1px solid #e0e0e0;
+        
+        .gantt-labels {
+          width: 200px;
+          padding: 10px;
+          font-weight: bold;
+          border-right: 1px solid #e0e0e0;
+        }
+        
+        .gantt-timeline {
+          flex: 1;
+          position: relative;
+          
+          .month-labels {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px;
+            
+            span {
+              font-size: 12px;
+              color: #666;
+            }
+          }
+        }
+      }
+      
+      .gantt-body {
+        .gantt-row {
+          display: flex;
+          border-bottom: 1px solid #f0f0f0;
+          
+          &:last-child {
+            border-bottom: none;
+          }
+          
+          .gantt-label {
+            width: 200px;
+            padding: 15px 10px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border-right: 1px solid #e0e0e0;
+            background: white;
+            
+            ion-icon {
+              font-size: 16px;
+            }
+            
+            span {
+              font-size: 12px;
+              font-weight: 500;
+            }
+          }
+          
+          .gantt-bar-container {
+            flex: 1;
+            position: relative;
+            padding: 10px 0;
+            
+            .gantt-bar {
+              position: absolute;
+              height: 20px;
+              border-radius: 10px;
+              display: flex;
+              align-items: center;
+              color: white;
+              font-size: 10px;
+              font-weight: bold;
+              transition: all 0.3s ease;
+              
+              &:hover {
+                transform: scaleY(1.2);
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+              }
+              
+              &.current-period {
+                border: 2px solid #ff6b35;
+                box-shadow: 0 0 10px rgba(255, 107, 53, 0.3);
+              }
+              
+              .bar-label {
+                padding: 0 8px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // Heatmap Calendar View
+  .heatmap-calendar-view {
+    .heatmap-calendar {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+      
+      .heatmap-header {
+        background: #f5f7f9;
+        padding: 10px;
+        border-bottom: 1px solid #e0e0e0;
+        
+        .day-labels {
+          display: flex;
+          justify-content: space-around;
+          
+          span {
+            font-size: 12px;
+            font-weight: bold;
+            color: #666;
+          }
+        }
+      }
+      
+      .heatmap-body {
+        padding: 10px;
+        
+        .heatmap-row {
+          display: flex;
+          gap: 2px;
+          margin-bottom: 2px;
+          
+          .heatmap-cell {
+            width: 12px;
+            height: 12px;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            
+            &:hover {
+              transform: scale(1.2);
+              box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            }
+            
+            &.current-week {
+              border: 2px solid #ff6b35;
+            }
+          }
+        }
+      }
+      
+      .heatmap-legend {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+        padding: 10px;
+        background: #f5f7f9;
+        border-top: 1px solid #e0e0e0;
+        
+        span {
+          font-size: 12px;
+          color: #666;
+        }
+        
+        .legend-scale {
+          display: flex;
+          gap: 2px;
+          
+          .legend-box {
+            width: 12px;
+            height: 12px;
+            background: #4c8dff;
+            border-radius: 2px;
+          }
+        }
+      }
+    }
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.1);
   }
 }
