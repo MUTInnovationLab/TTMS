@@ -1086,17 +1086,19 @@ ion-button[color="warning"] {
     .drag-drop-settings {
       display: flex;
       flex-direction: row;
+      justify-content: space-between;
       align-items: center;
-      gap: 20px; // Space between items
+      gap: 15px; // Space between items
       margin-bottom: 15px;
       padding: 10px 0;
+      width: 100%;
 
       ion-item {
         --padding-start: 0;
         --padding-end: 0;
         --min-height: 40px; // Reduced height for compact layout
-        flex: 1;
-        max-width: 300px; // Limit width for readability
+        flex: 1 1 30%;
+        max-width: none !important;; // Limit width for readability
         display: flex;
         align-items: center;
 
@@ -1578,6 +1580,43 @@ ion-button[color="warning"] {
 
         ion-select {
           max-width: none;
+        }
+      }
+    }
+  }
+
+  .view-mode-toggle {
+    ion-segment {
+      ion-segment-button {
+        min-height: 45px;
+        
+        ion-label {
+          font-size: 0.8rem;
+        }
+        
+        ion-icon {
+          font-size: 1.1rem;
+        }
+      }
+    }
+  }
+
+  .timetable-creation-view {
+    .timetable-controls {
+      .drag-drop-settings {
+        flex-direction: column; // Stack vertically on small screens
+        gap: 10px;
+
+        ion-item {
+          flex-basis: 100%; // Full width on mobile
+        }
+      }
+
+      .action-buttons {
+        flex-direction: column;
+        
+        ion-button {
+          min-width: 100%;
         }
       }
     }
