@@ -123,6 +123,9 @@ export class TimetableGridComponent implements OnInit, OnChanges {
 
   // View options
   viewMode: 'day' | 'week' | 'month' = 'week';
+
+    // Calendar minimize state
+    isCalendarMinimized: boolean = false;
   
   // Time slots - University schedule
   timeSlots: TimeSlot[] = [
@@ -225,6 +228,8 @@ export class TimetableGridComponent implements OnInit, OnChanges {
     
     console.log('Sessions updated:', this.sessions.length, 'unique sessions');
   }
+  
+
 
   private async fetchFilterOptions() {
     try {
@@ -1152,6 +1157,20 @@ export class TimetableGridComponent implements OnInit, OnChanges {
         color: '#92949c'
       }
     ];
+  }
+
+
+    getMonthHeaders(): Array<{name: string}> {
+    return [
+      { name: 'Jan' }, { name: 'Feb' }, { name: 'Mar' }, { name: 'Apr' },
+      { name: 'May' }, { name: 'Jun' }, { name: 'Jul' }, { name: 'Aug' },
+      { name: 'Sep' }, { name: 'Oct' }, { name: 'Nov' }, { name: 'Dec' }
+    ];
+  }
+
+  toggleCalendarView(): void {
+    this.isCalendarMinimized = !this.isCalendarMinimized;
+    this.cdr.detectChanges();
   }
 
   getWeekPosition(weekNumber: number): number {
