@@ -42,114 +42,137 @@
   <!-- Main Content (only show if we have venues and no loading/error states) -->
   <div *ngIf="!isLoading && !loadError && venues.length > 0" class="venue-content">
     <!-- Control Panel -->
-    <div class="control-panel">
-      <div class="panel-section">
+    <div class="control-panel-compact">
+      <div class="header-section">
         <h3>Venue Availability</h3>
-        
-        <div class="date-selector">
-          <ion-item>
-            <ion-label position="stacked">Date</ion-label>
-            <ion-datetime-button datetime="datePicker"></ion-datetime-button>
-            <ion-modal [keepContentsMounted]="true">
-              <ng-template>
-                <ion-datetime id="datePicker" 
-                              presentation="date" 
-                              [value]="selectedDate.toISOString()"
-                              (ionChange)="updateDate($event)">
-                </ion-datetime>
-              </ng-template>
-            </ion-modal>
-          </ion-item>
+        <div class="results-info">
+          <ion-chip color="primary" outline="true">
+            <ion-icon name="business-outline" slot="start"></ion-icon>
+            <ion-label>{{ getFilteredVenues().length }} 
+              {{ searchQuery ? 'found' : 'venues' }}
+              {{ searchQuery ? 'for "' + searchQuery + '"' : '' }}
+            </ion-label>
+          </ion-chip>
+          <ion-chip *ngIf="hasActiveFilters()" color="secondary" outline="true" size="small">
+            <ion-icon name="filter" slot="start"></ion-icon>
+            <ion-label>Filtered</ion-label>
+          </ion-chip>
         </div>
       </div>
       
-      <div class="panel-section filter-controls">
-        <ion-select interface="popover" placeholder="Venue Type" [(ngModel)]="filters.type">
-          <ion-select-option value="">All Types</ion-select-option>
-          <ion-select-option *ngFor="let type of venueTypes" [value]="type">{{ type }}</ion-select-option>
-        </ion-select>
+      <div class="controls-row">
+        <div class="search-control">
+          <ion-searchbar 
+            [(ngModel)]="searchQuery"
+            (ionInput)="onSearchInput($event)"
+            placeholder="Search venues by name, type, location..."
+            debounce="300"
+            show-clear-button="focus"
+            class="compact-searchbar">
+          </ion-searchbar>
+        </div>
         
-        <ion-input type="number" placeholder="Min. Capacity" [(ngModel)]="filters.minCapacity"></ion-input>
+        <div class="date-control">
+          <ion-datetime-button datetime="datePicker" size="small"></ion-datetime-button>
+          <ion-modal [keepContentsMounted]="true">
+            <ng-template>
+              <ion-datetime id="datePicker" 
+                            presentation="date" 
+                            [value]="selectedDate.toISOString()"
+                            (ionChange)="updateDate($event)">
+              </ion-datetime>
+            </ng-template>
+          </ion-modal>
+        </div>
         
-        <ion-select interface="popover" placeholder="Equipment" [(ngModel)]="filters.equipment" multiple="true">
-          <ion-select-option *ngFor="let item of equipmentOptions" [value]="item">{{ item }}</ion-select-option>
-        </ion-select>
+        <div class="filter-controls-compact">
+          <ion-select interface="popover" placeholder="Type" [(ngModel)]="filters.type" class="compact-select">
+            <ion-select-option value="">All Types</ion-select-option>
+            <ion-select-option *ngFor="let type of venueTypes" [value]="type">{{ type }}</ion-select-option>
+          </ion-select>
+          
+          <ion-input type="number" placeholder="Min. Capacity" [(ngModel)]="filters.minCapacity" class="compact-input"></ion-input>
+          
+          <ion-select interface="popover" placeholder="Equipment" [(ngModel)]="filters.equipment" multiple="true" class="compact-select">
+            <ion-select-option *ngFor="let item of equipmentOptions" [value]="item">{{ item }}</ion-select-option>
+          </ion-select>
+          
+          <ion-button size="small" color="primary" (click)="applyFilters()">
+            <ion-icon name="filter" slot="start"></ion-icon>
+            Filter
+          </ion-button>
+          
+          <ion-button size="small" fill="clear" color="medium" (click)="filters = {type: '', minCapacity: 0, equipment: []}; applyFilters()">
+            <ion-icon name="refresh" slot="icon-only"></ion-icon>
+          </ion-button>
+          
+          <ion-button *ngIf="hasActiveFilters()" size="small" fill="clear" color="danger" (click)="clearAllFilters()">
+            <ion-icon name="close" slot="start"></ion-icon>
+            Clear All
+          </ion-button>
+        </div>
         
-        <ion-button color="primary" (click)="applyFilters()">
-          <ion-icon name="filter" slot="start"></ion-icon>
-          Apply
-        </ion-button>
-      </div>
-      
-      <div class="panel-section view-toggle">
-        <ion-segment [(ngModel)]="viewMode" (ionChange)="changeViewMode(viewMode)">
-          <ion-segment-button value="list">
-            <ion-icon name="list-outline"></ion-icon>
-            <ion-label>List View</ion-label>
-          </ion-segment-button>
-          <ion-segment-button value="calendar">
-            <ion-icon name="calendar-outline"></ion-icon>
-            <ion-label>Calendar View</ion-label>
-          </ion-segment-button>
-        </ion-segment>
-      </div>
-      
-      <!-- Results info -->
-      <div class="results-info">
-        <ion-chip color="secondary">
-          <ion-label>{{ getFilteredVenues().length }} venues found</ion-label>
-        </ion-chip>
+        <div class="view-toggle-compact">
+          <ion-segment [(ngModel)]="viewMode" (ionChange)="changeViewMode(viewMode)" class="compact-segment">
+            <ion-segment-button value="list">
+              <ion-icon name="grid-outline"></ion-icon>
+            </ion-segment-button>
+            <ion-segment-button value="calendar">
+              <ion-icon name="calendar-outline"></ion-icon>
+            </ion-segment-button>
+          </ion-segment>
+        </div>
       </div>
     </div>
     
     <!-- Venue List View -->
     <div class="venue-list-view" *ngIf="viewMode === 'list'">
-      <div class="venue-card" *ngFor="let venue of getFilteredVenues(); trackBy: trackVenueById">
-        <div class="venue-image">
-          <img [src]="getVenueImage(venue)" 
-               [alt]="getVenueDisplayName(venue)"
-               (error)="onImageError($event, venue)">
-          <div class="status-badge" 
-               [class.available]="isVenueAvailable(venue, selectedDate)" 
-               [class.unavailable]="!isVenueAvailable(venue, selectedDate)">
-            {{ isVenueAvailable(venue, selectedDate) ? 'Available' : 'Booked' }}
-          </div>
-        </div>
-        
-        <div class="venue-details">
-          <h3>{{ getVenueDisplayName(venue) }}</h3>
-          <div class="venue-info">
-            <p>
-              <ion-icon name="location-outline"></ion-icon>
-              {{ getVenueLocation(venue) }}
-            </p>
-            <p>
-              <ion-icon name="people-outline"></ion-icon>
-              Capacity: {{ getVenueCapacity(venue) }}
-            </p>
-            <p>
-              <ion-icon name="business-outline"></ion-icon>
-              Type: {{ getVenueType(venue) }}
-            </p>
-            <div class="equipment-list" *ngIf="getVenueEquipment(venue).length > 0">
-              <ion-chip *ngFor="let item of getVenueEquipment(venue)" size="small">
-                <ion-icon name="hardware-chip-outline"></ion-icon>
-                <ion-label>{{ item }}</ion-label>
-              </ion-chip>
+      <div class="venue-grid-container">
+        <div class="venue-card-compact" *ngFor="let venue of getFilteredVenues(); trackBy: trackVenueById">
+          <div class="venue-header">
+            <div class="venue-title">
+              <h4 [innerHTML]="getVenueDisplayName(venue) | highlight : searchQuery"></h4>
+              <div class="status-indicator" 
+                   [class.available]="isVenueAvailable(venue, selectedDate)" 
+                   [class.unavailable]="!isVenueAvailable(venue, selectedDate)">
+                <ion-icon [name]="isVenueAvailable(venue, selectedDate) ? 'checkmark-circle' : 'close-circle'"></ion-icon>
+                <span>{{ isVenueAvailable(venue, selectedDate) ? 'Available' : 'Booked' }}</span>
+              </div>
             </div>
-            <div *ngIf="getVenueEquipment(venue).length === 0" class="no-equipment">
-              <p><em>No equipment listed</em></p>
+            <div class="venue-actions-inline">
+              <ion-button size="small" 
+                          fill="clear" 
+                          color="primary"
+                          [disabled]="!isVenueAvailable(venue, selectedDate)" 
+                          (click)="handleBooking(venue)">
+                <ion-icon name="calendar-outline" slot="icon-only"></ion-icon>
+              </ion-button>
             </div>
           </div>
-        </div>
-        
-        <div class="venue-actions">
-          <ion-button color="primary" 
-                      [disabled]="!isVenueAvailable(venue, selectedDate)" 
-                      (click)="handleBooking(venue)">
-            <ion-icon name="calendar-outline" slot="start"></ion-icon>
-            {{ isVenueAvailable(venue, selectedDate) ? 'Book Venue' : 'View Bookings' }}
-          </ion-button>
+          
+          <div class="venue-info-compact">
+            <div class="info-row">
+              <ion-icon name="location-outline" color="medium"></ion-icon>
+              <span class="info-text" [innerHTML]="getVenueLocation(venue) | highlight : searchQuery"></span>
+            </div>
+            <div class="info-row">
+              <ion-icon name="people-outline" color="medium"></ion-icon>
+              <span class="info-text">{{ getVenueCapacity(venue) }} people</span>
+            </div>
+            <div class="info-row">
+              <ion-icon name="business-outline" color="medium"></ion-icon>
+              <span class="info-text" [innerHTML]="getVenueType(venue) | highlight : searchQuery"></span>
+            </div>
+          </div>
+          
+          <div class="equipment-compact" *ngIf="getVenueEquipment(venue).length > 0">
+            <ion-chip *ngFor="let item of getVenueEquipment(venue).slice(0, 3)" size="small" color="light">
+              <ion-label>{{ item }}</ion-label>
+            </ion-chip>
+            <span *ngIf="getVenueEquipment(venue).length > 3" class="more-equipment">
+              +{{ getVenueEquipment(venue).length - 3 }} more
+            </span>
+          </div>
         </div>
       </div>
       
@@ -157,12 +180,13 @@
       <div *ngIf="getFilteredVenues().length === 0" class="no-filtered-venues">
         <ion-card>
           <ion-card-content class="text-center">
-            <ion-icon name="filter-outline" size="large" color="medium"></ion-icon>
-            <h3>No venues match your filters</h3>
-            <p>Try adjusting your search criteria.</p>
-            <ion-button fill="clear" (click)="filters = {type: '', minCapacity: 0, equipment: []}; applyFilters()">
+            <ion-icon [name]="searchQuery ? 'search-outline' : 'filter-outline'" size="large" color="medium"></ion-icon>
+            <h3>{{ searchQuery ? 'No search results' : 'No venues match your filters' }}</h3>
+            <p *ngIf="searchQuery">No venues found for "{{ searchQuery }}". Try a different search term.</p>
+            <p *ngIf="!searchQuery">Try adjusting your search criteria.</p>
+            <ion-button fill="clear" (click)="clearAllFilters()">
               <ion-icon name="refresh" slot="start"></ion-icon>
-              Clear Filters
+              Clear {{ searchQuery ? 'Search & ' : '' }}Filters
             </ion-button>
           </ion-card-content>
         </ion-card>
@@ -171,44 +195,38 @@
     
     <!-- Venue Calendar View -->
     <div class="venue-calendar-view" *ngIf="viewMode === 'calendar'">
-      <div class="venue-calendar" *ngFor="let venue of getFilteredVenues(); trackBy: trackVenueById">
-        <div class="venue-header">
-          <h3>{{ getVenueDisplayName(venue) }}</h3>
-          <span>{{ getVenueLocation(venue) }} | Capacity: {{ getVenueCapacity(venue) }}</span>
-        </div>
-        
-        <div class="time-grid">
-          <!-- Time column -->
-          <div class="time-column">
-            <div class="time-label-header"></div>
-            <div class="time-label" *ngFor="let slot of timeSlots">
-              {{ slot.time }}
+      <div class="calendar-grid-container">
+        <div class="venue-calendar-compact" *ngFor="let venue of getFilteredVenues(); trackBy: trackVenueById">
+          <div class="venue-calendar-header">
+            <div class="venue-info-header">
+              <h4 [innerHTML]="getVenueDisplayName(venue) | highlight : searchQuery"></h4>
+              <span class="venue-meta" [innerHTML]="(getVenueLocation(venue) + ' • ' + getVenueCapacity(venue) + ' people') | highlight : searchQuery"></span>
+            </div>
+            <div class="availability-summary">
+              <ion-chip size="small" [color]="getAvailabilityColor(venue)" outline="true">
+                <ion-label>{{ getAvailabilityStatus(venue) }}</ion-label>
+              </ion-chip>
             </div>
           </div>
           
-          <!-- Slots grid -->
-          <div class="slots-grid">
-            <div class="day-label">
-              {{ days[getDayFromDate(selectedDate)] }} ({{ selectedDate | date:'MMM d, y' }})
-            </div>
-            
-            <div class="time-slots">
+          <div class="time-grid-compact">
+            <div class="time-slots-compact">
               <ng-container *ngFor="let slot of timeSlots; let slotIndex = index">
-                <div class="time-slot" 
+                <div class="time-slot-compact" 
                     [class.available]="isVenueAvailable(venue, selectedDate, slot.id)" 
                     [class.unavailable]="!isVenueAvailable(venue, selectedDate, slot.id)"
+                    [class.booked]="isSlotBooked(venue, getDayFromDate(selectedDate), slot.id)"
+                    [title]="slot.time + (isSlotBooked(venue, getDayFromDate(selectedDate), slot.id) ? ' - Booked' : ' - Available')"
                     (click)="isVenueAvailable(venue, selectedDate, slot.id) && handleBooking(venue, slot.id, slot.id + 1)">
+                  
+                  <div class="slot-time">{{ getShortTime(slot.time) }}</div>
                   
                   <!-- Check booking for this slot -->
                   <ng-container *ngIf="isSlotBooked(venue, getDayFromDate(selectedDate), slot.id) as booking">
                     <div *ngIf="isSlotStart(venue, getDayFromDate(selectedDate), slot.id, booking)" 
-                        class="booked-session"
-                        [style.grid-row]="getBookingRowSpan(booking)"
+                        class="booked-session-compact"
                         [style.background-color]="booking.color || '#4c8dff'">
-                      <div class="session-content">
-                        <h4>{{ booking.title || 'Booked Session' }}</h4>
-                        <p>{{ booking.module || '' }} {{ booking.moduleCode ? '(' + booking.moduleCode + ')' : '' }}</p>
-                      </div>
+                      <span class="session-title-compact">{{ booking.title || 'Booked' }}</span>
                     </div>
                   </ng-container>
                 </div>
@@ -222,12 +240,13 @@
       <div *ngIf="getFilteredVenues().length === 0" class="no-filtered-venues">
         <ion-card>
           <ion-card-content class="text-center">
-            <ion-icon name="calendar-outline" size="large" color="medium"></ion-icon>
-            <h3>No venues to display</h3>
-            <p>Try adjusting your filters to see venue availability.</p>
-            <ion-button fill="clear" (click)="filters = {type: '', minCapacity: 0, equipment: []}; applyFilters()">
+            <ion-icon [name]="searchQuery ? 'search-outline' : 'calendar-outline'" size="large" color="medium"></ion-icon>
+            <h3>{{ searchQuery ? 'No search results' : 'No venues to display' }}</h3>
+            <p *ngIf="searchQuery">No venues found for "{{ searchQuery }}". Try a different search term.</p>
+            <p *ngIf="!searchQuery">Try adjusting your filters to see venue availability.</p>
+            <ion-button fill="clear" (click)="clearAllFilters()">
               <ion-icon name="refresh" slot="start"></ion-icon>
-              Clear Filters
+              Clear {{ searchQuery ? 'Search & ' : '' }}Filters
             </ion-button>
           </ion-card-content>
         </ion-card>

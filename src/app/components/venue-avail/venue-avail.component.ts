@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { IonicModule } from '@ionic/angular';
 import { SessionService } from '../../services/Timetable Core Services/session.service';
 import { VenueService, VenueDisplayInfo } from '../../services/Entity Management Services/venue.service';
+import { HighlightPipe } from '../../pipes/highlight.pipe';
 
 interface VenueFilters {
   type: string;
@@ -50,7 +51,7 @@ export interface Booking {
   templateUrl: './venue-avail.component.html',
   styleUrls: ['./venue-avail.component.scss'],
   standalone: true,
-  imports: [CommonModule, FormsModule, IonicModule]
+  imports: [CommonModule, FormsModule, IonicModule, HighlightPipe]
 })
 export class VenueAvailComponent implements OnInit, OnChanges {
   // Input property to allow parent component to pass venues
@@ -70,6 +71,9 @@ export class VenueAvailComponent implements OnInit, OnChanges {
     minCapacity: 0,
     equipment: []
   };
+  
+  // Search properties
+  searchQuery: string = '';
   
   // Data for dropdown options
   venueTypes: string[] = ['Classroom', 'Laboratory', 'Lecture Hall', 'Seminar Room', 'Conference Room'];
@@ -267,7 +271,7 @@ export class VenueAvailComponent implements OnInit, OnChanges {
     this.venues = [...this.venues];
   }
   
-  // Get filtered venues based on current filter settings
+  // Get filtered venues based on current filter settings and search query
   getFilteredVenues(): Venue[] {
     if (this.isLoading) {
       console.log('Still loading venues...');
@@ -285,6 +289,24 @@ export class VenueAvailComponent implements OnInit, OnChanges {
       // Only show schedulable venues
       if (!venue.schedulable && !venue.autoSchedulable) {
         return false;
+      }
+      
+      // Search filter
+      if (this.searchQuery && this.searchQuery.trim()) {
+        const query = this.searchQuery.toLowerCase().trim();
+        const searchableText = [
+          venue.name,
+          venue.type,
+          venue.building || '',
+          venue.room || '',
+          venue.site || '',
+          venue.department || '',
+          ...(venue.equipment || [])
+        ].join(' ').toLowerCase();
+        
+        if (!searchableText.includes(query)) {
+          return false;
+        }
       }
       
       // Type filter
@@ -487,5 +509,71 @@ export class VenueAvailComponent implements OnInit, OnChanges {
       equipment: this.getVenueEquipment(venue),
       available: this.isVenueAvailable(venue, this.selectedDate)
     });
+  }
+
+  // Helper methods for compact layout
+  getAvailabilityColor(venue: Venue): string {
+    const availableSlots = this.timeSlots.filter(slot => 
+      this.isVenueAvailable(venue, this.selectedDate, slot.id)
+    ).length;
+    
+    const totalSlots = this.timeSlots.length;
+    const availability = availableSlots / totalSlots;
+    
+    if (availability >= 0.8) return 'success';
+    if (availability >= 0.5) return 'warning';
+    return 'danger';
+  }
+
+  getAvailabilityStatus(venue: Venue): string {
+    const availableSlots = this.timeSlots.filter(slot => 
+      this.isVenueAvailable(venue, this.selectedDate, slot.id)
+    ).length;
+    
+    const totalSlots = this.timeSlots.length;
+    const availability = availableSlots / totalSlots;
+    
+    if (availability >= 0.8) return `${availableSlots}/${totalSlots} Available`;
+    if (availability >= 0.5) return `${availableSlots}/${totalSlots} Partial`;
+    return `${availableSlots}/${totalSlots} Busy`;
+  }
+
+  getShortTime(timeString: string): string {
+    // Convert "07:45 - 08:25" to "07:45"
+    return timeString.split(' - ')[0];
+  }
+
+  // Search functionality methods
+  onSearchInput(event: any) {
+    this.searchQuery = event.target.value;
+    console.log('Search query updated:', this.searchQuery);
+    console.log('Filtered venues after search:', this.getFilteredVenues().length);
+    // The filtering will happen automatically through the template binding
+  }
+
+  clearSearch() {
+    this.searchQuery = '';
+    console.log('Search cleared');
+  }
+
+  // Check if any filters are currently active
+  hasActiveFilters(): boolean {
+    return !!(
+      this.filters.type ||
+      this.filters.minCapacity > 0 ||
+      (this.filters.equipment && this.filters.equipment.length > 0) ||
+      (this.searchQuery && this.searchQuery.trim())
+    );
+  }
+
+  // Clear all filters and search
+  clearAllFilters() {
+    this.filters = {
+      type: '',
+      minCapacity: 0,
+      equipment: []
+    };
+    this.searchQuery = '';
+    console.log('All filters and search cleared');
   }
 }

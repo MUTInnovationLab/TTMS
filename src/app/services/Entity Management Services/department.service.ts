@@ -86,39 +86,35 @@ export class DepartmentService {
 
   // Update department
   updateDepartment(id: string, department: Partial<Department>): Observable<{ success: boolean; message: string }> {
-    return new Observable(observer => {
-      const departmentDoc: AngularFirestoreDocument<Department> = this.departmentsCollection.doc(id);
-      const updateData = {
-        ...department,
-        updatedAt: new Date()
-      };
+    const updateData = {
+      ...department,
+      updatedAt: new Date()
+    };
 
-      departmentDoc.update(updateData).then(() => {
-        observer.next({ success: true, message: 'Department updated successfully' });
-        observer.complete();
-        this.getAllDepartments();
-      }).catch(error => {
+    return from(this.departmentsCollection.doc(id).update(updateData)).pipe(
+      map(() => {
+        this.getAllDepartments(); // Refresh the departments list
+        return { success: true, message: 'Department updated successfully' };
+      }),
+      catchError(error => {
         console.error('Error updating department:', error);
-        observer.next({ success: false, message: 'Failed to update department: ' + error.message });
-        observer.complete();
-      });
-    });
+        return of({ success: false, message: 'Failed to update department: ' + error.message });
+      })
+    );
   }
 
   // Delete department
   deleteDepartment(id: string): Observable<{ success: boolean; message: string }> {
-    return new Observable(observer => {
-      const departmentDoc: AngularFirestoreDocument<Department> = this.departmentsCollection.doc(id);
-      departmentDoc.delete().then(() => {
-        observer.next({ success: true, message: 'Department deleted successfully' });
-        observer.complete();
-        this.getAllDepartments();
-      }).catch(error => {
+    return from(this.departmentsCollection.doc(id).delete()).pipe(
+      map(() => {
+        this.getAllDepartments(); // Refresh the departments list
+        return { success: true, message: 'Department deleted successfully' };
+      }),
+      catchError(error => {
         console.error('Error deleting department:', error);
-        observer.next({ success: false, message: 'Failed to delete department: ' + error.message });
-        observer.complete();
-      });
-    });
+        return of({ success: false, message: 'Failed to delete department: ' + error.message });
+      })
+    );
   }
 
   // Check if department exists by name or code
@@ -147,21 +143,19 @@ export class DepartmentService {
 
   // Update department statistics
   updateDepartmentStats(id: string, stats: { moduleCount?: number; lecturerCount?: number; studentCount?: number }): Observable<{ success: boolean; message: string }> {
-    return new Observable(observer => {
-      const departmentDoc: AngularFirestoreDocument<Department> = this.departmentsCollection.doc(id);
-      const updateData = {
-        ...stats,
-        updatedAt: new Date()
-      };
+    const updateData = {
+      ...stats,
+      updatedAt: new Date()
+    };
 
-      departmentDoc.update(updateData).then(() => {
-        observer.next({ success: true, message: 'Department statistics updated successfully' });
-        observer.complete();
-      }).catch(error => {
+    return from(this.departmentsCollection.doc(id).update(updateData)).pipe(
+      map(() => {
+        return { success: true, message: 'Department statistics updated successfully' };
+      }),
+      catchError(error => {
         console.error('Error updating department statistics:', error);
-        observer.next({ success: false, message: 'Failed to update department statistics: ' + error.message });
-        observer.complete();
-      });
-    });
+        return of({ success: false, message: 'Failed to update department statistics: ' + error.message });
+      })
+    );
   }
 }

@@ -496,3 +496,469 @@
     height: 600px; // Increased height on large screens
   }
 }
+
+// Compact Control Panel Styles
+.control-panel-compact {
+  background: white;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  
+  .header-section {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    
+    h3 {
+      margin: 0;
+      color: var(--ion-color-dark);
+      font-size: 20px;
+      font-weight: 600;
+    }
+    
+    .results-info {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      
+      ion-chip {
+        font-weight: 500;
+        transition: all 0.2s ease;
+        
+        &:hover {
+          transform: scale(1.05);
+        }
+      }
+    }
+  }
+  
+  .controls-row {
+    display: flex;
+    align-items: flex-start; // Changed from center to flex-start
+    gap: 16px;
+    flex-wrap: wrap;
+    
+    .search-control {
+      flex: 1;
+      min-width: 250px;
+      margin-bottom: 8px; // Add some spacing
+      order: 1; // Ensure search appears first
+      
+      .compact-searchbar {
+        --background: #f8fafc;
+        --border-radius: 8px;
+        --box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        --color: #374151;
+        --placeholder-color: #9ca3af;
+        --icon-color: #6b7280;
+        --clear-button-color: #6b7280;
+        height: 44px; // Increased height for better visibility
+        padding: 4px;
+        border: 1px solid #e5e7eb; // Add border for visibility
+        width: 100%; // Ensure full width
+        
+        .searchbar-input-container {
+          height: 40px;
+        }
+        
+        .searchbar-input {
+          font-size: 14px;
+          padding-left: 16px;
+          padding-right: 16px;
+        }
+        
+        .searchbar-search-icon {
+          width: 18px;
+          height: 18px;
+          left: 12px;
+        }
+        
+        .searchbar-clear-button {
+          width: 18px;
+          height: 18px;
+          right: 12px;
+        }
+      }
+    }
+    
+    .date-control {
+      order: 2;
+      ion-datetime-button {
+        --color: var(--ion-color-primary);
+        font-weight: 500;
+      }
+    }
+    
+    .filter-controls-compact {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 2; // Give more space to filter controls
+      order: 3;
+      
+      .compact-select, .compact-input {
+        min-width: 120px;
+        max-width: 180px;
+        --padding-start: 12px;
+        --padding-end: 12px;
+        --background: #f8fafc;
+        --border-radius: 6px;
+        font-size: 14px;
+        height: 36px;
+      }
+      
+      ion-button {
+        --padding-start: 16px;
+        --padding-end: 16px;
+        height: 36px;
+        font-size: 14px;
+      }
+    }
+    
+    .view-toggle-compact {
+      order: 4;
+      .compact-segment {
+        --background: #f1f5f9;
+        --indicator-color: var(--ion-color-primary);
+        --color-checked: white;
+        border-radius: 8px;
+        
+        ion-segment-button {
+          --padding-start: 12px;
+          --padding-end: 12px;
+          --color: #64748b;
+          min-width: 48px;
+          
+          ion-icon {
+            font-size: 18px;
+          }
+        }
+      }
+    }
+  }
+}
+
+// Override existing venue-list-view for compact layout
+.venue-list-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  display: block;
+  
+  .venue-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 16px;
+    max-width: none;
+    
+    .venue-card-compact {
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      transition: all 0.2s ease;
+      height: 140px;
+      display: flex;
+      flex-direction: column;
+      
+      &:hover {
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+        border-color: var(--ion-color-primary-tint);
+      }
+      
+      .venue-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        padding: 12px 16px 8px;
+        border-bottom: 1px solid #f1f5f9;
+        
+        .venue-title {
+          flex: 1;
+          
+          h4 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--ion-color-dark);
+            line-height: 1.2;
+          }
+          
+          .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 500;
+            
+            &.available {
+              color: var(--ion-color-success);
+            }
+            
+            &.unavailable {
+              color: var(--ion-color-danger);
+            }
+            
+            ion-icon {
+              font-size: 14px;
+            }
+          }
+        }
+        
+        .venue-actions-inline {
+          ion-button {
+            --padding-start: 8px;
+            --padding-end: 8px;
+            margin: 0;
+            height: 32px;
+            width: 32px;
+          }
+        }
+      }
+      
+      .venue-info-compact {
+        padding: 8px 16px;
+        flex: 1;
+        
+        .info-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-bottom: 4px;
+          font-size: 13px;
+          color: #64748b;
+          
+          &:last-child {
+            margin-bottom: 0;
+          }
+          
+          ion-icon {
+            font-size: 14px;
+            flex-shrink: 0;
+          }
+          
+          .info-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+        }
+      }
+      
+      .equipment-compact {
+        padding: 8px 16px 12px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        
+        ion-chip {
+          font-size: 11px;
+          height: 20px;
+          --background: #f1f5f9;
+          --color: #475569;
+        }
+        
+        .more-equipment {
+          font-size: 11px;
+          color: #64748b;
+          font-style: italic;
+        }
+      }
+    }
+  }
+}
+
+// Compact Calendar View
+.venue-calendar-view {
+  flex: 1;
+  overflow-y: auto;
+  padding: 24px;
+  
+  .calendar-grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 24px;
+    
+    .venue-calendar-compact {
+      background: white;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      
+      .venue-calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 16px 20px;
+        border-bottom: 1px solid #f1f5f9;
+        background: #f8fafc;
+        
+        .venue-info-header {
+          h4 {
+            margin: 0 0 4px 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--ion-color-dark);
+          }
+          
+          .venue-meta {
+            font-size: 13px;
+            color: #64748b;
+          }
+        }
+        
+        .availability-summary {
+          ion-chip {
+            font-size: 12px;
+            height: 24px;
+          }
+        }
+      }
+      
+      .time-grid-compact {
+        .time-slots-compact {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 1px;
+          background: #f1f5f9;
+          
+          .time-slot-compact {
+            background: white;
+            height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            
+            &:hover {
+              background: #f8fafc;
+            }
+            
+            &.available {
+              border-left: 3px solid var(--ion-color-success);
+            }
+            
+            &.unavailable {
+              background: #fee2e2;
+              border-left: 3px solid var(--ion-color-danger);
+            }
+            
+            &.booked {
+              background: var(--ion-color-primary-tint);
+              border-left: 3px solid var(--ion-color-primary);
+            }
+            
+            .slot-time {
+              font-size: 11px;
+              font-weight: 500;
+              color: #64748b;
+              margin-bottom: 4px;
+            }
+            
+            .booked-session-compact {
+              position: absolute;
+              top: 0;
+              left: 0;
+              right: 0;
+              bottom: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              padding: 4px;
+              
+              .session-title-compact {
+                font-size: 10px;
+                font-weight: 500;
+                color: white;
+                text-align: center;
+                line-height: 1.2;
+                overflow: hidden;
+                text-overflow: ellipsis;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Responsive adjustments for compact layout
+@media (max-width: 768px) {
+  .control-panel-compact {
+    padding: 12px 16px;
+    
+    .controls-row {
+      flex-direction: column;
+      gap: 12px;
+      align-items: stretch;
+      
+      .search-control {
+        order: 1;
+        min-width: unset;
+        
+        .compact-searchbar {
+          width: 100%;
+        }
+      }
+      
+      .date-control {
+        order: 2;
+        align-self: center;
+      }
+      
+      .filter-controls-compact {
+        order: 3;
+        flex-direction: column;
+        gap: 8px;
+        
+        .compact-select, .compact-input {
+          width: 100%;
+          max-width: none;
+        }
+      }
+      
+      .view-toggle-compact {
+        order: 4;
+        align-self: center;
+      }
+    }
+  }
+  
+  .venue-list-view .venue-grid-container {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  
+  .venue-calendar-view .calendar-grid-container {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+@media (min-width: 1400px) {
+  .venue-list-view .venue-grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  }
+  
+  .venue-calendar-view .calendar-grid-container {
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  }
+}
+
+// Search highlighting styles
+:host ::ng-deep .search-highlight {
+  background-color: rgba(255, 193, 7, 0.3);
+  padding: 1px 2px;
+  border-radius: 2px;
+  font-weight: 600;
+  color: #856404;
+}

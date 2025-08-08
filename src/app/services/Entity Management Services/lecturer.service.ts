@@ -49,30 +49,50 @@ export class LecturerService {
       
       reader.onload = (e) => {
         try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+          let jsonData: any[][];
+          
+          // Check if it's a CSV file by file type or extension
+          const isCSV = file.type === 'text/csv' || file.name.toLowerCase().endsWith('.csv');
+          
+          if (isCSV) {
+            // Handle CSV files with explicit comma delimiter
+            const csvText = new TextDecoder('utf-8').decode(e.target?.result as ArrayBuffer);
+            jsonData = this.parseCSVWithCommaDelimiter(csvText);
+          } else {
+            // Handle Excel files using XLSX
+            const data = new Uint8Array(e.target?.result as ArrayBuffer);
+            const workbook = XLSX.read(data, { 
+              type: 'array',
+              // Configure XLSX to handle CSV with comma delimiter
+              FS: ','  // Field separator
+            });
+            const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+            jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+              header: 1,
+              defval: '',  // Default value for empty cells
+              blankrows: false  // Skip blank rows
+            });
+          }
           
           // Process the data
-          const lecturers = this.parseSpreadsheetData(jsonData as any[][]);
+          const lecturers = this.parseSpreadsheetData(jsonData);
           
           if (lecturers.length === 0) {
             observer.next({
               success: false,
-              message: 'No valid lecturer data found in the spreadsheet'
+              message: 'No valid lecturer data found in the file. Please ensure your file has the required columns: unique_name, name, title, Sex, Email, deptName, Room Name, Schedulable, Weekly Target, Total Target'
             });
           } else {
             observer.next({
               success: true,
               data: lecturers,
-              message: `Found ${lecturers.length} lecturers in the spreadsheet`
+              message: `Found ${lecturers.length} lecturers in the file`
             });
           }
         } catch (error) {
           observer.next({
             success: false,
-            message: `Error processing file: ${error}`
+            message: `Error processing file: ${error}. Please ensure your CSV file uses comma delimiters.`
           });
         }
         observer.complete();
@@ -90,6 +110,64 @@ export class LecturerService {
     });
   }
   
+  // Parse CSV text with explicit comma delimiter handling
+  private parseCSVWithCommaDelimiter(csvText: string): any[][] {
+    const lines = csvText.split(/\r?\n/);
+    const result: any[][] = [];
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue; // Skip empty lines
+      
+      // Parse CSV line with comma delimiter, handling quoted fields
+      const row = this.parseCSVLine(line);
+      if (row.length > 0) {
+        result.push(row);
+      }
+    }
+    
+    return result;
+  }
+  
+  // Parse a single CSV line, handling quoted fields and comma delimiters
+  private parseCSVLine(line: string): string[] {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    let i = 0;
+    
+    while (i < line.length) {
+      const char = line[i];
+      const nextChar = i + 1 < line.length ? line[i + 1] : '';
+      
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          // Escaped quote inside quoted field
+          current += '"';
+          i += 2;
+        } else {
+          // Start or end of quoted field
+          inQuotes = !inQuotes;
+          i++;
+        }
+      } else if (char === ',' && !inQuotes) {
+        // Field separator (comma) outside of quotes
+        result.push(current.trim());
+        current = '';
+        i++;
+      } else {
+        // Regular character
+        current += char;
+        i++;
+      }
+    }
+    
+    // Add the last field
+    result.push(current.trim());
+    
+    return result;
+  }
+
   // Parse spreadsheet data into User objects
   private parseSpreadsheetData(data: any[][]): User[] {
     if (data.length < 2) return []; // Need at least header + 1 row
@@ -97,14 +175,15 @@ export class LecturerService {
     const headers = data[0].map(h => String(h).toLowerCase().trim());
     const lecturers: User[] = [];
     
-    // Define expected column mappings
+    // Define expected column mappings - updated to match template fields
     const columnMappings = {
-      id: ['id', 'staff id', 'staff_id', 'lecturer id', 'lecturer_id'],
+      id: ['id', 'staff id', 'staff_id', 'lecturer id', 'lecturer_id', 'unique_name', 'unique name'],
       title: ['title', 'mr/ms/dr', 'salutation'],
       name: ['name', 'full name', 'lecturer name'],
       sex: ['sex', 'gender'],
       email: ['email', 'email address', 'contact email'],
       mobile: ['mobile', 'phone', 'mobile number', 'cell phone'],
+      deptName: ['deptname', 'dept name', 'department', 'department name'],
       roomName: ['room', 'office', 'room name', 'office number'],
       schedulable: ['schedulable', 'can schedule', 'available'],
       weeklyTarget: ['weekly target', 'weekly hours', 'hours per week'],
@@ -127,26 +206,45 @@ export class LecturerService {
       if (!row || row.length === 0) continue;
       
       try {
-        // Extract required fields
+        // Extract required fields with better error reporting
         const id = this.getCellValue(row, columnIndices['id']);
         const name = this.getCellValue(row, columnIndices['name']);
         const email = this.getCellValue(row, columnIndices['email']);
+        const title = this.getCellValue(row, columnIndices['title']);
+        const sex = this.getCellValue(row, columnIndices['sex']);
         
-        // Skip rows without required fields
-        if (!id || !name || !email) {
-          console.warn(`Skipping row ${i + 1}: Missing required fields`);
+        // Debug logging for troubleshooting
+        console.log(`Row ${i + 1} data:`, {
+          id, name, email, title, sex,
+          rowLength: row.length,
+          columnIndices,
+          rawRow: row
+        });
+        
+        // Skip rows without required fields - be more specific about what's missing
+        const missingFields = [];
+        if (!id) missingFields.push('unique_name/id');
+        if (!name) missingFields.push('name');
+        if (!email) missingFields.push('email');
+        if (!title) missingFields.push('title');
+        if (!sex) missingFields.push('sex');
+        
+        if (missingFields.length > 0) {
+          console.warn(`Skipping row ${i + 1}: Missing required fields: ${missingFields.join(', ')}`);
+          console.warn(`Available headers:`, headers);
+          console.warn(`Column indices:`, columnIndices);
           continue;
         }
         
         const lecturer: User = {
           id: String(id).trim(),
-          title: this.getCellValue(row, columnIndices['title']) || 'MR',
+          title: String(title).trim() || 'MR',
           name: String(name).trim(),
-          sex: this.getCellValue(row, columnIndices['sex']) || '',
-          department: '', // Will be set by the service
+          sex: String(sex).trim().toUpperCase(),
+          department: this.getCellValue(row, columnIndices['deptName']) || '', // Will be overridden by service
           roomName: this.getCellValue(row, columnIndices['roomName']) || '',
           role: 'Lecturer',
-          schedulable: this.parseBoolean(this.getCellValue(row, columnIndices['schedulable'])) || false,
+          schedulable: this.parseBoolean(this.getCellValue(row, columnIndices['schedulable'])) !== false, // Default to true if not specified
           contact: {
             email: String(email).trim(),
             mobile: this.getCellValue(row, columnIndices['mobile']) || ''

@@ -39,8 +39,11 @@ export class BulkUploadLecturersComponent implements OnInit {
         'text/csv' // .csv
       ];
       
-      if (!allowedTypes.includes(file.type)) {
-        this.presentAlert('Invalid File Type', 'Please select an Excel (.xlsx, .xls) or CSV file.');
+      const allowedExtensions = ['.xlsx', '.xls', '.csv'];
+      const fileExtension = file.name.toLowerCase().substring(file.name.lastIndexOf('.'));
+      
+      if (!allowedTypes.includes(file.type) && !allowedExtensions.includes(fileExtension)) {
+        this.presentAlert('Invalid File Type', 'Please select an Excel (.xlsx, .xls) or CSV file. For CSV files, ensure they use comma delimiters.');
         return;
       }
       
@@ -54,6 +57,11 @@ export class BulkUploadLecturersComponent implements OnInit {
       this.showPreview = false;
       this.previewData = [];
       this.errors = [];
+      
+      // Show helpful message for CSV files
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        this.presentAlert('CSV File Selected', 'CSV file selected. Please ensure your file uses comma delimiters and matches the template format. Required columns: unique_name, name, title, Sex, Email, deptName, Room Name, Schedulable, Weekly Target, Total Target');
+      }
     }
   }
   
@@ -63,6 +71,9 @@ export class BulkUploadLecturersComponent implements OnInit {
     this.isProcessing = true;
     this.errors = [];
     
+    const fileType = this.selectedFile.name.toLowerCase().endsWith('.csv') ? 'CSV' : 'Excel';
+    console.log(`Processing ${fileType} file:`, this.selectedFile.name);
+    
     this.lecturerService.processSpreadsheet(this.selectedFile).subscribe({
       next: (result) => {
         this.isProcessing = false;
@@ -70,14 +81,30 @@ export class BulkUploadLecturersComponent implements OnInit {
         if (result.success && result.data) {
           this.previewData = result.data;
           this.showPreview = true;
-          this.presentAlert('Preview Ready', `${result.data.length} lecturers found. Please review the data before uploading.`);
+          this.presentAlert('Preview Ready', `${result.data.length} lecturers found in your ${fileType} file. Please review the data before uploading.`);
         } else {
-          this.presentAlert('Processing Error', result.message);
+          console.error('Processing failed:', result.message);
+          let errorMessage = result.message;
+          
+          // Provide specific guidance for CSV files
+          if (fileType === 'CSV') {
+            errorMessage += '\n\nFor CSV files, please ensure:\n• Use comma delimiters\n• Include all required columns\n• Follow the exact template format\n• Download the template for reference';
+          }
+          
+          this.presentAlert('Processing Error', errorMessage);
         }
       },
       error: (error) => {
         this.isProcessing = false;
-        this.presentAlert('Processing Error', `Failed to process file: ${error.message}`);
+        console.error('Processing error:', error);
+        
+        let errorMessage = `Failed to process ${fileType} file: ${error.message || error}`;
+        
+        if (fileType === 'CSV') {
+          errorMessage += '\n\nPlease ensure your CSV file uses comma delimiters and matches the template format.';
+        }
+        
+        this.presentAlert('Processing Error', errorMessage);
       }
     });
   }
@@ -133,16 +160,29 @@ export class BulkUploadLecturersComponent implements OnInit {
   }
   
   downloadTemplate() {
-    // Create a template CSV/Excel file for download
+    // Create a template CSV file for download with comma delimiters
     const templateData = [
-      ['ID', 'Title', 'Name', 'Sex', 'Email', 'Mobile', 'Room Name', 'Schedulable', 'Weekly Target', 'Total Target'],
-      ['L001', 'DR', 'John Smith', 'M', 'john.smith@university.edu', '+1234567890', 'Room 101', 'TRUE', '20', '600'],
-      ['L002', 'MS', 'Jane Doe', 'F', 'jane.doe@university.edu', '+1234567891', 'Room 102', 'TRUE', '18', '540'],
+      ['unique_name', 'name', 'title', 'Sex', 'Email', 'deptName', 'Room Name', 'Schedulable', 'Weekly Target', 'Total Target'],
+      ['92285', 'NKOSI SG', 'MR', 'M', 'nkosi@mut.ac.za', 'INFO & COMMS TECHNOLOGY', 'Room C19', 'TRUE', '20', '600'],
+      ['90001', 'Chonco AA', 'MISS', 'F', 'chonco@mut.ac.za', 'INFO & COMMS TECHNOLOGY', 'Room C18', 'TRUE', '18', '540'],
+      ['90002', 'Smith JD', 'DR', 'M', 'smith@mut.ac.za', 'INFO & COMMS TECHNOLOGY', 'Room C17', 'TRUE', '22', '660']
     ];
     
-    // Convert to CSV
-    const csvContent = templateData.map(row => row.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    // Convert to CSV with proper comma delimiter handling
+    const csvContent = templateData.map(row => 
+      row.map(cell => {
+        // Handle cells that contain commas by wrapping in quotes
+        const cellStr = String(cell);
+        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+          return `"${cellStr.replace(/"/g, '""')}"`;
+        }
+        return cellStr;
+      }).join(',')
+    ).join('\n');
+    
+    // Add UTF-8 BOM to ensure proper encoding
+    const bom = '\uFEFF';
+    const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8' });
     const url = window.URL.createObjectURL(blob);
     
     // Create download link
@@ -153,6 +193,12 @@ export class BulkUploadLecturersComponent implements OnInit {
     
     // Clean up
     window.URL.revokeObjectURL(url);
+    
+    // Show helpful message
+    this.presentAlert(
+      'Template Downloaded', 
+      'CSV template downloaded successfully. The template uses comma delimiters. Please ensure your data follows this exact format with the required columns: unique_name, name, title, Sex, Email, deptName, Room Name, Schedulable, Weekly Target, Total Target'
+    );
   }
   
   removeLecturer(index: number) {

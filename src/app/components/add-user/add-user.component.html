@@ -90,6 +90,16 @@
         </div>
       </ion-item>
       
+      <!-- Informational note for HOD role -->
+      <ion-item *ngIf="userForm.get('role')?.value === 'HOD'" lines="none">
+        <ion-icon name="information-circle" slot="start" color="primary"></ion-icon>
+        <ion-label class="ion-text-wrap">
+          <p class="ion-text-color-primary">
+            <small>Note: If the selected department doesn't exist, it will be automatically created when the HOD is added.</small>
+          </p>
+        </ion-label>
+      </ion-item>
+      
       <!-- Room Name only visible for HOD and Lecturer roles -->
       <ion-item *ngIf="isStaffRole()">
         <ion-label position="floating">Room Name</ion-label>

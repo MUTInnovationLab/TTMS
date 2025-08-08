@@ -2122,21 +2122,28 @@ export class AdminDashPage implements OnInit, OnDestroy {
               this.staffService.addStaffMember(hodData).subscribe({
                 next: staffResult => {
                   if (staffResult.success) {
-                    console.log('Staff record created successfully');
+                    console.log('Staff record created successfully, now creating department');
                     
-                    // Reload HODs from database to ensure list is up-to-date
-                    this.loadHODs();
-                    
-                    // Show success message with password info
-                    this.presentHodCreationSuccess(hodData, defaultPassword);
+                    // 3. Create department for this HOD
+                    this.createDepartmentForHOD(hodData, () => {
+                      // Reload HODs from database to ensure list is up-to-date
+                      this.loadHODs();
+                      
+                      // Show success message with password info
+                      this.presentHodCreationSuccess(hodData, defaultPassword);
+                      this.isSubmitting = false;
+                      
+                      // Restore original navigation
+                      this.router.navigate = originalNavigate;
+                    });
                   } else {
                     console.error('Staff record creation failed:', staffResult.message);
                     this.presentToast(`Error creating staff record: ${staffResult.message}`);
+                    this.isSubmitting = false;
+                    
+                    // Restore original navigation
+                    this.router.navigate = originalNavigate;
                   }
-                  this.isSubmitting = false;
-                  
-                  // Restore original navigation
-                  this.router.navigate = originalNavigate;
                 },
                 error: error => {
                   console.error('Error in staff service:', error);
@@ -2175,6 +2182,118 @@ export class AdminDashPage implements OnInit, OnDestroy {
         this.router.navigate = originalNavigate;
       }
     });
+  }
+
+  // Create department for newly added HOD
+  private createDepartmentForHOD(hodData: User, callback: () => void) {
+    console.log('Creating department for HOD:', hodData.department);
+    
+    // Check if department already exists
+    const existingDepartment = this.departments.find(dept => 
+      dept.name.toLowerCase().trim() === hodData.department.toLowerCase().trim()
+    );
+    
+    if (existingDepartment) {
+      console.log('Department already exists, updating HOD information');
+      
+      // Update existing department with HOD information
+      const updatedDepartment: Department = {
+        ...existingDepartment,
+        hodId: hodData.id,
+        hodName: `${hodData.title} ${hodData.name}`,
+        hodEmail: hodData.contact.email,
+        updatedAt: new Date()
+      };
+      
+      this.departmentService.updateDepartment(existingDepartment.id!, updatedDepartment).subscribe({
+        next: (result: any) => {
+          if (result.success) {
+            console.log('Department updated with HOD information successfully');
+            this.loadDepartments(); // Reload departments
+            callback();
+          } else {
+            console.error('Failed to update department:', result.message);
+            this.presentToast('HOD created but failed to update department information');
+            callback();
+          }
+        },
+        error: (error: any) => {
+          console.error('Error updating department:', error);
+          this.presentToast('HOD created but error updating department information');
+          callback();
+        }
+      });
+    } else {
+      console.log('Creating new department for HOD');
+      
+      // Generate department code from department name
+      const departmentCode = this.generateDepartmentCode(hodData.department);
+      
+      // Create new department
+      const newDepartment: Department = {
+        name: hodData.department,
+        code: departmentCode,
+        description: `${hodData.department} department`,
+        hodId: hodData.id,
+        hodName: `${hodData.title} ${hodData.name}`,
+        hodEmail: hodData.contact.email,
+        location: 'Main Campus', // Default location
+        phone: hodData.contact.officeTel || hodData.contact.mobile || '',
+        email: hodData.contact.email,
+        establishedYear: new Date().getFullYear(),
+        status: 'active' as const,
+        moduleCount: 0,
+        lecturerCount: 1, // Starting with the HOD
+        studentCount: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      this.departmentService.addDepartment(newDepartment).subscribe({
+        next: (result: any) => {
+          if (result.success) {
+            console.log('Department created successfully for HOD');
+            this.loadDepartments(); // Reload departments
+            this.presentToast(`Department "${hodData.department}" created successfully`);
+            callback();
+          } else {
+            console.error('Failed to create department:', result.message);
+            this.presentToast('HOD created but failed to create department');
+            callback();
+          }
+        },
+        error: (error: any) => {
+          console.error('Error creating department:', error);
+          this.presentToast('HOD created but error creating department');
+          callback();
+        }
+      });
+    }
+  }
+
+  // Generate department code from department name
+  private generateDepartmentCode(departmentName: string): string {
+    // Remove common words and create acronym
+    const words = departmentName
+      .toUpperCase()
+      .replace(/[^A-Z\s]/g, '') // Remove non-letter characters
+      .replace(/\b(OF|AND|&|THE|FOR)\b/g, '') // Remove common words
+      .trim()
+      .split(/\s+/)
+      .filter(word => word.length > 0);
+    
+    // Take first letter of each significant word
+    let code = words.map(word => word.charAt(0)).join('');
+    
+    // Ensure minimum length of 2 and maximum of 6
+    if (code.length < 2) {
+      code = departmentName.substring(0, 3).toUpperCase().replace(/[^A-Z]/g, '');
+    }
+    if (code.length > 6) {
+      code = code.substring(0, 6);
+    }
+    
+    return code || 'DEPT';
   }
 
   editUser(user: any) {
@@ -3050,6 +3169,187 @@ export class AdminDashPage implements OnInit, OnDestroy {
       detail: { calendarData }
     });
     window.dispatchEvent(event);
+  }
+
+  // Department Statistics Helper Methods
+  getDepartmentLecturerCount(departmentName: string): number {
+    // Get count of lecturers in this department
+    if (!this.users || !Array.isArray(this.users)) {
+      return 0;
+    }
+    const deptUsers = this.users.filter(user => user.department === departmentName);
+    return deptUsers.length;
+  }
+
+  getDepartmentModuleCount(departmentName: string): number {
+    // Get count of unique modules for this department from sessions
+    if (!this.masterTimetableSessions || !Array.isArray(this.masterTimetableSessions)) {
+      return 0;
+    }
+    
+    // Find department ID first
+    const department = this.departments.find(dept => dept.name === departmentName);
+    if (!department || !department.id) return 0;
+    
+    const departmentId = parseInt(department.id);
+    if (isNaN(departmentId)) return 0;
+    
+    const deptSessions = this.masterTimetableSessions.filter(session => 
+      session.departmentId === departmentId
+    );
+    const uniqueModules = new Set(deptSessions.map(session => session.moduleCode || session.module)).size;
+    return uniqueModules;
+  }
+
+  getDepartmentVenueUsage(departmentName: string): number {
+    // Get count of unique venues used by this department
+    if (!this.masterTimetableSessions || !Array.isArray(this.masterTimetableSessions)) {
+      return 0;
+    }
+    
+    // Find department ID first
+    const department = this.departments.find(dept => dept.name === departmentName);
+    if (!department || !department.id) return 0;
+    
+    const departmentId = parseInt(department.id);
+    if (isNaN(departmentId)) return 0;
+    
+    const deptSessions = this.masterTimetableSessions.filter(session => 
+      session.departmentId === departmentId
+    );
+    const uniqueVenues = new Set(deptSessions.map(session => session.venue)).size;
+    return uniqueVenues;
+  }
+
+  getDepartmentTotalHours(departmentName: string): number {
+    // Calculate total weekly teaching hours for department
+    if (!this.masterTimetableSessions || !Array.isArray(this.masterTimetableSessions)) {
+      return 0;
+    }
+    
+    // Find department ID first
+    const department = this.departments.find(dept => dept.name === departmentName);
+    if (!department || !department.id) return 0;
+    
+    const departmentId = parseInt(department.id);
+    if (isNaN(departmentId)) return 0;
+    
+    const deptSessions = this.masterTimetableSessions.filter(session => 
+      session.departmentId === departmentId
+    );
+    
+    // Calculate total duration based on slot differences (assuming 1 hour slots)
+    let totalHours = 0;
+    deptSessions.forEach(session => {
+      const duration = session.endSlot - session.startSlot;
+      totalHours += duration;
+    });
+    
+    return totalHours;
+  }
+
+  getDepartmentLectureHours(departmentName: string): number {
+    // Calculate lecture hours for department
+    if (!this.masterTimetableSessions || !Array.isArray(this.masterTimetableSessions)) {
+      return 0;
+    }
+    
+    // Find department ID first
+    const department = this.departments.find(dept => dept.name === departmentName);
+    if (!department || !department.id) return 0;
+    
+    const departmentId = parseInt(department.id);
+    if (isNaN(departmentId)) return 0;
+    
+    const lectureSessions = this.masterTimetableSessions.filter(session => 
+      session.departmentId === departmentId && 
+      (session.category === 'Lecture' || session.title.toLowerCase().includes('lecture'))
+    );
+    
+    let lectureHours = 0;
+    lectureSessions.forEach(session => {
+      const duration = session.endSlot - session.startSlot;
+      lectureHours += duration;
+    });
+    
+    return lectureHours;
+  }
+
+  getDepartmentLabHours(departmentName: string): number {
+    // Calculate practical/lab hours for department
+    if (!this.masterTimetableSessions || !Array.isArray(this.masterTimetableSessions)) {
+      return 0;
+    }
+    
+    // Find department ID first
+    const department = this.departments.find(dept => dept.name === departmentName);
+    if (!department || !department.id) return 0;
+    
+    const departmentId = parseInt(department.id);
+    if (isNaN(departmentId)) return 0;
+    
+    const labSessions = this.masterTimetableSessions.filter(session => 
+      session.departmentId === departmentId && 
+      (session.category === 'Practical' || session.category === 'Lab' ||
+       session.title.toLowerCase().includes('practical') || 
+       session.title.toLowerCase().includes('lab'))
+    );
+    
+    let labHours = 0;
+    labSessions.forEach(session => {
+      const duration = session.endSlot - session.startSlot;
+      labHours += duration;
+    });
+    
+    return labHours;
+  }
+
+  getDepartmentTutorialHours(departmentName: string): number {
+    // Calculate tutorial hours for department
+    if (!this.masterTimetableSessions || !Array.isArray(this.masterTimetableSessions)) {
+      return 0;
+    }
+    
+    // Find department ID first
+    const department = this.departments.find(dept => dept.name === departmentName);
+    if (!department || !department.id) return 0;
+    
+    const departmentId = parseInt(department.id);
+    if (isNaN(departmentId)) return 0;
+    
+    const tutorialSessions = this.masterTimetableSessions.filter(session => 
+      session.departmentId === departmentId && 
+      (session.category === 'Tutorial' || session.title.toLowerCase().includes('tutorial'))
+    );
+    
+    let tutorialHours = 0;
+    tutorialSessions.forEach(session => {
+      const duration = session.endSlot - session.startSlot;
+      tutorialHours += duration;
+    });
+    
+    return tutorialHours;
+  }
+
+  formatLastModified(date: Date): string {
+    // Format the last modified date in a user-friendly way
+    const now = new Date();
+    const diffInMilliseconds = now.getTime() - date.getTime();
+    const diffInMinutes = Math.floor(diffInMilliseconds / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
+    const diffInDays = Math.floor(diffInHours / 24);
+
+    if (diffInMinutes < 1) {
+      return 'Just now';
+    } else if (diffInMinutes < 60) {
+      return `${diffInMinutes}m ago`;
+    } else if (diffInHours < 24) {
+      return `${diffInHours}h ago`;
+    } else if (diffInDays < 7) {
+      return `${diffInDays}d ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
   }
 }
 

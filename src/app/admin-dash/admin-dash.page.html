@@ -207,7 +207,7 @@
               <ion-card-content>
                 <div class="department-progress">
                   <div class="progress-header">
-                    <span>Progress</span>
+                    <span>Timetable Progress</span>
                     <span>{{ dept.progress }}%</span>
                   </div>
                   <div class="progress-bar">
@@ -217,16 +217,50 @@
 
                 <div class="department-stats">
                   <div class="stat-item">
-                    <ion-icon name="calendar"></ion-icon>
+                    <ion-icon name="calendar-outline"></ion-icon>
                     <span>{{ dept.sessionsCount }} Sessions</span>
                   </div>
                   <div class="stat-item" *ngIf="dept.conflictsCount > 0">
-                    <ion-icon name="warning" color="danger"></ion-icon>
+                    <ion-icon name="warning-outline" color="danger"></ion-icon>
                     <span>{{ dept.conflictsCount }} Conflicts</span>
                   </div>
+                  <div class="stat-item" *ngIf="dept.conflictsCount === 0 && dept.sessionsCount > 0">
+                    <ion-icon name="checkmark-circle-outline" color="success"></ion-icon>
+                    <span>No Conflicts</span>
+                  </div>
                   <div class="stat-item">
-                    <ion-icon name="time"></ion-icon>
-                    <span>{{ dept.lastModified | date:'short' }}</span>
+                    <ion-icon name="people-outline"></ion-icon>
+                    <span>{{ getDepartmentLecturerCount(dept.departmentName) }} Lecturers</span>
+                  </div>
+                  <div class="stat-item">
+                    <ion-icon name="library-outline"></ion-icon>
+                    <span>{{ getDepartmentModuleCount(dept.departmentName) }} Modules</span>
+                  </div>
+                  <div class="stat-item">
+                    <ion-icon name="business-outline"></ion-icon>
+                    <span>{{ getDepartmentVenueUsage(dept.departmentName) }} Venues Used</span>
+                  </div>
+                  <div class="stat-item">
+                    <ion-icon name="time-outline"></ion-icon>
+                    <span>{{ formatLastModified(dept.lastModified) }}</span>
+                  </div>
+                </div>
+
+                <div class="department-workload" *ngIf="dept.sessionsCount > 0">
+                  <div class="workload-header">
+                    <span>Weekly Teaching Hours</span>
+                    <span>{{ getDepartmentTotalHours(dept.departmentName) }}h</span>
+                  </div>
+                  <div class="workload-breakdown">
+                    <ion-chip size="small" color="primary" *ngIf="getDepartmentLectureHours(dept.departmentName) > 0">
+                      <ion-label>{{ getDepartmentLectureHours(dept.departmentName) }}h Lectures</ion-label>
+                    </ion-chip>
+                    <ion-chip size="small" color="secondary" *ngIf="getDepartmentLabHours(dept.departmentName) > 0">
+                      <ion-label>{{ getDepartmentLabHours(dept.departmentName) }}h Practicals</ion-label>
+                    </ion-chip>
+                    <ion-chip size="small" color="tertiary" *ngIf="getDepartmentTutorialHours(dept.departmentName) > 0">
+                      <ion-label>{{ getDepartmentTutorialHours(dept.departmentName) }}h Tutorials</ion-label>
+                    </ion-chip>
                   </div>
                 </div>
 

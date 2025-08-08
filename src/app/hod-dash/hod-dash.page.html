@@ -61,7 +61,7 @@
           <ion-label>Groups Management</ion-label>
         </ion-item>
 
-        <ion-item button [class.active]="activeSection === 'modules'" (click)="changeSection('modules')">
+        <ion-item button [class.active]="activeSection === 'module'" (click)="changeSection('module')">
           <ion-icon name="book-outline" slot="start"></ion-icon>
           <ion-label>Modules Management</ion-label>
         </ion-item>
@@ -463,7 +463,7 @@
           <ion-segment-button value="workload">
             <ion-label>Workload Analysis</ion-label>
           </ion-segment-button>
-          <ion-segment-button value="modules">
+          <ion-segment-button value="module">
             <ion-label>Module Assignments</ion-label>
           </ion-segment-button>
         </ion-segment>
@@ -642,7 +642,7 @@
       </div>
 
       <!-- Modules Management Section -->
-      <div *ngIf="activeSection === 'modules'" class="section-container">
+      <div *ngIf="activeSection === 'module'" class="section-container">
         <h1>Modules Management</h1>
 
         <div class="filter-controls">

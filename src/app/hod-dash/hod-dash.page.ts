@@ -1961,7 +1961,7 @@ export class HodDashPage implements OnInit, OnDestroy {
     // Update the module locally first
     const moduleIndex = this.modules.findIndex(m => m.id === module.id);
     const originalModule = moduleIndex !== -1 ? { ...this.modules[moduleIndex] } : null;
-    
+
     if (moduleIndex !== -1) {
       this.modules[moduleIndex].lecturerIds = selectedLecturerIds;
       this.modules[moduleIndex].lecturerCount = selectedLecturerIds.length;
