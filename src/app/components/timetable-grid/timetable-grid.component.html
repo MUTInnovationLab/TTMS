@@ -136,6 +136,7 @@
         </div>
       </div>
 
+      
       <!-- Alternative Visual Representations -->
       <div class="alternative-views">
         <ion-segment [(ngModel)]="calendarViewMode" (ionChange)="onCalendarViewChange($event)">
@@ -151,10 +152,6 @@
             <ion-icon name="radio-button-on-outline"></ion-icon>
             <ion-label>Radial</ion-label>
           </ion-segment-button>
-          <ion-segment-button value="gantt">
-            <ion-icon name="bar-chart-outline"></ion-icon>
-            <ion-label>Gantt</ion-label>
-          </ion-segment-button>
           <ion-segment-button value="heatmap">
             <ion-icon name="apps-outline"></ion-icon>
             <ion-label>Heatmap</ion-label>
@@ -166,14 +163,12 @@
           <div class="grid-calendar">
             <!-- Month headers -->
             <div class="month-headers">
-              <div class="month-header" *ngFor="let month of ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']; let i = index">
-                {{month}}
-              </div>
+              <!--NEED TO ADD A HEADING OF SOME SORT-->
             </div>
             
             <!-- Day of week headers -->
             <div class="day-headers">
-              <div class="day-header" *ngFor="let day of ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']">
+              <div class="day-header" *ngFor="let day of ['     ','Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']">
                 {{day}}
               </div>
             </div>
