@@ -135,7 +135,7 @@ export class AddUserComponent implements OnInit {
       name: ['', [Validators.required]],
       id: ['', [Validators.required]],
       sex: [''],
-      department: ['', [Validators.required]],
+      department: [''],
       roomName: [''],
       schedulable: [false],
       email: ['', [Validators.required, Validators.email]],
@@ -158,6 +158,19 @@ export class AddUserComponent implements OnInit {
       this.onRoleChange();
     }
     
+    // Custom validation for department when role is HOD
+    this.userForm.get('role')?.valueChanges.subscribe(role => {
+      this.onRoleChange();
+      const departmentControl = this.userForm.get('department');
+      if (role === 'HOD') {
+        departmentControl?.clearValidators();
+        departmentControl?.setValue(''); // Default to empty for auto-creation
+      } else {
+        departmentControl?.setValidators([Validators.required]);
+      }
+      departmentControl?.updateValueAndValidity();
+    });
+
     // Subscribe to schedulable changes to update validation
     this.userForm.get('schedulable')?.valueChanges.subscribe(value => {
       const weeklyTarget = this.userForm.get('weeklyTarget');
@@ -179,6 +192,8 @@ export class AddUserComponent implements OnInit {
     this.userForm.get('role')?.valueChanges.subscribe(role => {
       this.onRoleChange();
     });
+
+
   }
   
   onRoleChange() {
@@ -248,49 +263,43 @@ export class AddUserComponent implements OnInit {
     
     this.isSubmitting = true;
     this.errorMessage = '';
+
+    const formData = this.userForm.value;
+    const userData: User = {
+      id: formData.id,
+      title: formData.title,
+      name: formData.name,
+      sex: formData.sex,
+      department: formData.role === 'HOD' ? (formData.department || `${formData.title} ${formData.name}'s Dept`).trim() : formData.department,
+      roomName: formData.roomName,
+      role: formData.role,
+      schedulable: formData.role === 'HOD' ? true : (formData.role === 'Lecturer' ? formData.schedulable : false),
+      contact: {
+        email: formData.email,
+        mobile: formData.mobile,
+        officeTel: formData.officeTel,
+        homeTel: formData.homeTel,
+        website: formData.website
+      },
+      address: this.isStaffRole() ? {
+        line1: formData.addressLine1,
+        line2: formData.addressLine2,
+        postcode: formData.postcode
+      } : undefined,
+      accessibility: {
+        deafLoop: formData.deafLoop,
+        wheelchairAccess: formData.wheelchairAccess
+      },
+      weeklyTarget: (formData.role === 'Lecturer' && formData.schedulable) ? formData.weeklyTarget : 0,
+      totalTarget: (formData.role === 'Lecturer' && formData.schedulable) ? formData.totalTarget : 0,
+      createdAt: this.isEditMode && this.user?.createdAt ? this.user.createdAt : new Date(),
+      updatedAt: new Date()
+    };
     
-    try {
-      const formData = this.userForm.value;
-      
-      // Format the data for submission
-      const userData: User = {
-        id: formData.id,
-        title: formData.title,
-        name: formData.name,
-        sex: formData.sex,
-        department: formData.department,
-        roomName: formData.roomName,
-        role: formData.role,
-        schedulable: formData.role === 'HOD' ? true : (formData.role === 'Lecturer' ? formData.schedulable : false),
-        contact: {
-          email: formData.email,
-          mobile: formData.mobile,
-          officeTel: formData.officeTel,
-          homeTel: formData.homeTel,
-          website: formData.website
-        },
-        address: this.isStaffRole() ? {
-          line1: formData.addressLine1,
-          line2: formData.addressLine2,
-          postcode: formData.postcode
-        } : undefined,
-        accessibility: {
-          deafLoop: formData.deafLoop,
-          wheelchairAccess: formData.wheelchairAccess
-        },
-        weeklyTarget: (formData.role === 'Lecturer' && formData.schedulable) ? formData.weeklyTarget : 0,
-        totalTarget: (formData.role === 'Lecturer' && formData.schedulable) ? formData.totalTarget : 0,
-        createdAt: this.isEditMode && this.user?.createdAt ? this.user.createdAt : new Date(),
-        updatedAt: new Date()
-      };
-      
-      // Close modal and return user data
-      this.modalController.dismiss(userData);
-    } catch (error) {
-      console.error('Form submission error:', error);
-      this.errorMessage = 'An error occurred while saving the user.';
-      this.isSubmitting = false;
-    }
+    // Log to verify department value
+    console.log('Submitting user data with department:', userData.department);
+    
+    this.modalController.dismiss(userData);
   }
   
   dismissModal() {

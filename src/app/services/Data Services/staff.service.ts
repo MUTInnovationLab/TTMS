@@ -25,7 +25,6 @@ export class StaffService {
   
   // Add a new staff member (HOD) to the collection
   addStaffMember(userData: User): Observable<{ success: boolean, message: string }> {
-    // Format the data according to your collection structure
     const staffData = {
       id: userData.id,
       title: userData.title,
@@ -51,19 +50,15 @@ export class StaffService {
       updatedAt: new Date()
     };
     
-    // Use department name as document ID in Firestore
-    const documentId = userData.department;
+    // Ensure documentId is not empty
+    const documentId = userData.department ? userData.department.trim() : `Dept_${userData.id}_${new Date().getTime()}`;
+    console.log('Writing staff data to Firestore with documentId:', documentId, staffData);
     
-    console.log('Writing staff data to Firestore:', documentId, staffData);
-    
-    // Use raw Firebase API to avoid Angular DI context issues
     return from(new Promise<void>((resolve, reject) => {
       try {
-        // Get current Firebase app instance
         const firebaseApp = firebase.app();
         const firestore = firebaseApp.firestore();
         
-        // Use direct Firebase API to write to Firestore
         firestore.collection(this.STAFF_COLLECTION).doc(documentId).set(staffData)
           .then(() => {
             console.log('Staff document written successfully!');

@@ -83,6 +83,7 @@
       <ion-item>
         <ion-label position="floating">Department*</ion-label>
         <ion-select formControlName="department">
+          <ion-select-option value="">[Auto-create for HOD]</ion-select-option>
           <ion-select-option *ngFor="let dept of departments" [value]="dept">{{ dept }}</ion-select-option>
         </ion-select>
         <div *ngIf="submitted && f['department'].errors" class="error-message">
