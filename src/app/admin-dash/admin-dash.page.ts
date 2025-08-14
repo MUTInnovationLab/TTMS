@@ -1837,19 +1837,20 @@ export class AdminDashPage implements OnInit, OnDestroy {
   
   getFilteredVenuesList() {
     return this.venues.filter(venue => {
-      // Name search
-      if (this.venueSearchTerm && 
-          !venue.name.toLowerCase().includes(this.venueSearchTerm.toLowerCase())) {
-        return false;
-      }
-      
-      // Type filter
-      if (this.venueTypeFilter && venue.type.toLowerCase() !== this.venueTypeFilter.toLowerCase()) {
-        return false;
-      }
-      
-      return true;
+      const matchesSearch = !this.venueSearchTerm || 
+        venue.name.toLowerCase().includes(this.venueSearchTerm.toLowerCase());
+      const matchesType = !this.venueTypeFilter || 
+        this.mapVenueTypeToFilter(venue.type.toLowerCase()) === this.venueTypeFilter.toLowerCase();
+      return matchesSearch && matchesType;
     });
+  }
+
+  private mapVenueTypeToFilter(venueType: string): string {
+    const typeLower = venueType.toLowerCase();
+    if (typeLower.includes('lab') || typeLower === 'laboratory') return 'lab';
+    if (typeLower === 'lecture theatre' || typeLower === 'hall') return 'lecture';
+    if (typeLower === 'classroom' || typeLower === 'room') return 'classroom';
+    return typeLower; // Default to the original type if no specific mapping
   }
   
   handleVenueBookingRequest(event: any) {
