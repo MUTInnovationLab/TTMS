@@ -2073,19 +2073,23 @@ export class AdminDashPage implements OnInit, OnDestroy {
       console.log('Would update auth account and staff record for:', updatedData.id);
     }
   }
-
+  
   // Handle new HOD creation
   private handleNewHodCreation(hodData: User) {
     console.log('Starting new HOD creation process:', hodData);
-    
+
     if (!hodData.contact?.email) {
       this.presentToast('Error: Email is required for creating an account');
       return;
     }
-    
+
     this.isSubmitting = true;
+
     const originalNavigate = this.router.navigate;
-    this.router.navigate = (...args: any[]) => Promise.resolve(false);
+    this.router.navigate = (...args: any[]) => {
+      console.log('Navigation prevented during new HOD creation:', args);
+      return Promise.resolve(false);
+    };
 
     this.authService.checkEmailExists(hodData.contact.email).subscribe({
       next: exists => {
@@ -2096,15 +2100,20 @@ export class AdminDashPage implements OnInit, OnDestroy {
           return;
         }
 
-        const defaultPassword = this.authService.generateDefaultPassword();
-        this.authService.createUserAccount(hodData.contact.email, 'HOD', defaultPassword).subscribe({
+        const defaultPassword = 'def@Pass#01';
+        const adminEmail = 'admin@example.com'; // TODO: Replace with actual admin email retrieval
+        const adminPassword = 'adminPassword123'; // TODO: Replace with actual admin password retrieval
+
+        this.authService.createUserAccount(hodData.contact.email, 'HOD', defaultPassword, adminEmail, adminPassword).subscribe({
           next: authResult => {
             if (authResult.success) {
               console.log('Auth account created successfully, now creating staff record');
+
               this.staffService.addStaffMember(hodData).subscribe({
                 next: staffResult => {
                   if (staffResult.success) {
                     console.log('Staff record created successfully, now creating department');
+
                     this.createDepartmentForHOD(hodData, () => {
                       this.loadHODs();
                       this.presentHodCreationSuccess(hodData, defaultPassword);
@@ -2149,7 +2158,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
     });
   }
 
-  // Create department for newly added HOD
+// Create department for newly added HOD
   private createDepartmentForHOD(hodData: User, callback: () => void) {
     console.log('Creating department for HOD:', hodData.department);
     

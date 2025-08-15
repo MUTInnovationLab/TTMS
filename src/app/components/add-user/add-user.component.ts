@@ -59,6 +59,8 @@ export class AddUserComponent implements OnInit {
   isSubmitting = false;
   errorMessage = '';
   isEditMode = false;
+
+  showNewDepartmentInput = false;
   
   // Available roles based on the current user's role
   availableRoles: string[] = [];
@@ -135,7 +137,8 @@ export class AddUserComponent implements OnInit {
       name: ['', [Validators.required]],
       id: ['', [Validators.required]],
       sex: [''],
-      department: [''],
+      department: ['', [Validators.required]],
+      newDepartment: [''],
       roomName: [''],
       schedulable: [false],
       email: ['', [Validators.required, Validators.email]],
@@ -152,25 +155,26 @@ export class AddUserComponent implements OnInit {
       totalTarget: [0]
     });
     
+    // Add conditional validation for newDepartment
+    this.userForm.get('department')?.valueChanges.subscribe(value => {
+      this.showNewDepartmentInput = value === 'new';
+      if (this.showNewDepartmentInput) {
+        this.userForm.get('newDepartment')?.setValidators([Validators.required]);
+        this.userForm.get('department')?.clearValidators();
+        this.userForm.get('newDepartment')?.updateValueAndValidity({ onlySelf: true }); // Update only the newDepartment control
+      } else {
+        this.userForm.get('newDepartment')?.clearValidators();
+        this.userForm.get('department')?.setValidators([Validators.required]);
+        this.userForm.get('department')?.updateValueAndValidity({ onlySelf: true }); // Update only the department control
+      }
+    });
+  
     // Set default role if available
     if (this.availableRoles.length > 0) {
       this.userForm.get('role')?.setValue(this.availableRoles[0]);
       this.onRoleChange();
     }
     
-    // Custom validation for department when role is HOD
-    this.userForm.get('role')?.valueChanges.subscribe(role => {
-      this.onRoleChange();
-      const departmentControl = this.userForm.get('department');
-      if (role === 'HOD') {
-        departmentControl?.clearValidators();
-        departmentControl?.setValue(''); // Default to empty for auto-creation
-      } else {
-        departmentControl?.setValidators([Validators.required]);
-      }
-      departmentControl?.updateValueAndValidity();
-    });
-
     // Subscribe to schedulable changes to update validation
     this.userForm.get('schedulable')?.valueChanges.subscribe(value => {
       const weeklyTarget = this.userForm.get('weeklyTarget');
@@ -192,8 +196,6 @@ export class AddUserComponent implements OnInit {
     this.userForm.get('role')?.valueChanges.subscribe(role => {
       this.onRoleChange();
     });
-
-
   }
   
   onRoleChange() {
@@ -253,57 +255,73 @@ export class AddUserComponent implements OnInit {
     const role = this.userForm.get('role')?.value;
     return role === 'HOD' || role === 'Lecturer';
   }
+
+  onDepartmentChange(event: any) {
+    const value = event.detail.value;
+    this.showNewDepartmentInput = value === 'new';
+    if (this.showNewDepartmentInput) {
+      this.userForm.get('newDepartment')?.setValidators([Validators.required]);
+      this.userForm.get('department')?.clearValidators();
+    } else {
+      this.userForm.get('newDepartment')?.clearValidators();
+      this.userForm.get('department')?.setValidators([Validators.required]);
+    }
+    this.userForm.get('newDepartment')?.updateValueAndValidity();
+    this.userForm.get('department')?.updateValueAndValidity();
+  }
   
   onSubmit() {
     this.submitted = true;
-    
+
     if (this.userForm.invalid) {
       return;
     }
-    
+
     this.isSubmitting = true;
     this.errorMessage = '';
 
-    const formData = this.userForm.value;
-    const userData: User = {
-      id: formData.id,
-      title: formData.title,
-      name: formData.name,
-      sex: formData.sex,
-      department: formData.role === 'HOD' ? (formData.department || `${formData.title} ${formData.name}'s Dept`).trim() : formData.department,
-      roomName: formData.roomName,
-      role: formData.role,
-      schedulable: formData.role === 'HOD' ? true : (formData.role === 'Lecturer' ? formData.schedulable : false),
-      contact: {
-        email: formData.email,
-        mobile: formData.mobile,
-        officeTel: formData.officeTel,
-        homeTel: formData.homeTel,
-        website: formData.website
-      },
-      address: this.isStaffRole() ? {
-        line1: formData.addressLine1,
-        line2: formData.addressLine2,
-        postcode: formData.postcode
-      } : undefined,
-      accessibility: {
-        deafLoop: formData.deafLoop,
-        wheelchairAccess: formData.wheelchairAccess
-      },
-      weeklyTarget: (formData.role === 'Lecturer' && formData.schedulable) ? formData.weeklyTarget : 0,
-      totalTarget: (formData.role === 'Lecturer' && formData.schedulable) ? formData.totalTarget : 0,
-      createdAt: this.isEditMode && this.user?.createdAt ? this.user.createdAt : new Date(),
-      updatedAt: new Date()
-    };
-    
-    // Log to verify department value
-    console.log('Submitting user data with department:', userData.department);
-    
-    this.modalController.dismiss(userData);
+    try {
+      const formData = this.userForm.value;
+      const userData: User = {
+        id: formData.id,
+        title: formData.title,
+        name: formData.name,
+        sex: formData.sex,
+        department: this.showNewDepartmentInput ? formData.newDepartment : formData.department,
+        roomName: formData.roomName,
+        role: formData.role,
+        schedulable: formData.role === 'HOD' ? true : (formData.role === 'Lecturer' ? formData.schedulable : false),
+        contact: {
+          email: formData.email,
+          mobile: formData.mobile,
+          officeTel: formData.officeTel,
+          homeTel: formData.homeTel,
+          website: formData.website
+        },
+        address: this.isStaffRole() ? {
+          line1: formData.addressLine1,
+          line2: formData.addressLine2,
+          postcode: formData.postcode
+        } : undefined,
+        accessibility: {
+          deafLoop: formData.deafLoop,
+          wheelchairAccess: formData.wheelchairAccess
+        },
+        weeklyTarget: (formData.role === 'Lecturer' && formData.schedulable) ? formData.weeklyTarget : 0,
+        totalTarget: (formData.role === 'Lecturer' && formData.schedulable) ? formData.totalTarget : 0,
+        createdAt: this.isEditMode && this.user?.createdAt ? this.user.createdAt : new Date(),
+        updatedAt: new Date()
+      };
+
+      this.modalController.dismiss(userData);
+    } catch (error) {
+      console.error('Form submission error:', error);
+      this.errorMessage = 'An error occurred while saving the user.';
+      this.isSubmitting = false;
+    }
   }
   
   dismissModal() {
     this.modalController.dismiss();
   }
 }
-
