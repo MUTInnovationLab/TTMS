@@ -140,7 +140,7 @@
       <!-- Alternative Visual Representations -->
       <div class="alternative-views">
         <ion-segment [(ngModel)]="calendarViewMode" (ionChange)="onCalendarViewChange($event)">
-          <ion-segment-button value="timeline">
+          <ion-segment-button value="timeline" style="margin-left: 60px">
             <ion-icon name="analytics-outline"></ion-icon>
             <ion-label>Timeline</ion-label>
           </ion-segment-button>
@@ -157,45 +157,78 @@
             <ion-label>Heatmap</ion-label>
           </ion-segment-button>
         </ion-segment>
+      
+
 
         <!-- Grid Calendar View -->
         <div class="calendar-grid-view" *ngIf="calendarViewMode === 'grid'">
           <div class="grid-calendar">
+            <!-- Toggle button -->
+            <ion-button (click)="toggleVisibility()">
+              {{ isVisible ? 'Show All Weeks' : 'Show Current Week' }}
+            </ion-button>
+        
             <!-- Month headers -->
             <div class="month-headers">
-              <!--NEED TO ADD A HEADING OF SOME SORT-->
+              <!-- Add your month heading logic here -->
             </div>
-            
+        
             <!-- Day of week headers -->
             <div class="day-headers">
-              <div class="day-header" *ngFor="let day of ['     ','Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']">
-                {{day}}
+              <div class="day-header" *ngFor="let day of ['     ', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']">
+                {{ day }}
               </div>
             </div>
-            
-            <!-- Calendar grid with all days -->
+        
+            <!-- Calendar grid with conditional rendering -->
             <div class="calendar-grid-body">
-              <div class="calendar-week" *ngFor="let week of getEnhancedCalendarGrid(); let weekIndex = index">
-                <div class="week-number-indicator">
-                  <span class="week-label">W{{weekIndex + 1}}</span>
-                </div>
-                <div class="calendar-day" *ngFor="let day of week"
-                     [class.current-week]="day.isCurrentWeek"
-                     [class.academic-week]="day.isAcademicWeek"
-                     [class.exam-week]="day.isExamWeek"
-                     [class.break-week]="day.isBreakWeek"
-                     [class.selected-week]="day.week === selectedWeek"
-                     [style.background-color]="day.color"
-                     (click)="navigateToWeek(day.week)"
-                     [title]="day.fullLabel">
-                  <div class="day-content">
-                    <span class="day-number">{{day.dayOfMonth}}</span>
-                    <span class="week-type-indicator" *ngIf="day.typeIndicator">{{day.typeIndicator}}</span>
+              <ng-container *ngIf="isVisible; else allWeeks">
+                <!-- Show only the current week with its original index -->
+                <div class="calendar-week" *ngFor="let weekData of getCurrentWeekWithIndex()">
+                  <div class="week-number-indicator">
+                    <span class="week-label">W{{ weekData.index + 1 }}</span>
+                  </div>
+                  <div class="calendar-day" *ngFor="let day of weekData.week"
+                       [class.current-week]="day.isCurrentWeek"
+                       [class.academic-week]="day.isAcademicWeek"
+                       [class.exam-week]="day.isExamWeek"
+                       [class.break-week]="day.isBreakWeek"
+                       [class.selected-week]="day.week === selectedWeek"
+                       [style.background-color]="day.color"
+                       (click)="navigateToWeek(day.week)"
+                       [title]="day.fullLabel">
+                    <div class="day-content">
+                      <span class="day-number">{{ day.dayOfMonth }}</span>
+                      <span class="week-type-indicator" *ngIf="day.typeIndicator">{{ day.typeIndicator }}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </ng-container>
+        
+              <!-- Template for all weeks -->
+              <ng-template #allWeeks>
+                <div class="calendar-week" *ngFor="let week of getEnhancedCalendarGrid(); let weekIndex = index">
+                  <div class="week-number-indicator">
+                    <span class="week-label">W{{ weekIndex + 1 }}</span>
+                  </div>
+                  <div class="calendar-day" *ngFor="let day of week"
+                       [class.current-week]="day.isCurrentWeek"
+                       [class.academic-week]="day.isAcademicWeek"
+                       [class.exam-week]="day.isExamWeek"
+                       [class.break-week]="day.isBreakWeek"
+                       [class.selected-week]="day.week === selectedWeek"
+                       [style.background-color]="day.color"
+                       (click)="navigateToWeek(day.week)"
+                       [title]="day.fullLabel">
+                    <div class="day-content">
+                      <span class="day-number">{{ day.dayOfMonth }}</span>
+                      <span class="week-type-indicator" *ngIf="day.typeIndicator">{{ day.typeIndicator }}</span>
+                    </div>
+                  </div>
+                </div>
+              </ng-template>
             </div>
-            
+        
             <!-- Calendar legend -->
             <div class="calendar-legend">
               <div class="legend-item">
@@ -217,6 +250,7 @@
             </div>
           </div>
         </div>
+
 
         <!-- Radial Calendar View -->
         <div class="radial-calendar-view" *ngIf="calendarViewMode === 'radial'">
@@ -251,38 +285,6 @@
                 <text x="150" y="155" text-anchor="middle" font-size="10" fill="white" font-weight="bold">NOW</text>
               </g>
             </svg>
-          </div>
-        </div>
-
-        <!-- Gantt Chart View -->
-        <div class="gantt-chart-view" *ngIf="calendarViewMode === 'gantt'">
-          <div class="gantt-chart">
-            <div class="gantt-header">
-              <div class="gantt-labels">Activity</div>
-              <div class="gantt-timeline">
-                <div class="month-labels">
-                  <span *ngFor="let month of ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']">{{month}}</span>
-                </div>
-              </div>
-            </div>
-            
-            <div class="gantt-body">
-              <div class="gantt-row" *ngFor="let item of getGanttChart()">
-                <div class="gantt-label">
-                  <ion-icon [name]="item.type === 'exams' ? 'document-text' : item.type === 'break' ? 'cafe' : 'school'"></ion-icon>
-                  <span>{{item.name}}</span>
-                </div>
-                <div class="gantt-bar-container">
-                  <div class="gantt-bar" 
-                       [style.background-color]="item.color"
-                       [style.left.%]="((item.start - 1) / 52) * 100"
-                       [style.width.%]="((item.end - item.start + 1) / 52) * 100"
-                       [class.current-period]="academicWeekConfig.currentWeek >= item.start && academicWeekConfig.currentWeek <= item.end">
-                    <span class="bar-label">Weeks {{item.start}}-{{item.end}}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -404,7 +406,8 @@
         </ion-segment-button>
       </ion-segment>
     </div>
-    
+   
+    <!--legend hovering-->
     <div class="panel-section legend">
       <h4>Legend</h4>
       <div class="legend-items">
@@ -438,7 +441,7 @@
   </div>
   
   <!-- Timetable Grid -->
-  <div class="timetable-grid" [class]="viewMode + '-view'">>
+  <div class="timetable-grid" [class]="viewMode + '-view'">
     <!-- Header - Days -->
     <div class="grid-header">
       <div class="time-column-header"></div>

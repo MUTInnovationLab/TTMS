@@ -88,6 +88,25 @@ export interface WeekChangeEvent {
   imports: [CommonModule, IonicModule, FormsModule]
 })
 export class TimetableGridComponent implements OnInit, OnChanges {
+  isVisible = false;
+
+  toggleVisibility() {
+    this.isVisible = !this.isVisible;
+  }
+  
+  getCurrentWeekDays() {
+    const allWeeks = this.getEnhancedCalendarGrid();
+    const current = allWeeks.find(week => week.some(day => day.isCurrentWeek));
+    return current || [];
+  }
+  
+  getCurrentWeekWithIndex() {
+    const allWeeks = this.getEnhancedCalendarGrid();
+    const currentWeekIndex = allWeeks.findIndex(week => week.some(day => day.isCurrentWeek));
+    const currentWeek = allWeeks[currentWeekIndex] || [];
+    return currentWeekIndex !== -1 ? [{ week: currentWeek, index: currentWeekIndex }] : [];
+  }
+
   @Input() sessions: TimetableSession[] = [];
   @Input() enableMagneticSnap: boolean = true;
   @Input() enableConflictPrevention: boolean = true;
