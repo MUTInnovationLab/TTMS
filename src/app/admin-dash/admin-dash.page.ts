@@ -1837,19 +1837,20 @@ export class AdminDashPage implements OnInit, OnDestroy {
   
   getFilteredVenuesList() {
     return this.venues.filter(venue => {
-      // Name search
-      if (this.venueSearchTerm && 
-          !venue.name.toLowerCase().includes(this.venueSearchTerm.toLowerCase())) {
-        return false;
-      }
-      
-      // Type filter
-      if (this.venueTypeFilter && venue.type.toLowerCase() !== this.venueTypeFilter.toLowerCase()) {
-        return false;
-      }
-      
-      return true;
+      const matchesSearch = !this.venueSearchTerm || 
+        venue.name.toLowerCase().includes(this.venueSearchTerm.toLowerCase());
+      const matchesType = !this.venueTypeFilter || 
+        this.mapVenueTypeToFilter(venue.type.toLowerCase()) === this.venueTypeFilter.toLowerCase();
+      return matchesSearch && matchesType;
     });
+  }
+
+  private mapVenueTypeToFilter(venueType: string): string {
+    const typeLower = venueType.toLowerCase();
+    if (typeLower.includes('lab') || typeLower === 'laboratory') return 'lab';
+    if (typeLower === 'lecture theatre' || typeLower === 'hall') return 'lecture';
+    if (typeLower === 'classroom' || typeLower === 'room') return 'classroom';
+    return typeLower; // Default to the original type if no specific mapping
   }
   
   handleVenueBookingRequest(event: any) {
@@ -2072,76 +2073,57 @@ export class AdminDashPage implements OnInit, OnDestroy {
       console.log('Would update auth account and staff record for:', updatedData.id);
     }
   }
-
+  
   // Handle new HOD creation
   private handleNewHodCreation(hodData: User) {
     console.log('Starting new HOD creation process:', hodData);
-    
-    // Check data validity before proceeding
+
     if (!hodData.contact?.email) {
       this.presentToast('Error: Email is required for creating an account');
       return;
     }
-    
-    // Show loading state
+
     this.isSubmitting = true;
-    
-    // Add safeguard to prevent navigation after adding a new user
+
     const originalNavigate = this.router.navigate;
     this.router.navigate = (...args: any[]) => {
       console.log('Navigation prevented during new HOD creation:', args);
       return Promise.resolve(false);
     };
-    
-    // First check if email already exists
+
     this.authService.checkEmailExists(hodData.contact.email).subscribe({
       next: exists => {
         if (exists) {
           this.presentToast(`Email ${hodData.contact.email} is already in use. Please use a different email.`);
           this.isSubmitting = false;
-      
-          // Restore original navigation
           this.router.navigate = originalNavigate;
           return;
         }
-        
-        // 1. Create the authentication account with a secure password
-        const defaultPassword = 'def@Pass#01';
-        console.log('Using fixed default password:', defaultPassword);
 
-        // Assume admin credentials are stored securely in environment or service
+        const defaultPassword = 'def@Pass#01';
         const adminEmail = 'admin@example.com'; // TODO: Replace with actual admin email retrieval
         const adminPassword = 'adminPassword123'; // TODO: Replace with actual admin password retrieval
-        
+
         this.authService.createUserAccount(hodData.contact.email, 'HOD', defaultPassword, adminEmail, adminPassword).subscribe({
           next: authResult => {
             if (authResult.success) {
               console.log('Auth account created successfully, now creating staff record');
-              
-              // 2. Then add to staff collection
+
               this.staffService.addStaffMember(hodData).subscribe({
                 next: staffResult => {
                   if (staffResult.success) {
                     console.log('Staff record created successfully, now creating department');
-                    
-                    // 3. Create department for this HOD
+
                     this.createDepartmentForHOD(hodData, () => {
-                      // Reload HODs from database to ensure list is up-to-date
                       this.loadHODs();
-                      
-                      // Show success message with password info
                       this.presentHodCreationSuccess(hodData, defaultPassword);
                       this.isSubmitting = false;
-                      
-                      // Restore original navigation
                       this.router.navigate = originalNavigate;
                     });
                   } else {
                     console.error('Staff record creation failed:', staffResult.message);
                     this.presentToast(`Error creating staff record: ${staffResult.message}`);
                     this.isSubmitting = false;
-                    
-                    // Restore original navigation
                     this.router.navigate = originalNavigate;
                   }
                 },
@@ -2149,8 +2131,6 @@ export class AdminDashPage implements OnInit, OnDestroy {
                   console.error('Error in staff service:', error);
                   this.presentToast('Error adding staff record: ' + (error.message || 'Unknown error'));
                   this.isSubmitting = false;
-                  
-                  // Restore original navigation
                   this.router.navigate = originalNavigate;
                 }
               });
@@ -2158,8 +2138,6 @@ export class AdminDashPage implements OnInit, OnDestroy {
               console.error('Auth creation failed:', authResult.message);
               this.presentToast(`Auth account error: ${authResult.message}`);
               this.isSubmitting = false;
-              
-              // Restore original navigation
               this.router.navigate = originalNavigate;
             }
           },
@@ -2167,8 +2145,6 @@ export class AdminDashPage implements OnInit, OnDestroy {
             console.error('Error in auth service:', error);
             this.presentToast('Error creating authentication account: ' + (error.message || 'Unknown error'));
             this.isSubmitting = false;
-            
-            // Restore original navigation
             this.router.navigate = originalNavigate;
           }
         });
@@ -2177,14 +2153,12 @@ export class AdminDashPage implements OnInit, OnDestroy {
         console.error('Error checking email existence:', error);
         this.presentToast('Error checking if email exists: ' + (error.message || 'Unknown error'));
         this.isSubmitting = false;
-        
-        // Restore original navigation
         this.router.navigate = originalNavigate;
       }
     });
   }
 
-  // Create department for newly added HOD
+// Create department for newly added HOD
   private createDepartmentForHOD(hodData: User, callback: () => void) {
     console.log('Creating department for HOD:', hodData.department);
     
@@ -2852,11 +2826,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
     this.presentToast(`Reminder sent to ${department.departmentName}`);
   }
 
-  private async presentHodCreationSuccess(hodData: User, defaultPassword: string) {
-    // In a real app, you might want to show this in a modal instead of a toast
-    this.presentToast(
-      `HOD account created successfully!\nEmail: ${hodData.contact?.email}\nTemporary Password: ${defaultPassword}\nPlease ensure to communicate these credentials securely.`
-    );
+  private presentHodCreationSuccess(hodData: User, password: string) {
+    this.presentToast(`HOD ${hodData.title} ${hodData.name} added successfully. Default password: ${password}. Please ask them to change it on first login.`);
   }
 
   // Calendar management methods

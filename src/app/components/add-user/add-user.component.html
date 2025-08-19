@@ -82,11 +82,22 @@
       
       <ion-item>
         <ion-label position="floating">Department*</ion-label>
-        <ion-select formControlName="department">
+        <ion-select formControlName="department" (ionChange)="onDepartmentChange($event)">
+          <ion-select-option value="">Select or Add Department</ion-select-option>
           <ion-select-option *ngFor="let dept of departments" [value]="dept">{{ dept }}</ion-select-option>
+          <ion-select-option value="new">Add New Department</ion-select-option>
         </ion-select>
         <div *ngIf="submitted && f['department'].errors" class="error-message">
           <span *ngIf="f['department'].errors['required']">Department is required</span>
+        </div>
+      </ion-item>
+      
+      <!-- New Department Input -->
+      <ion-item *ngIf="showNewDepartmentInput">
+        <ion-label position="floating">New Department Name*</ion-label>
+        <ion-input formControlName="newDepartment" type="text"></ion-input>
+        <div *ngIf="userForm.get('newDepartment')?.touched && userForm.get('newDepartment')?.invalid" class="error-message">
+          <span *ngIf="userForm.get('newDepartment')?.errors?.['required']">New department name is required</span>
         </div>
       </ion-item>
       
@@ -95,21 +106,9 @@
         <ion-icon name="information-circle" slot="start" color="primary"></ion-icon>
         <ion-label class="ion-text-wrap">
           <p class="ion-text-color-primary">
-            <small>Note: If the selected department doesn't exist, it will be automatically created when the HOD is added.</small>
+            <small>Note: If the selected department doesn't exist or a new one is added, it will be automatically created when the HOD is added.</small>
           </p>
         </ion-label>
-      </ion-item>
-      
-      <!-- Room Name only visible for HOD and Lecturer roles -->
-      <ion-item *ngIf="isStaffRole()">
-        <ion-label position="floating">Room Name</ion-label>
-        <ion-input formControlName="roomName" type="text"></ion-input>
-      </ion-item>
-      
-      <!-- Schedulable only visible for Lecturer role -->
-      <ion-item *ngIf="userForm.get('role')?.value === 'Lecturer'">
-        <ion-label>Schedulable</ion-label>
-        <ion-toggle formControlName="schedulable"></ion-toggle>
       </ion-item>
     </ion-item-group>
     

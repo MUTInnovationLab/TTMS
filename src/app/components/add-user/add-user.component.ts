@@ -59,6 +59,8 @@ export class AddUserComponent implements OnInit {
   isSubmitting = false;
   errorMessage = '';
   isEditMode = false;
+
+  showNewDepartmentInput = false;
   
   // Available roles based on the current user's role
   availableRoles: string[] = [];
@@ -136,6 +138,7 @@ export class AddUserComponent implements OnInit {
       id: ['', [Validators.required]],
       sex: [''],
       department: ['', [Validators.required]],
+      newDepartment: [''],
       roomName: [''],
       schedulable: [false],
       email: ['', [Validators.required, Validators.email]],
@@ -152,6 +155,20 @@ export class AddUserComponent implements OnInit {
       totalTarget: [0]
     });
     
+    // Add conditional validation for newDepartment
+    this.userForm.get('department')?.valueChanges.subscribe(value => {
+      this.showNewDepartmentInput = value === 'new';
+      if (this.showNewDepartmentInput) {
+        this.userForm.get('newDepartment')?.setValidators([Validators.required]);
+        this.userForm.get('department')?.clearValidators();
+        this.userForm.get('newDepartment')?.updateValueAndValidity({ onlySelf: true }); // Update only the newDepartment control
+      } else {
+        this.userForm.get('newDepartment')?.clearValidators();
+        this.userForm.get('department')?.setValidators([Validators.required]);
+        this.userForm.get('department')?.updateValueAndValidity({ onlySelf: true }); // Update only the department control
+      }
+    });
+  
     // Set default role if available
     if (this.availableRoles.length > 0) {
       this.userForm.get('role')?.setValue(this.availableRoles[0]);
@@ -238,27 +255,39 @@ export class AddUserComponent implements OnInit {
     const role = this.userForm.get('role')?.value;
     return role === 'HOD' || role === 'Lecturer';
   }
+
+  onDepartmentChange(event: any) {
+    const value = event.detail.value;
+    this.showNewDepartmentInput = value === 'new';
+    if (this.showNewDepartmentInput) {
+      this.userForm.get('newDepartment')?.setValidators([Validators.required]);
+      this.userForm.get('department')?.clearValidators();
+    } else {
+      this.userForm.get('newDepartment')?.clearValidators();
+      this.userForm.get('department')?.setValidators([Validators.required]);
+    }
+    this.userForm.get('newDepartment')?.updateValueAndValidity();
+    this.userForm.get('department')?.updateValueAndValidity();
+  }
   
   onSubmit() {
     this.submitted = true;
-    
+
     if (this.userForm.invalid) {
       return;
     }
-    
+
     this.isSubmitting = true;
     this.errorMessage = '';
-    
+
     try {
       const formData = this.userForm.value;
-      
-      // Format the data for submission
       const userData: User = {
         id: formData.id,
         title: formData.title,
         name: formData.name,
         sex: formData.sex,
-        department: formData.department,
+        department: this.showNewDepartmentInput ? formData.newDepartment : formData.department,
         roomName: formData.roomName,
         role: formData.role,
         schedulable: formData.role === 'HOD' ? true : (formData.role === 'Lecturer' ? formData.schedulable : false),
@@ -283,8 +312,7 @@ export class AddUserComponent implements OnInit {
         createdAt: this.isEditMode && this.user?.createdAt ? this.user.createdAt : new Date(),
         updatedAt: new Date()
       };
-      
-      // Close modal and return user data
+
       this.modalController.dismiss(userData);
     } catch (error) {
       console.error('Form submission error:', error);
@@ -297,4 +325,3 @@ export class AddUserComponent implements OnInit {
     this.modalController.dismiss();
   }
 }
-
