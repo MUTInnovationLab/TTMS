@@ -184,6 +184,8 @@ export class AdminDashPage implements OnInit, OnDestroy {
   // Add property for formatted conflicts to pass to conflict-res component
   formattedConflicts: Conflict[] = [];
 
+
+
   // Department submission conflict properties
   departmentSubmissionConflicts: Conflict[] = [];
   showingDeptConflictRes: boolean = false;
@@ -376,7 +378,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
           role: hod.role || 'HOD',
           department: hod.department || ''
         }));
-        this.cdr.detectChanges();
+        this.cdr.detectChanges(); // Ensure UI updates
       },
       error: (error) => {
         console.error('Error loading HODs:', error);
@@ -3321,6 +3323,31 @@ export class AdminDashPage implements OnInit, OnDestroy {
     } else {
       return date.toLocaleDateString();
     }
+  }
+
+  // New properties for filtering
+  searchTerm: string = '';
+  selectedDepartmentFilter: string = '';
+
+  // Getter for filtered users
+  get filteredUsers(): User[] {
+    let filtered = [...this.users]; // Create a copy to avoid mutating the original array
+
+    // Apply department filter
+    if (this.selectedDepartmentFilter && this.selectedDepartmentFilter !== '') {
+      filtered = filtered.filter(user => user.department === this.selectedDepartmentFilter);
+    }
+
+    // Apply search filter (optional, if you want to extend functionality)
+    if (this.searchTerm) {
+      filtered = filtered.filter(user =>
+        (user.name?.toLowerCase().includes(this.searchTerm.toLowerCase()) || 
+         user.contact?.email?.toLowerCase().includes(this.searchTerm.toLowerCase()) || 
+         user.department?.toLowerCase().includes(this.searchTerm.toLowerCase()))
+      );
+    }
+
+    return filtered;
   }
 }
 

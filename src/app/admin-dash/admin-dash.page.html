@@ -785,8 +785,8 @@
         <h1>User Management</h1>
 
         <div class="filter-controls">
-          <ion-searchbar placeholder="Search users"></ion-searchbar>
-          <ion-select placeholder="Filter by department">
+          <ion-searchbar placeholder="Search users" [(ngModel)]="searchTerm"></ion-searchbar>
+          <ion-select placeholder="Filter by department" [(ngModel)]="selectedDepartmentFilter">
             <ion-select-option value="">All Departments</ion-select-option>
             <ion-select-option *ngFor="let dept of departments" [value]="dept.name">{{dept.name}}</ion-select-option>
           </ion-select>
@@ -801,7 +801,7 @@
             <ion-item-divider>
               <ion-label>Heads of Department</ion-label>
             </ion-item-divider>
-            <ion-item *ngFor="let user of users" button detail (click)="editUser(user)">
+            <ion-item *ngFor="let user of filteredUsers" button detail (click)="editUser(user)">
               <ion-avatar slot="start">
                 <img [src]="user.avatar || 'assets/default-avatar.png'" alt="User Avatar">
               </ion-avatar>
@@ -812,7 +812,7 @@
               </ion-label>
               <ion-badge slot="end" color="primary">{{user.role || 'HOD'}}</ion-badge>
             </ion-item>
-            <ion-item *ngIf="users.length === 0">
+            <ion-item *ngIf="filteredUsers.length === 0">
               <ion-label color="medium">No HODs added yet</ion-label>
             </ion-item>
           </ion-item-group>
