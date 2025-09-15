@@ -2,6 +2,9 @@ import { Component, Input, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl } from '@angular/forms';
 import { IonicModule, ModalController } from '@ionic/angular';
+import { AngularFirestore, AngularFirestoreCollection } from '@angular/fire/compat/firestore';
+import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 
 export interface User {
   id: string;
@@ -43,6 +46,11 @@ export interface User {
   avatar?: string;
 }
 
+interface Department {
+  id?: string;
+  name: string;
+}
+
 @Component({
   selector: 'app-add-user',
   standalone: true,
@@ -65,7 +73,11 @@ export class AddUserComponent implements OnInit {
   // Available roles based on the current user's role
   availableRoles: string[] = [];
   
-  // Full list of departments in the system
+  departments: string[] = []; // Will be populated from Firebase
+  departmentsLoading = true; // Add loading state
+
+  private departmentsCollection: AngularFirestoreCollection<Department>;
+  /* Full Static list of departments in the system
   departments = [
     'MECHANICAL ENGINEERING', 
     'CONSTRUCTION MANAGEMENT & QS', 
@@ -92,16 +104,19 @@ export class AddUserComponent implements OnInit {
     'INFORMATION TECH & NETWORKS', 
     'INST OF RURAL DEV & COMM ENG'
   ];
+  */
   
   constructor(
     private formBuilder: FormBuilder,
-    private modalController: ModalController
-  ) {}
+    private modalController: ModalController,
+    private afs: AngularFirestore // Inject AngularFirestore
+  ) {this.departmentsCollection = this.afs.collection<Department>('departments');}
   
   ngOnInit() {
     this.isEditMode = !!this.user;
     this.setAvailableRoles();
     this.initializeForm();
+    this.loadDepartments();
     
     if (this.isEditMode && this.user) {
       this.populateForm(this.user);
@@ -324,4 +339,21 @@ export class AddUserComponent implements OnInit {
   dismissModal() {
     this.modalController.dismiss();
   }
+
+  private loadDepartments() {
+    this.departmentsCollection.valueChanges().pipe(
+      map(depts => depts.map(dept => dept.name))
+    ).subscribe({
+      next: (departments) => {
+        this.departments = departments;
+        this.departmentsLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading departments:', error);
+        this.departments = [];
+        this.departmentsLoading = false;
+      }
+    });
+  }
+
 }
