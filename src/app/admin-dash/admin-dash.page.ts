@@ -158,7 +158,24 @@ export class AdminDashPage implements OnInit, OnDestroy {
   // Department management
   departments: Department[] = [];
   departmentsLoading: boolean = false;
+  departmentSearchTerm: string = '';
   
+  // Getter for filtered departments
+  get filteredDepartments(): Department[] {
+    let filtered = [...this.departments]; // Create a copy to avoid mutating the original array
+
+    if (this.departmentSearchTerm) {
+      filtered = filtered.filter(department =>
+        department.name.toLowerCase().includes(this.departmentSearchTerm.toLowerCase()) ||
+        department.code.toLowerCase().includes(this.departmentSearchTerm.toLowerCase()) ||
+        (department.hodName || '').toLowerCase().includes(this.departmentSearchTerm.toLowerCase()) ||
+        department.location.toLowerCase().includes(this.departmentSearchTerm.toLowerCase())
+      );
+    }
+
+    return filtered;
+  }
+
   // Venue management - Update to use VenueDisplayInfo type
   venues: VenueDisplayInfo[] = [];
   venuesLoading: boolean = false;
@@ -363,7 +380,7 @@ export class AdminDashPage implements OnInit, OnDestroy {
       }
     });
   }
-
+ 
   // Load HODs from Firebase
   loadHODs() {
     console.log('Loading HODs from Staff collection');

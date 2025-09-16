@@ -835,7 +835,7 @@
         <h1>Department Management</h1>
 
         <div class="filter-controls">
-          <ion-searchbar placeholder="Search departments"></ion-searchbar>
+          <ion-searchbar placeholder="Search departments" [(ngModel)]="departmentSearchTerm"></ion-searchbar>
           <ion-button (click)="showAddDepartmentModal()">
             <ion-icon name="add-circle" slot="start"></ion-icon>
             Add Department
@@ -843,7 +843,7 @@
         </div>
 
         <ion-list class="department-list">
-          <ion-item *ngFor="let department of departments" button detail>
+          <ion-item *ngFor="let department of filteredDepartments" button detail>
             <ion-icon name="business" slot="start" [color]="department.status === 'active' ? 'primary' : 'medium'"></ion-icon>
             <ion-label>
               <h2>{{department.name}} ({{department.code}})</h2>
@@ -863,6 +863,9 @@
                 <ion-icon name="trash" color="danger"></ion-icon>
               </ion-button>
             </div>
+          </ion-item>
+          <ion-item *ngIf="filteredDepartments.length === 0">
+            <ion-label color="medium">No departments found</ion-label>
           </ion-item>
         </ion-list>
       </div>
